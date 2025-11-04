@@ -1,0 +1,1 @@
+export { default } from "file:///Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/node_modules/@nuxt/vite-builder/dist/runtime/vite-node.mjs"

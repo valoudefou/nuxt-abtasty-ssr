@@ -30,7 +30,7 @@ export default defineNuxtConfig({
     }
   },
   nitro: {
-    preset: 'vercel'
+    compatibilityDate: '2025-11-04'
   },
   typescript: {
     typeCheck: true
