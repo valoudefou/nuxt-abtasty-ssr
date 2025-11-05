@@ -65,15 +65,14 @@ Key Nuxt configuration highlights (`nuxt.config.ts`):
 - Runtime configuration (`runtimeConfig`) to expose private and public Flagship credentials.
 - SSR enabled by default, allowing server routes to run during page rendering.
 
-## Flagship feature flag integration
+## AB Tasty feature flag integration
 
-Flagship drives the “Apple Pay” quick checkout button on product pages. The integration has two layers to guarantee a fast, flicker-free experience while keeping the SSR response and hydrated client in sync:
+AB Tasty drives the “Apple Pay” quick checkout button on product pages. The integration has two layers to guarantee a fast, flicker-free experience while keeping the SSR response and hydrated client in sync:
 
 1. **Server-side evaluation (SSR)**  
    - Nuxt renders the page by calling `GET /api/features/apple-pay`.
    - The endpoint boots the shared Flagship SDK (`server/utils/flagship/index.ts`), derives a visitor ID from cookies (creating one if needed), and fetches the `paymentFeature1Click` flag.
-   - It returns `{ enabled: boolean }`, and the page reads that value through `useFetch` during setup. Because this happens before the response leaves the server, the HTML already reflects the correct Apple Pay state—no flash of incorrect UI.
-   - The server also logs the evaluated value (with sensitive data scrubbed) so you can trace decisions when debugging.
+   - It returns `{ enabled: boolean }`, and the page reads that value through `useFetch` during setup. Because this happens before the response leaves the server, the HTML already reflects the correct Apple Pay state with no flash of incorrect UI.
 
 2. **Client-side confirmation**  
    - After hydration, the page optionally revalidates via `initializeFlagship` in `utils/flagship/index.ts`, a browser-safe helper that reads the public runtime config.
