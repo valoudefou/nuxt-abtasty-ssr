@@ -146,7 +146,7 @@ const runFlagship = async () => {
     const visitor = await initializeFlagship({
       // Use a stable slug-based visitor identifier when available so server & client requests
       // address the same Flagship profile; fall back to a guest for products without a slug.
-      visitorId: route.params.slug ? crypto.randomUUID() : 'guest',
+      visitorId: crypto.randomUUID(),
       context: {
         // Flagship context travels with every evaluation, allowing targeting rules
         // (e.g. "returning" customers) to remain consistent between SSR and the browser.
