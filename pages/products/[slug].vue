@@ -108,6 +108,7 @@
 </template>
 
 <script setup lang="ts">
+import { EventCategory, HitType, type Visitor } from '@flagship.io/js-sdk'
 import { ArrowLeftIcon, CheckCircleIcon, ShoppingCartIcon } from '@heroicons/vue/24/solid'
 // Client-side Flagship helper mirrors the server bootstrap so the SDK picked up during SSR
 // is re-used in the browser with identical runtime config and logging behaviour.
@@ -130,6 +131,7 @@ const selectedSize = ref(product.sizes[0])
 // applePayEnabled starts with the server-evaluated flag so SSR HTML and hydration match;
 // subsequent client checks overwrite it if the visitor’s decision changes.
 const applePayEnabled = ref(Boolean(applePayFeature.value?.enabled))
+const flagshipVisitor = ref<Visitor | null>(null)
 
 const logTimestamp = () =>
   new Date().toLocaleTimeString('en-US', {
@@ -150,7 +152,8 @@ const runFlagship = async () => {
       context: {
         // Flagship context travels with every evaluation, allowing targeting rules
         // (e.g. "returning" customers) to remain consistent between SSR and the browser.
-        status: 'returning'
+        status: 'returning',
+        system: 'ios'
       }
     })
 
@@ -164,6 +167,7 @@ const runFlagship = async () => {
     // The Apple Pay button is driven entirely by this ref; toggling it reacts the UI instantly
     // without reloading the page.
     applePayEnabled.value = flagEnabled
+    flagshipVisitor.value = visitor
 
     console.log('Flagship paymentFeature1Click flag', {
       visitorId: visitor.visitorId,
@@ -204,7 +208,54 @@ const addToCart = () => {
   cart.addItem(product)
 }
 
-const beginApplePay = () => {
+const trackApplePayClick = async () => {
+  if (!import.meta.client) return
+
+  const visitor = flagshipVisitor.value
+
+  if (!visitor) {
+    flagshipLogStore.addLog({
+      timestamp: logTimestamp(),
+      level: 'WARNING',
+      tag: 'flagship-client',
+      message: 'Skipped Apple Pay click tracking because Flagship visitor is unavailable'
+    })
+    return
+  }
+const hit = HitType.EVENT;
+  try {
+    await visitor.sendHit({
+      type: HitType.EVENT,
+      category: EventCategory.USER_ENGAGEMENT,
+      action: 'Click Apple Pay',
+      label: product.slug,
+      value: 1
+    })
+
+    flagshipLogStore.addLog({
+      timestamp: logTimestamp(),
+      level: 'INFO',
+      tag: 'flagship-client',
+      message: 'Tracked Apple Pay click hit',
+      action: 'Click Apple Pay',
+      label: product.slug
+    })
+  } catch (error) {
+    console.error('Failed to send Flagship Apple Pay click hit', error)
+
+    flagshipLogStore.addLog({
+      timestamp: logTimestamp(),
+      level: 'ERROR',
+      tag: 'flagship-client',
+      message: 'Failed to track Apple Pay click hit',
+      error: error instanceof Error ? error.message : String(error)
+    })
+  }
+}
+
+const beginApplePay = async () => {
+  await trackApplePayClick()
+
   if (!applePayEnabled.value) {
     notifications.show({
       title: 'Apple Pay unavailable',

@@ -8,10 +8,9 @@
       >
         <!-- Updated: More prominent integrated resize handle with decreased shadow -->
         <div
-          class="absolute inset-x-0 top-0 h-10 -translate-y-full cursor-ns-resize flex items-center justify-center gap-3
-                 bg-emerald-600/30 hover:bg-emerald-600/40 transition-colors duration-150
-                 shadow-[0_-5px_15px_-5px_rgba(16,185,129,0.4)] hover:shadow-[0_-5px_20px_-5px_rgba(16,185,129,0.6)]"
-          :class="{ 'bg-emerald-600/50 shadow-[0_-5px_25px_-5px_rgba(16,185,129,0.8)]': isResizing }"
+          class="absolute inset-x-0 top-0 h-9 -translate-y-full cursor-ns-resize flex items-center justify-center gap-3
+                 bg-emerald-600/30 hover:bg-emerald-600/40 transition-colors duration-150"
+          :class="{ 'bg-emerald-600/50': isResizing }"
           @mousedown.prevent="startResize"
           @touchstart.prevent="startResize"
         >

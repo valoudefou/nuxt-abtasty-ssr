@@ -86,6 +86,12 @@ Flagship drives the “Apple Pay” quick checkout button on product pages. The 
 - `utils/flagship/index.ts` mirrors the API for the browser. It guards against SSR usage, boots the client SDK once, and shares the same visitor/context signature so values stay aligned.
 - `pages/products/[slug].vue` calls the server endpoint inside `useFetch` during setup, then invokes the browser helper inside `onMounted`. The Apple Pay button simply reacts to a `ref`, so both phases share the same codepath.
 - Because the button state is derived from a single source of truth, the UI remains stable and any flag flip propagates immediately without reloads.
+- Every client visitor is initialised with a minimal context (`status: 'returning', system: 'ios'`) so AB Tasty audiences can target Apple Pay availability or experiment variants by segment without extra plumbing.
+
+### Interaction tracking
+
+- Apple Pay taps are tracked through Flagship’s hit helper: when the CTA is pressed we call `visitor.sendHit` with `HitType.EVENT`, `EventCategory.USER_ENGAGEMENT`, and the action `"Click Apple Pay"` using the product slug as the label. The call bundles into the standard Flagship/AB Tasty batch payload (e.g. `ec: "User Engagement", ea: "Click Apple Pay", el: "<product-slug>", ev: 1`) that you can inspect in the log panel or your AB Tasty dashboard.
+- The event fires before any business logic runs, ensuring every attempt (including those blocked because the flag is disabled or the item is out of stock) is reported.
 
 ### Server Flagship bootstrap (`server/utils/flagship/index.ts`)
 
