@@ -5,6 +5,9 @@
         <NuxtPage />
       </NuxtLayout>
       <UINotifications />
+      <ClientOnly>
+        <FlagshipLogPanel />
+      </ClientOnly>
     </Body>
   </Html>
 </template>

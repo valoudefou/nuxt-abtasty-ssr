@@ -1,5 +1,6 @@
 import { defineEventHandler, getCookie, getHeader, setCookie } from 'h3'
 
+import { flagshipLogStore } from '@/utils/flagship/logStore'
 import { initializeFlagship } from '@/server/utils/flagship'
 
 const FLAGSHIP_VISITOR_COOKIE = 'fsVisitorId'
@@ -37,6 +38,16 @@ export default defineEventHandler(async (event) => {
         ? rawValue.trim().toLowerCase() === 'true'
         : Boolean(rawValue)
 
+    flagshipLogStore.addLog({
+      timestamp: new Date().toISOString(),
+      level: 'INFO',
+      tag: 'flagship-server',
+      message: `Flag ${APPLE_PAY_FLAG_KEY} evaluated during SSR`,
+      visitorId,
+      rawValue,
+      enabled
+    })
+
     console.log('Flagship feature evaluation', {
       visitorId,
       flagKey: APPLE_PAY_FLAG_KEY,
@@ -48,6 +59,14 @@ export default defineEventHandler(async (event) => {
     return { enabled }
   } catch (error) {
     console.error('Failed to evaluate Apple Pay flag via Flagship', error)
+
+    flagshipLogStore.addLog({
+      timestamp: new Date().toISOString(),
+      level: 'ERROR',
+      tag: 'flagship-server',
+      message: `Failed to evaluate ${APPLE_PAY_FLAG_KEY}`,
+      error: error instanceof Error ? error.message : String(error)
+    })
     return { enabled: false }
   }
 })

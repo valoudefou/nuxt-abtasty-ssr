@@ -110,6 +110,7 @@
 <script setup lang="ts">
 import { ArrowLeftIcon, CheckCircleIcon, ShoppingCartIcon } from '@heroicons/vue/24/solid'
 import { initializeFlagship } from '@/utils/flagship'
+import { flagshipLogStore } from '@/utils/flagship/logStore'
 
 const route = useRoute()
 const cart = useCart()
@@ -125,6 +126,14 @@ const product = await findBySlug(route.params.slug as string)
 
 const selectedSize = ref(product.sizes[0])
 const applePayEnabled = ref(Boolean(applePayFeature.value?.enabled))
+
+const logTimestamp = () =>
+  new Date().toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  })
 
 const runFlagship = async () => {
   if (!import.meta.client) return
@@ -149,8 +158,26 @@ const runFlagship = async () => {
       rawValue,
       enabled: flagEnabled
     })
+
+    flagshipLogStore.addLog({
+      timestamp: logTimestamp(),
+      level: 'INFO',
+      tag: 'flagship-client',
+      message: `paymentFeature1Click evaluated to ${flagEnabled ? 'true' : 'false'}`,
+      visitorId: visitor.visitorId,
+      rawValue,
+      enabled: flagEnabled
+    })
   } catch (error) {
     console.error('Failed to evaluate Flagship paymentFeature1Click flag', error)
+
+    flagshipLogStore.addLog({
+      timestamp: logTimestamp(),
+      level: 'ERROR',
+      tag: 'flagship-client',
+      message: 'Failed to evaluate paymentFeature1Click flag',
+      error: error instanceof Error ? error.message : String(error)
+    })
   }
 }
 

@@ -1,5 +1,7 @@
 import { Flagship, LogLevel, type Visitor } from '@flagship.io/js-sdk'
 
+import { flagshipLogStore } from '@/utils/flagship/logStore'
+
 type InitializeOptions = {
   visitorId: string
   context?: Record<string, string | number | boolean>
@@ -31,6 +33,14 @@ const ensureClientFlagshipStarted = () => {
   flagshipStarted = true
 }
 
+const timestamp = () =>
+  new Date().toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  })
+
 export const initializeFlagship = async ({
   visitorId,
   context = {},
@@ -54,6 +64,16 @@ export const initializeFlagship = async ({
   })
 
   await visitor.fetchFlags()
+
+  flagshipLogStore.addLog({
+    timestamp: timestamp(),
+    level: 'INFO',
+    tag: 'flagship-client',
+    message: 'Flagship visitor initialized on client',
+    visitorId,
+    context,
+    authenticated
+  })
 
   return visitor
 }

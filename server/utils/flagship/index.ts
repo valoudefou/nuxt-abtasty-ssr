@@ -2,8 +2,8 @@ import { Flagship, LogLevel, Visitor } from '@flagship.io/js-sdk'
 import { useRuntimeConfig } from '#imports'
 import { createError } from 'h3'
 
-import type { FlagshipLogEntry, FlagshipLogLevel } from './logStore'
-import { flagshipLogStore } from './logStore'
+import type { FlagshipLogEntry, FlagshipLogLevel } from '@/utils/flagship/logStore'
+import { flagshipLogStore } from '@/utils/flagship/logStore'
 
 type InitializeFlagshipOptions = {
   visitorId: string
