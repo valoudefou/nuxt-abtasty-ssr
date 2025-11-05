@@ -51,7 +51,7 @@
 
     <transition name="fade">
       <button
-        v-else
+        v-if="!isOpen"
         type="button"
         class="pointer-events-auto flex items-center gap-2 rounded-full border border-slate-800 bg-slate-950/95 px-3 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-200 shadow-lg shadow-slate-950/60 transition hover:border-slate-600 hover:text-white"
         @click="isOpen = true"
