@@ -109,6 +109,8 @@
 
 <script setup lang="ts">
 import { ArrowLeftIcon, CheckCircleIcon, ShoppingCartIcon } from '@heroicons/vue/24/solid'
+// Client-side Flagship helper mirrors the server bootstrap so the SDK picked up during SSR
+// is re-used in the browser with identical runtime config and logging behaviour.
 import { initializeFlagship } from '@/utils/flagship'
 import { flagshipLogStore } from '@/utils/flagship/logStore'
 
@@ -125,6 +127,8 @@ const { data: applePayFeature } = await useFetch<{ enabled: boolean }>('/api/fea
 const product = await findBySlug(route.params.slug as string)
 
 const selectedSize = ref(product.sizes[0])
+// applePayEnabled starts with the server-evaluated flag so SSR HTML and hydration match;
+// subsequent client checks overwrite it if the visitor’s decision changes.
 const applePayEnabled = ref(Boolean(applePayFeature.value?.enabled))
 
 const logTimestamp = () =>
@@ -140,17 +144,25 @@ const runFlagship = async () => {
 
   try {
     const visitor = await initializeFlagship({
+      // Use a stable slug-based visitor identifier when available so server & client requests
+      // address the same Flagship profile; fall back to a guest for products without a slug.
       visitorId: route.params.slug ? `visitor-${route.params.slug}` : 'guest',
       context: {
+        // Flagship context travels with every evaluation, allowing targeting rules
+        // (e.g. "returning" customers) to remain consistent between SSR and the browser.
         status: 'returning'
       }
     })
 
+    // paymentFeature1Click toggles whether the "Buy with Apple Pay" CTA is presented.
+    // Flagship serialises flag values as strings, so we normalise the response to a boolean.
     const flag = visitor.getFlag('paymentFeature1Click')
     const rawValue = flag.getValue('false')
     const flagEnabled =
       typeof rawValue === 'string' ? rawValue.trim().toLowerCase() === 'true' : Boolean(rawValue)
 
+    // The Apple Pay button is driven entirely by this ref; toggling it reacts the UI instantly
+    // without reloading the page.
     applePayEnabled.value = flagEnabled
 
     console.log('Flagship paymentFeature1Click flag', {

@@ -87,6 +87,125 @@ Flagship drives the “Apple Pay” quick checkout button on product pages. The 
 - `pages/products/[slug].vue` calls the server endpoint inside `useFetch` during setup, then invokes the browser helper inside `onMounted`. The Apple Pay button simply reacts to a `ref`, so both phases share the same codepath.
 - Because the button state is derived from a single source of truth, the UI remains stable and any flag flip propagates immediately without reloads.
 
+### Server Flagship bootstrap (`server/utils/flagship/index.ts`)
+
+```ts
+import { Flagship, LogLevel, Visitor } from '@flagship.io/js-sdk'
+import { useRuntimeConfig } from '#imports'
+import { createError } from 'h3'
+
+import { flagshipLogManager } from '@/utils/flagship/logManager'
+import { flagshipLogStore } from '@/utils/flagship/logStore'
+
+type InitializeFlagshipOptions = {
+  visitorId: string
+  context?: Record<string, string | number | boolean>
+  authenticated?: boolean
+}
+
+let flagshipStarted = false
+
+const ensureFlagshipStarted = () => {
+  if (flagshipStarted) return
+
+  const config = useRuntimeConfig()
+  const flagshipConfig = (config.flagship ?? {}) as { envId?: string; apiKey?: string }
+  const publicFlagship = (config.public?.flagship ?? {}) as { envId?: string; apiKey?: string }
+  const envId = flagshipConfig.envId || publicFlagship.envId
+  const apiKey = flagshipConfig.apiKey || publicFlagship.apiKey
+
+  if (!envId || !apiKey) {
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Flagship credentials are missing. Please configure runtimeConfig.flagship.'
+    })
+  }
+
+  Flagship.start(envId, apiKey, {
+    fetchNow: false,
+    logManager: flagshipLogManager,
+    logLevel: LogLevel.ALL
+  })
+
+  flagshipStarted = true
+}
+
+export const initializeFlagship = async ({
+  visitorId,
+  context = {},
+  authenticated = false
+}: InitializeFlagshipOptions): Promise<Visitor> => {
+  if (!visitorId) {
+    throw createError({ statusCode: 400, statusMessage: 'A visitorId is required to initialize Flagship.' })
+  }
+
+  ensureFlagshipStarted()
+
+  const visitor = Flagship.newVisitor({
+    visitorId,
+    hasConsented: true,
+    context,
+    isAuthenticated: authenticated
+  })
+
+  await visitor.fetchFlags()
+
+  return visitor
+}
+
+export { flagshipLogStore }
+```
+
+- `ensureFlagshipStarted` guards the singleton SDK instance, reads both private and public runtime config, and throws a typed `createError` if credentials are missing so Nuxt surfaces a 500 with context.
+- When the SDK boots we attach the custom `flagshipLogManager`, enabling structured logs (with redacted secrets) to flow into the in-app log panel alongside native console output.
+- `initializeFlagship` normalises the visitor payload, enforces that a `visitorId` is supplied, fetches flags, and returns the hydrated `Visitor` instance that server routes can use for evaluations or hit tracking.
+- The module re-exports `flagshipLogStore` so downstream code can push supplementary diagnostics into the same stream.
+
+### Product page usage (`pages/products/[slug].vue`)
+
+The product detail page consumes the shared helpers and explains the decisions inline:
+
+```ts
+import { initializeFlagship } from '@/utils/flagship'
+import { flagshipLogStore } from '@/utils/flagship/logStore'
+
+// SSR hands us the initial decision via /api/features/apple-pay.
+const applePayEnabled = ref(Boolean(applePayFeature.value?.enabled))
+
+const runFlagship = async () => {
+  const visitor = await initializeFlagship({
+    // Stable slug-based ID keeps server/client evaluations aligned.
+    visitorId: route.params.slug ? `visitor-${route.params.slug}` : 'guest',
+    context: {
+      status: 'returning'
+    }
+  })
+
+  const flag = visitor.getFlag('paymentFeature1Click')
+  const rawValue = flag.getValue('false')
+  const enabled =
+    typeof rawValue === 'string' ? rawValue.trim().toLowerCase() === 'true' : Boolean(rawValue)
+
+  applePayEnabled.value = enabled
+
+  flagshipLogStore.addLog({
+    timestamp: new Date().toISOString(),
+    level: 'INFO',
+    tag: 'flagship-client',
+    message: `paymentFeature1Click evaluated to ${enabled}`,
+    visitorId: visitor.visitorId,
+    rawValue,
+    enabled
+  })
+}
+```
+
+- The import comment highlights that the browser helper mirrors the server bootstrap, guaranteeing consistent runtime config and logging.
+- `applePayEnabled` is initialised with the SSR evaluation so the HTML the user receives already reflects the correct state; the client helper simply reaffirms it.
+- The visitor payload reuses the slug when possible, falling back to a guest identifier, and ships a minimal context (`status: 'returning'`) so audience targeting rules remain stable.
+- `paymentFeature1Click` returns a string flag; the component normalises it to a boolean before toggling the ref that drives the Apple Pay CTA.
+- Every evaluation writes to the shared `flagshipLogStore`, so the bottom log panel captures both the raw value and the interpreted decision for debugging.
+
 Logging and sanitisation:
 
 - Custom log manager redacts sensitive data before storing messages.

@@ -147,7 +147,7 @@
 import { flagshipLogStore, type FlagshipLogEntry } from '@/utils/flagship/logStore'
 
 const logs = ref<FlagshipLogEntry[]>([])
-const isOpen = useState('flagship-log-viewer-open', () => false)
+const isOpen = useState('flagship-log-viewer-open', () => true)
 const searchTerm = useState('flagship-log-search', () => '')
 const panelHeight = useState('flagship-log-panel-height', () => 320)
 const isResizing = ref(false)
@@ -157,6 +157,7 @@ const MIN_HEIGHT = 200
 const MAX_HEIGHT = 640
 let resizeStartY = 0
 let resizeStartHeight = panelHeight.value
+const STORAGE_KEY = 'flagship-log-panel-open'
 
 const clampHeight = (value: number) => Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, value))
 
@@ -294,9 +295,28 @@ watch(isOpen, (open) => {
   if (!open) {
     stopResize()
   }
+
+  if (import.meta.client) {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, open ? 'true' : 'false')
+    } catch {
+      // ignore storage errors
+    }
+  }
 })
 
 onMounted(() => {
+  if (import.meta.client) {
+    try {
+      const stored = window.localStorage.getItem(STORAGE_KEY)
+      if (stored !== null) {
+        isOpen.value = stored === 'true'
+      }
+    } catch {
+      // ignore storage read errors
+    }
+  }
+
   const unsubscribe = flagshipLogStore.subscribe((entries) => {
     logs.value = entries
   })
