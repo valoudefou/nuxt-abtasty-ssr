@@ -35,7 +35,7 @@
           <header class="flex flex-wrap items-center justify-between gap-3">
             <div class="flex items-center gap-3 text-[11px] uppercase tracking-[0.35em] text-emerald-200/80">
               <span class="inline-flex h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-400/90"></span>
-              <span>AB Tasty Logs</span>
+              <span class="tracking-wider">AB Tasty Logs</span>
             </div>
             <div class="flex flex-1 items-center justify-between gap-3 text-[11px] text-emerald-300/70">
               <span class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-[2px] font-semibold">
@@ -127,7 +127,7 @@
           @click="isOpen = true"
         >
           <span class="inline-flex h-2 w-2 animate-pulse rounded-full bg-emerald-400/90"></span>
-          <span>AB Tasty Logs</span>
+          <span class="tracking-wider">AB Tasty Logs</span>
           <span class="rounded-full bg-emerald-500/15 px-2 py-[2px] text-[10px] font-bold text-emerald-200">{{ logs.length }}</span>
         </button>
       </div>

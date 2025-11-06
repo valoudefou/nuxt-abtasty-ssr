@@ -16,8 +16,19 @@ export const useProducts = () => {
   const allProducts = useState<Product[]>('all-products', () => [])
   const brands = useState<string[]>('product-brands', () => [])
   const selectedBrand = useState<string>('selected-brand', () => 'All')
+  const searchQuery = useState<string>('product-search-query', () => '')
+  const searchResults = useState<Product[]>('product-search-results', () => [])
   const loading = ref(false)
   const error = ref<string | null>(null)
+
+  const filterByBrand = (collection: Product[], brand: string) => {
+    if (brand === 'All') {
+      return collection
+    }
+
+    const target = brand.toLowerCase()
+    return collection.filter((product) => product.brand?.toLowerCase() === target)
+  }
 
   const fetchProducts = async () => {
     loading.value = true
@@ -29,6 +40,8 @@ export const useProducts = () => {
       products.value = randomized
       allProducts.value = randomized
       selectedBrand.value = 'All'
+      searchQuery.value = ''
+      searchResults.value = []
     } catch (err) {
       error.value = 'We were unable to load products. Please try again later.'
       console.error(err)
@@ -53,6 +66,23 @@ export const useProducts = () => {
   const selectBrand = async (brand: string) => {
     selectedBrand.value = brand
     error.value = null
+
+    if (searchQuery.value) {
+      const baseCollection = searchResults.value
+      const filtered = filterByBrand(baseCollection, brand)
+
+      products.value = filtered
+
+      if (filtered.length === 0) {
+        error.value =
+          brand === 'All'
+            ? `No products found for "${searchQuery.value}".`
+            : `No products found for brand "${brand}" matching "${searchQuery.value}".`
+      }
+
+      loading.value = false
+      return
+    }
 
     if (brand === 'All') {
       products.value = allProducts.value
@@ -85,6 +115,50 @@ export const useProducts = () => {
     }
   }
 
+  const searchProducts = async (query: string) => {
+    const trimmed = query.trim()
+    searchQuery.value = trimmed
+    error.value = null
+
+    if (!trimmed) {
+      searchResults.value = []
+
+      if (selectedBrand.value === 'All') {
+        products.value = allProducts.value
+        loading.value = false
+        return
+      }
+
+      await selectBrand(selectedBrand.value)
+      return
+    }
+
+    loading.value = true
+
+    try {
+      const response = await $fetch<{ products: Product[] }>('/api/products/search', {
+        params: { q: trimmed }
+      })
+
+      searchResults.value = response.products
+
+      const filtered = filterByBrand(response.products, selectedBrand.value)
+      products.value = filtered
+
+      if (filtered.length === 0) {
+        error.value =
+          selectedBrand.value === 'All'
+            ? `No products found for "${trimmed}".`
+            : `No products found for brand "${selectedBrand.value}" matching "${trimmed}".`
+      }
+    } catch (err) {
+      error.value = 'We were unable to search products right now.'
+      console.error(err)
+    } finally {
+      loading.value = false
+    }
+  }
+
   const findBySlug = async (slug: string) => {
     try {
       return await $fetch<Product>(`/api/products/${slug}`)
@@ -97,11 +171,13 @@ export const useProducts = () => {
     products,
     brands,
     selectedBrand,
+    searchQuery,
     loading,
     error,
     fetchProducts,
     fetchBrands,
     selectBrand,
+    searchProducts,
     findBySlug
   }
 }

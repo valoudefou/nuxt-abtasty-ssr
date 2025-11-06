@@ -1875,6 +1875,7 @@ const _lazy_RPHsNg = () => Promise.resolve().then(function () { return _slug__ge
 const _lazy_2FLXRz = () => Promise.resolve().then(function () { return _brand__get$1; });
 const _lazy_nJ6mvh = () => Promise.resolve().then(function () { return brands_get$1; });
 const _lazy_lPJa6u = () => Promise.resolve().then(function () { return index_get$1; });
+const _lazy_Ucle06 = () => Promise.resolve().then(function () { return search_get$1; });
 const _lazy_8i5jFq = () => Promise.resolve().then(function () { return renderer$1; });
 
 const handlers = [
@@ -1884,6 +1885,7 @@ const handlers = [
   { route: '/api/products/brand/:brand', handler: _lazy_2FLXRz, lazy: true, middleware: false, method: "get" },
   { route: '/api/products/brands', handler: _lazy_nJ6mvh, lazy: true, middleware: false, method: "get" },
   { route: '/api/products', handler: _lazy_lPJa6u, lazy: true, middleware: false, method: "get" },
+  { route: '/api/products/search', handler: _lazy_Ucle06, lazy: true, middleware: false, method: "get" },
   { route: '/__nuxt_error', handler: _lazy_8i5jFq, lazy: true, middleware: false, method: undefined },
   { route: '/__nuxt_island/**', handler: _SxA8c9, lazy: false, middleware: false, method: undefined },
   { route: '/**', handler: _lazy_8i5jFq, lazy: true, middleware: false, method: undefined }
@@ -2676,6 +2678,35 @@ const index_get = defineEventHandler(async () => {
 const index_get$1 = /*#__PURE__*/Object.freeze(/*#__PURE__*/Object.defineProperty({
   __proto__: null,
   default: index_get
+}, Symbol.toStringTag, { value: 'Module' }));
+
+const search_get = defineEventHandler(async (event) => {
+  const query = getQuery$1(event);
+  const term = typeof query.q === "string" ? query.q.trim() : "";
+  if (!term) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: "A search query is required.",
+      data: { error: "Missing q parameter for product search." }
+    });
+  }
+  const products = await fetchProducts();
+  const normalizedTerm = term.toLowerCase();
+  const matches = products.filter((product) => {
+    const fields = [product.name, product.description, product.brand, product.category];
+    return fields.some((field) => {
+      if (!field) return false;
+      return field.toLowerCase().includes(normalizedTerm);
+    });
+  });
+  return {
+    products: matches
+  };
+});
+
+const search_get$1 = /*#__PURE__*/Object.freeze(/*#__PURE__*/Object.defineProperty({
+  __proto__: null,
+  default: search_get
 }, Symbol.toStringTag, { value: 'Module' }));
 
 function renderPayloadResponse(ssrContext) {
