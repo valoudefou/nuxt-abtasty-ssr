@@ -58,8 +58,10 @@ const toProduct = (raw: RemoteProduct): Product => {
   const discount = parseNumber(raw.discountPercentage)
   const availability = raw.availabilityStatus?.trim() ?? ''
 
+  const brand = raw.brand ? String(raw.brand).trim() : ''
+
   const highlightItems = [
-    raw.brand ? `Brand: ${raw.brand}` : null,
+    brand ? `Brand: ${brand}` : null,
     discount > 0 ? `Save ${discount.toFixed(0)}% today` : null,
     raw.returnPolicy ? `Returns: ${raw.returnPolicy}` : null,
     availability ? `Availability: ${availability}` : null
@@ -72,7 +74,7 @@ const toProduct = (raw: RemoteProduct): Product => {
   const tagSet = new Set<string>()
 
   if (raw.category) tagSet.add(raw.category)
-  if (raw.brand) tagSet.add(raw.brand)
+  if (brand) tagSet.add(brand)
   if (raw.tag) tagSet.add(raw.tag)
 
   const tags = Array.from(tagSet)
@@ -93,7 +95,7 @@ const toProduct = (raw: RemoteProduct): Product => {
     inStock: availability.toLowerCase() === 'in stock' || stock > 0,
     colors: tags,
     sizes: ['One Size'],
-    brand: raw.brand ?? undefined,
+    brand: brand || undefined,
     stock,
     discountPercentage: discount,
     availabilityStatus: availability || undefined,
@@ -129,4 +131,43 @@ export const fetchProducts = async (): Promise<Product[]> => {
 export const findProductBySlug = async (slug: string): Promise<Product | undefined> => {
   const products = await fetchProducts()
   return products.find((product) => product.slug === slug)
+}
+
+const sanitizeBrand = (value: string | null | undefined) => {
+  if (value === null || value === undefined) {
+    return null
+  }
+
+  const trimmed = String(value).trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+export const fetchProductBrands = async (): Promise<string[]> => {
+  const products = await fetchProducts()
+  const unique = new Set<string>()
+
+  for (const product of products) {
+    const brand = sanitizeBrand(product.brand)
+    if (brand) {
+      unique.add(brand)
+    }
+  }
+
+  return Array.from(unique)
+}
+
+export const findProductsByBrand = async (brand: string): Promise<Product[]> => {
+  const normalizedBrand = sanitizeBrand(brand)
+
+  if (!normalizedBrand) {
+    return []
+  }
+
+  const products = await fetchProducts()
+  const target = normalizedBrand.toLowerCase()
+
+  return products.filter((product) => {
+    const productBrand = sanitizeBrand(product.brand)
+    return productBrand ? productBrand.toLowerCase() === target : false
+  })
 }

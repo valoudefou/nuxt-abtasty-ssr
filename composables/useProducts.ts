@@ -13,6 +13,9 @@ const shuffleProducts = (items: Product[]) => {
 
 export const useProducts = () => {
   const products = useState<Product[]>('products', () => [])
+  const allProducts = useState<Product[]>('all-products', () => [])
+  const brands = useState<string[]>('product-brands', () => [])
+  const selectedBrand = useState<string>('selected-brand', () => 'All')
   const loading = ref(false)
   const error = ref<string | null>(null)
 
@@ -22,9 +25,60 @@ export const useProducts = () => {
 
     try {
       const response = await $fetch<Product[]>('/api/products')
-      products.value = shuffleProducts(response)
+      const randomized = shuffleProducts(response)
+      products.value = randomized
+      allProducts.value = randomized
+      selectedBrand.value = 'All'
     } catch (err) {
       error.value = 'We were unable to load products. Please try again later.'
+      console.error(err)
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const fetchBrands = async () => {
+    if (brands.value.length > 0) {
+      return
+    }
+
+    try {
+      const response = await $fetch<{ brands: string[] }>('/api/products/brands')
+      brands.value = [...response.brands].sort((a, b) => a.localeCompare(b))
+    } catch (err) {
+      console.error('Failed to load product brands', err)
+    }
+  }
+
+  const selectBrand = async (brand: string) => {
+    selectedBrand.value = brand
+    error.value = null
+
+    if (brand === 'All') {
+      products.value = allProducts.value
+      loading.value = false
+      return
+    }
+
+    loading.value = true
+
+    try {
+      const response = await $fetch<{ products: Product[] }>(
+        `/api/products/brand/${encodeURIComponent(brand)}`
+      )
+
+      products.value = shuffleProducts(response.products)
+    } catch (err) {
+      const status = (err as { status?: number; statusCode?: number })?.statusCode
+        ?? (err as { status?: number })?.status
+
+      if (status === 404) {
+        products.value = []
+        error.value = `No products found for brand "${brand}".`
+      } else {
+        error.value = 'We were unable to load products. Please try again later.'
+      }
+
       console.error(err)
     } finally {
       loading.value = false
@@ -41,9 +95,13 @@ export const useProducts = () => {
 
   return {
     products,
+    brands,
+    selectedBrand,
     loading,
     error,
     fetchProducts,
+    fetchBrands,
+    selectBrand,
     findBySlug
   }
 }

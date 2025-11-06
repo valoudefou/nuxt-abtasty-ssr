@@ -216,6 +216,183 @@ Logging and sanitisation:
 - Custom log manager redacts sensitive data before storing messages.
 - Structured logs (visitor ID, flag value, SDK status) are emitted in development for observability.
 
+## Brand Filtering API - Implementation Guide
+
+### Overview
+
+This guide covers the brand filtering capabilities added to the Nuxt products API. The implementation exposes the available brands, supports case-insensitive filtering, and keeps responses consistent on both the server and client.
+
+### Date Implemented
+
+- November 6th, 2025
+
+### New Endpoints
+
+#### 1. Get All Brands
+
+- **Endpoint:** `GET /api/products/brands`
+- **Description:** Returns all unique, non-empty brand names from the current product catalog.
+
+**Request**
+
+```
+GET /api/products/brands
+```
+
+**Response**
+
+```json
+{
+  "brands": ["Nike", "Adidas", "Puma", "Reebok"]
+}
+```
+
+**Status Codes**
+
+- `200 OK` – Successfully retrieved brand list.
+- `500 Internal Server Error` – Failed to build the data set.
+
+**Implementation details**
+
+- Builds the brand list from cached product data (`fetchProductBrands` in `server/utils/products.ts`).
+- Filters out null, undefined, or empty values before returning.
+- Trims whitespace while preserving original casing (e.g. `"Nike"` not `"nike"`).
+- Implemented in `server/api/products/brands.get.ts`, which must be evaluated before the dynamic product slug route to avoid conflicts.
+
+```ts
+// server/api/products/brands.get.ts
+import { fetchProductBrands } from '@/server/utils/products'
+
+export default defineEventHandler(async () => {
+  const brands = await fetchProductBrands()
+
+  return {
+    brands
+  }
+})
+```
+
+#### 2. Filter Products by Brand
+
+- **Endpoint:** `GET /api/products/brand/:brand`
+- **Description:** Retrieves every product that matches the supplied brand name.
+
+**Request**
+
+```
+GET /api/products/brand/nike
+```
+
+**Response**
+
+```json
+{
+  "products": [
+    {
+      "id": 123,
+      "title": "Nike Air Max",
+      "brand": "Nike",
+      "category": "Shoes"
+    }
+  ]
+}
+```
+
+**Status Codes**
+
+- `200 OK` – Successfully filtered products.
+- `404 Not Found` – No products matched the requested brand.
+- `500 Internal Server Error` – Unexpected failure while filtering.
+
+**Implementation details**
+
+- Uses `findProductsByBrand` from `server/utils/products.ts` to perform case-insensitive comparisons.
+- Returns a structured 404 error (via `createError`) when no records are found, aligning with the JSON shape `{ "error": "No products found for brand \"<brand>\"" }`.
+- Input brands are trimmed before comparison, ensuring `" Nike "` matches `"Nike"`.
+
+```ts
+// server/api/products/brand/[brand].get.ts
+import { findProductsByBrand } from '@/server/utils/products'
+
+export default defineEventHandler(async (event) => {
+  const { brand } = getRouterParams(event)
+
+  if (!brand) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'A brand parameter is required to filter products.'
+    })
+  }
+
+  const products = await findProductsByBrand(brand)
+
+  if (products.length === 0) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: `No products found for brand "${brand}"`,
+      data: { error: `No products found for brand "${brand}"` }
+    })
+  }
+
+  return {
+    products
+  }
+})
+```
+
+### Complete API Endpoint Summary
+
+| Endpoint | Method | Description |
+| --- | --- | --- |
+| `/api/products` | GET | Retrieve all products (supports existing limit/query logic). |
+| `/api/products/:slug` | GET | Retrieve a specific product by slug. |
+| `/api/products/brands` | GET | List all unique brands. |
+| `/api/products/brand/:brand` | GET | Filter products by brand name. |
+
+### Route Order
+
+Nuxt’s file-based routing ensures the correct order when folders are structured as follows:
+
+```
+server/api/products/
+├── brand/[brand].get.ts
+├── brands.get.ts
+├── index.get.ts
+└── [slug].get.ts
+```
+
+Defining static brand routes ahead of the dynamic `[slug]` handler prevents accidental matches (e.g. `brand` resolving as a slug).
+
+### Usage Examples
+
+- `curl -X GET "http://localhost:3000/api/products/brands"`
+- `curl -X GET "http://localhost:3000/api/products/brand/nike"`
+- `curl -X GET "http://localhost:3000/api/products/brand/adidas"`
+
+### Testing Checklist
+
+- [ ] Verify `/api/products/brands` returns all unique brands.
+- [ ] Confirm brand names preserve original casing.
+- [ ] Test `/api/products/brand/:brand` with various casing (Nike, NIKE, nike).
+- [ ] Validate a non-existent brand responds with HTTP 404.
+- [ ] Ensure products without brand values are excluded from results.
+- [ ] Confirm whitespace in brand names is handled correctly.
+- [ ] Check that request logging (if enabled) still succeeds for both endpoints.
+
+### Design Pattern
+
+- Mirrors the category filtering approach: a listing endpoint (`/brands`) plus a focused filter (`/brand/:brand`).
+- Case-insensitive matching for user-friendly queries.
+- Consistent response structures and error handling across product routes.
+
+### Future Enhancements
+
+- Support multi-brand filtering (e.g. `/api/products?brands=nike,adidas`).
+- Add brand metadata (logo assets, descriptions, etc.).
+- Implement brand search/autocomplete.
+- Introduce brand aliases or variations.
+- Provide pagination for large brand catalogs.
+
 ## Project structure
 
 ```
