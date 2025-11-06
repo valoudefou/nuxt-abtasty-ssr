@@ -39,9 +39,11 @@ declare global {
   const deleteCookie: typeof import('../../node_modules/h3').deleteCookie
   const dynamicEventHandler: typeof import('../../node_modules/h3').dynamicEventHandler
   const eventHandler: typeof import('../../node_modules/h3').eventHandler
+  const fetchProductBrands: typeof import('../../server/utils/products').fetchProductBrands
   const fetchProducts: typeof import('../../server/utils/products').fetchProducts
   const fetchWithEvent: typeof import('../../node_modules/h3').fetchWithEvent
   const findProductBySlug: typeof import('../../server/utils/products').findProductBySlug
+  const findProductsByBrand: typeof import('../../server/utils/products').findProductsByBrand
   const flagshipLogStore: typeof import('../../server/utils/flagship/logStore').flagshipLogStore
   const fromNodeMiddleware: typeof import('../../node_modules/h3').fromNodeMiddleware
   const fromPlainHandler: typeof import('../../node_modules/h3').fromPlainHandler
@@ -151,4 +153,4 @@ export { buildAssetsURL as __buildAssetsURL, publicAssetsURL as __publicAssetsUR
 export { defineAppConfig } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/node_modules/@nuxt/nitro-server/dist/runtime/utils/config';
 export { initializeFlagship } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/flagship/index';
 export { flagshipLogStore } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/flagship/logStore';
-export { fetchProducts, findProductBySlug } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/products';
+export { fetchProducts, findProductBySlug, fetchProductBrands, findProductsByBrand } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/products';
