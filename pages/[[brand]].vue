@@ -18,6 +18,8 @@
 </template>
 
 <script setup lang="ts">
+import { nextTick } from 'vue'
+
 import { slugifyBrand } from '@/utils/brand'
 
 const route = useRoute()
@@ -37,6 +39,19 @@ const {
 } = useProducts()
 
 const syncingFromRoute = ref(false)
+const skipScrollOnNextRoute = ref(false)
+
+const scrollToProducts = (behavior: ScrollBehavior = 'auto') => {
+  if (!import.meta.client) {
+    return
+  }
+
+  const section = document.getElementById('products')
+  if (section) {
+    const top = section.getBoundingClientRect().top + window.scrollY + 570
+    window.scrollTo({ top, behavior })
+  }
+}
 
 const routeBrandSlug = computed(() => {
   const param = route.params.brand
@@ -77,11 +92,20 @@ const applyBrandFromRoute = async (slug?: string) => {
 
 await Promise.all([fetchBrands(), fetchProducts()])
 await applyBrandFromRoute(routeBrandSlug.value)
+if (import.meta.client && routeBrandSlug.value) {
+  await nextTick()
+  scrollToProducts('auto')
+}
 
 watch(
   () => routeBrandSlug.value,
   async (slug) => {
     await applyBrandFromRoute(slug)
+    if (slug && !skipScrollOnNextRoute.value) {
+      await nextTick()
+      scrollToProducts('smooth')
+    }
+    skipScrollOnNextRoute.value = false
   }
 )
 
@@ -96,10 +120,12 @@ watch(
     const currentSlug = routeBrandSlug.value ?? null
 
     if (slug === currentSlug) {
+      skipScrollOnNextRoute.value = false
       return
     }
 
     const path = slug ? `/${slug}` : '/'
+    skipScrollOnNextRoute.value = true
     await router.push(path)
   }
 )

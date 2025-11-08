@@ -137,21 +137,36 @@ type RecommendationPayload = {
   items: RecommendationItem[]
 }
 
-const { data, pending, error } = await useAsyncData<RecommendationPayload>(
-  'recommendations-carousel',
-  () => $fetch('/api/recommendations')
-)
+const headingState = useState<string>('recommendations-heading', () => 'Recommended for you')
+const recommendations = useState<RecommendationItem[]>('recommendations-items', () => [])
+const recommendationsLoaded = useState<boolean>('recommendations-loaded', () => false)
+const recommendationsLoading = useState<boolean>('recommendations-loading', () => false)
+const recommendationsError = useState<string | null>('recommendations-error', () => null)
 
-const heading = ref(data.value?.title ?? 'Recommended for you')
-const recommendations = ref<RecommendationItem[]>(data.value?.items ?? [])
-
-watch(
-  () => data.value,
-  (payload) => {
-    heading.value = payload?.title ?? 'Recommended for you'
-    recommendations.value = payload?.items ?? []
+const ensureRecommendations = async () => {
+  if (recommendationsLoaded.value || recommendationsLoading.value) {
+    return
   }
-)
+
+  recommendationsLoading.value = true
+  recommendationsError.value = null
+
+  try {
+    const payload = await $fetch<RecommendationPayload>('/api/recommendations')
+    headingState.value = payload?.title ?? 'Recommended for you'
+    recommendations.value = payload?.items ?? []
+    recommendationsLoaded.value = true
+  } catch (err) {
+    console.error('Failed to load recommendations', err)
+    recommendationsError.value = 'Unable to load recommendations right now.'
+  } finally {
+    recommendationsLoading.value = false
+  }
+}
+
+await ensureRecommendations()
+
+const heading = computed(() => headingState.value)
 
 const carouselRef = ref<HTMLDivElement | null>(null)
 const canScrollPrev = ref(false)
@@ -165,10 +180,8 @@ const currencyFormatter = new Intl.NumberFormat('en-US', {
 })
 
 const hasRecommendations = computed(() => recommendations.value.length > 0)
-const loading = pending
-const errorMessage = computed(() =>
-  error.value ? error.value.message ?? 'Unable to load recommendations right now.' : null
-)
+const loading = computed(() => recommendationsLoading.value && !recommendationsLoaded.value)
+const errorMessage = computed(() => recommendationsError.value)
 
 const updateScrollState = () => {
   const el = carouselRef.value
