@@ -31,14 +31,22 @@
           {{ color }}
         </span>
       </div>
-      <button
-        class="mt-8 inline-flex items-center justify-center rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
-        :disabled="!product.inStock"
-        @click="addToCart"
-      >
-        <ShoppingCartIcon class="mr-2 h-5 w-5" />
-        {{ product.inStock ? 'Add to cart' : 'Notify me' }}
-      </button>
+      <div class="mt-8 flex gap-3">
+        <button
+          class="inline-flex flex-1 items-center justify-center rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+          :disabled="!product.inStock"
+          @click="addToCart"
+        >
+          <ShoppingCartIcon class="mr-2 h-5 w-5" />
+          {{ product.inStock ? 'Add to cart' : 'Notify me' }}
+        </button>
+        <NuxtLink
+          :to="`/products/${product.slug}`"
+          class="inline-flex flex-1 items-center justify-center rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+        >
+          View details
+        </NuxtLink>
+      </div>
     </div>
   </div>
 </template>
