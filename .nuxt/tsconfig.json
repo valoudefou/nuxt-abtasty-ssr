@@ -116,7 +116,7 @@
         "./imports"
       ],
       "#app-manifest": [
-        "./manifest/meta/54839441-768a-458b-bf67-24aa9208e5ab.json"
+        "./manifest/meta/dev"
       ],
       "#components": [
         "./components"
@@ -169,6 +169,6 @@
     "../.data",
     "../node_modules/runtime/server",
     "../node_modules/dist/runtime/server",
-    "../.output"
+    "dev"
   ]
 }
