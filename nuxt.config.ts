@@ -67,6 +67,12 @@ export default defineNuxtConfig({
           rel: 'stylesheet',
           href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap'
         }
+      ],
+      script: [
+        {
+          src: 'https://try.abtasty.com/1ceff369b6cd9aceaa9ee318e6498167.js',
+          type: 'text/javascript'
+        }
       ]
     }
   },
