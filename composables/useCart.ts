@@ -65,6 +65,8 @@ export const useCart = () => {
     state.value.items.reduce((sum, item) => sum + item.quantity * item.price, 0)
   )
 
+  const pendingNotificationTimeout = ref<ReturnType<typeof setTimeout> | null>(null)
+
   const addItem = (product: Product, quantity = 1) => {
     const existingItem = state.value.items.find((item) => item.id === product.id)
 
@@ -75,11 +77,19 @@ export const useCart = () => {
     }
     logCartIds()
 
-    notifications.show({
-      title: 'Added to cart',
-      message: `${product.name} has been added to your cart.`,
-      type: 'cart'
-    })
+    if (pendingNotificationTimeout.value) {
+      clearTimeout(pendingNotificationTimeout.value)
+      pendingNotificationTimeout.value = null
+    }
+
+    pendingNotificationTimeout.value = setTimeout(() => {
+      notifications.show({
+        title: 'Added to cart',
+        message: `${product.name} has been added to your cart.`,
+        type: 'cart'
+      })
+      pendingNotificationTimeout.value = null
+    }, 100)
 
     logCartItems('added', product)
   }

@@ -2835,6 +2835,7 @@ const buildRecommendationUrl = (baseEndpoint, filter) => {
         variables.cart_products = ids;
       }
     }
+    variables.klaviyio = "loyal";
     url.searchParams.set("variables", JSON.stringify(variables));
     return url.toString();
   } catch {
@@ -3041,7 +3042,8 @@ const fetchRecommendations = async (filter) => {
       field: filter == null ? void 0 : filter.field,
       error: error instanceof Error ? error.message : String(error),
       recommendationName: failedRecommendationName,
-      recommendationId: failedRecommendationId
+      recommendationId: failedRecommendationId,
+      user: { klaviyio: "loyal" }
     });
     return {
       title: resolveStrategyTitle(filter == null ? void 0 : filter.field, strategyNames),

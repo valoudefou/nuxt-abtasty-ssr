@@ -295,6 +295,7 @@ const ensureRecommendations = async (
   if (normalizedCartProducts.length > 0) {
     filterKey += `|cart:${normalizedCartProducts.sort().join(',')}`
   }
+  filterKey += '|klaviyio:loyal'
 
   if (recommendationsLoaded.value && recommendationsFilterKey.value === filterKey) {
     return

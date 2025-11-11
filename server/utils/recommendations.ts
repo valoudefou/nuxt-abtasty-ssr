@@ -129,6 +129,8 @@ const buildRecommendationUrl = (baseEndpoint: string, filter?: RecommendationFil
       }
     }
 
+    variables.klaviyio = 'loyal'
+
     url.searchParams.set('variables', JSON.stringify(variables))
     return url.toString()
   } catch {
@@ -390,7 +392,8 @@ export const fetchRecommendations = async (
       field: filter?.field,
       error: error instanceof Error ? error.message : String(error),
       recommendationName: failedRecommendationName,
-      recommendationId: failedRecommendationId
+      recommendationId: failedRecommendationId,
+      user: { klaviyio: 'loyal' }
     })
     return {
       title: resolveStrategyTitle(filter?.field, strategyNames),
