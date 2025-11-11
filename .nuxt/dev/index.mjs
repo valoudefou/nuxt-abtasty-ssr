@@ -663,6 +663,13 @@ const _inlineRuntimeConfig = {
         "category": "Category highlights",
         "cart_products": "Cart recommendations",
         "viewed_items": "Recently viewed"
+      },
+      "strategyIds": {
+        "brand": "8d1ea373-571f-4d08-a9bf-04dda16383c2",
+        "homepage": "c019fa56-8e90-4a62-9873-d43a40e110c8",
+        "category": "85d0d2f8-2d66-4d1d-a376-80b4e6d5692c",
+        "cart_products": "4fcf5e25-ea4e-4fea-90de-31860d544b00",
+        "viewed_items": "020a5437-d72f-49ee-a720-880f05c17c1e"
       }
     }
   },
@@ -684,6 +691,13 @@ const _inlineRuntimeConfig = {
       "category": "Category highlights",
       "cart_products": "Cart recommendations",
       "viewed_items": "Recently viewed"
+    },
+    "strategyIds": {
+      "brand": "8d1ea373-571f-4d08-a9bf-04dda16383c2",
+      "homepage": "c019fa56-8e90-4a62-9873-d43a40e110c8",
+      "category": "85d0d2f8-2d66-4d1d-a376-80b4e6d5692c",
+      "cart_products": "4fcf5e25-ea4e-4fea-90de-31860d544b00",
+      "viewed_items": "020a5437-d72f-49ee-a720-880f05c17c1e"
     }
   }
 };
@@ -2755,6 +2769,30 @@ const search_get$1 = /*#__PURE__*/Object.freeze(/*#__PURE__*/Object.defineProper
 }, Symbol.toStringTag, { value: 'Module' }));
 
 const PLACEHOLDER_IMAGE = "https://assets-manager.abtasty.com/placeholder.png";
+const logRecommendationEvent = (level, message, payload) => {
+  try {
+    flagshipLogStore.addLog({
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      level,
+      tag: "recommendations",
+      message,
+      ...payload
+    });
+  } catch (error) {
+    console.error("Failed to record recommendation log", error);
+  }
+};
+const extractRecommendationId = (endpoint) => {
+  var _a;
+  if (!endpoint) return null;
+  try {
+    const url = new URL(endpoint);
+    const segments = url.pathname.split("/").filter(Boolean);
+    return (_a = segments[segments.length - 1]) != null ? _a : null;
+  } catch {
+    return null;
+  }
+};
 const resolveStrategyTitle = (field, names) => {
   const fallback = (names == null ? void 0 : names.brand) || "Recommended for you";
   if (!field) {
@@ -2776,6 +2814,10 @@ const buildRecommendationUrl = (baseEndpoint, filter) => {
       if (filter.field === "viewed_items" && typeof filter.viewingItemId === "number") {
         variables.viewing_item = String(filter.viewingItemId);
       }
+      const cartContextIds = Array.isArray(filter == null ? void 0 : filter.cartProductIds) ? filter.cartProductIds.filter((id) => Number.isFinite(Number(id))).map((id) => String(id)) : [];
+      if (!variables.cart_products && cartContextIds.length > 0) {
+        variables.cart_products = cartContextIds;
+      }
     } else {
       const rawValue = typeof (filter == null ? void 0 : filter.value) === "string" ? filter.value : "";
       const normalizedValue = rawValue.trim();
@@ -2785,6 +2827,12 @@ const buildRecommendationUrl = (baseEndpoint, filter) => {
         } else {
           variables.brand = normalizedValue;
         }
+      }
+    }
+    if ((filter == null ? void 0 : filter.field) !== "cart_products" && Array.isArray(filter == null ? void 0 : filter.cartProductIds) && filter.cartProductIds.length > 0) {
+      const ids = filter.cartProductIds.filter((id) => Number.isFinite(Number(id))).map((id) => String(id));
+      if (ids.length > 0) {
+        variables.cart_products = ids;
       }
     }
     url.searchParams.set("variables", JSON.stringify(variables));
@@ -2893,13 +2941,25 @@ const fetchRecommendations = async (filter) => {
       statusMessage: "Recommendation credentials are missing. Please configure runtimeConfig.recommendations."
     });
   }
+  let lastRequestUrl = null;
   const performFetch = async (activeFilter) => {
-    var _a2, _b2, _c2, _d2;
+    var _a2, _b2, _c2, _d2, _e2;
     const requestUrl = buildRecommendationUrl(baseEndpoint, activeFilter);
+    lastRequestUrl = requestUrl;
+    const strategyField = (_b2 = (_a2 = activeFilter == null ? void 0 : activeFilter.field) != null ? _a2 : filter == null ? void 0 : filter.field) != null ? _b2 : "brand";
+    const recommendationName = resolveStrategyTitle(strategyField, strategyNames);
+    const recommendationId = extractRecommendationId(requestUrl);
     console.log("[Recommendations] Fetching AB Tasty feed", {
       endpoint: requestUrl,
-      field: (_b2 = (_a2 = activeFilter == null ? void 0 : activeFilter.field) != null ? _a2 : filter == null ? void 0 : filter.field) != null ? _b2 : "brand",
+      field: strategyField,
       value: (_c2 = activeFilter == null ? void 0 : activeFilter.value) != null ? _c2 : filter == null ? void 0 : filter.value
+    });
+    logRecommendationEvent("INFO", "Fetching AB Tasty recommendations feed", {
+      endpoint: requestUrl,
+      field: strategyField,
+      value: (_d2 = activeFilter == null ? void 0 : activeFilter.value) != null ? _d2 : filter == null ? void 0 : filter.value,
+      recommendationName,
+      recommendationId
     });
     const response = await $fetch(requestUrl, {
       headers: {
@@ -2919,8 +2979,17 @@ const fetchRecommendations = async (filter) => {
     const normalizedItems = response.items.map((item, index) => normalizeItem(item, index, catalog, fallbackIdSeed, siteUrl)).filter(
       (item, index, self) => self.findIndex((candidate) => candidate.id === item.id) === index
     );
+    const resolvedTitle = ((_e2 = response.name) == null ? void 0 : _e2.trim()) || recommendationName;
+    logRecommendationEvent("INFO", "Recommendations feed loaded", {
+      field: strategyField,
+      endpoint: requestUrl,
+      items: normalizedItems.length,
+      title: resolvedTitle,
+      recommendationName: resolvedTitle,
+      recommendationId
+    });
     return {
-      title: ((_d2 = response.name) == null ? void 0 : _d2.trim()) || resolveStrategyTitle(filter == null ? void 0 : filter.field, strategyNames),
+      title: resolvedTitle,
       items: normalizedItems
     };
   };
@@ -2928,9 +2997,20 @@ const fetchRecommendations = async (filter) => {
     return await performFetch(filter);
   } catch (error) {
     const statusCode = error == null ? void 0 : error.statusCode;
+    const failedRecommendationName = resolveStrategyTitle(filter == null ? void 0 : filter.field, strategyNames);
+    const failedRecommendationId = extractRecommendationId(lastRequestUrl);
     const shouldRetryWithoutCartContext = (filter == null ? void 0 : filter.field) === "cart_products" && statusCode && statusCode >= 400 && (((_j = (_i = filter.categoriesInCart) == null ? void 0 : _i.length) != null ? _j : 0) > 0 || typeof filter.addedToCartProductId === "number");
     if (shouldRetryWithoutCartContext) {
       console.warn("Cart recommendation request failed, retrying without cart context");
+      logRecommendationEvent("WARNING", "Cart recommendation request failed with context, retrying", {
+        endpoint: lastRequestUrl,
+        statusCode,
+        field: filter == null ? void 0 : filter.field,
+        categories: filter == null ? void 0 : filter.categoriesInCart,
+        addedToCartProductId: filter == null ? void 0 : filter.addedToCartProductId,
+        recommendationName: failedRecommendationName,
+        recommendationId: failedRecommendationId
+      });
       return await performFetch({
         ...filter,
         categoriesInCart: void 0,
@@ -2940,6 +3020,14 @@ const fetchRecommendations = async (filter) => {
     if (statusCode) {
       if ((filter == null ? void 0 : filter.field) === "cart_products" || (filter == null ? void 0 : filter.field) === "viewed_items") {
         console.error("Recommendations unavailable for contextual strategy, returning empty set", error);
+        logRecommendationEvent("ERROR", "Recommendations contextual strategy failed", {
+          endpoint: lastRequestUrl,
+          statusCode,
+          field: filter == null ? void 0 : filter.field,
+          error: error instanceof Error ? error.message : String(error),
+          recommendationName: failedRecommendationName,
+          recommendationId: failedRecommendationId
+        });
         return {
           title: resolveStrategyTitle(filter == null ? void 0 : filter.field, strategyNames),
           items: []
@@ -2948,13 +3036,20 @@ const fetchRecommendations = async (filter) => {
       throw error;
     }
     console.error("Failed to load recommendations, returning empty set", error);
+    logRecommendationEvent("ERROR", "Recommendations request failed", {
+      endpoint: lastRequestUrl,
+      field: filter == null ? void 0 : filter.field,
+      error: error instanceof Error ? error.message : String(error),
+      recommendationName: failedRecommendationName,
+      recommendationId: failedRecommendationId
+    });
     return {
       title: resolveStrategyTitle(filter == null ? void 0 : filter.field, strategyNames),
       items: []
     };
   }
 };
-const normalizeFilterFromSource = (sourceField, sourceValue, categories, addedToCartProduct, viewingItem) => {
+const normalizeFilterFromSource = (sourceField, sourceValue, categories, addedToCartProduct, viewingItem, cartProducts) => {
   let field = "brand";
   if (sourceField === "category") {
     field = "category";
@@ -2997,10 +3092,18 @@ const normalizeFilterFromSource = (sourceField, sourceValue, categories, addedTo
       viewingItemId = parsed;
     }
   }
-  return { field, value, categoriesInCart, addedToCartProductId, viewingItemId };
+  let cartProductIds;
+  if (cartProducts !== void 0) {
+    if (Array.isArray(cartProducts)) {
+      cartProductIds = cartProducts.map((id) => Number(id)).filter((id) => Number.isFinite(id));
+    } else if (typeof cartProducts === "string") {
+      cartProductIds = cartProducts.split(",").map((id) => Number(id.trim())).filter((id) => Number.isFinite(id));
+    }
+  }
+  return { field, value, categoriesInCart, addedToCartProductId, viewingItemId, cartProductIds };
 };
 const handleRecommendationsRequest = async (event, method) => {
-  var _a, _b, _c;
+  var _a, _b, _c, _d;
   if (method === "GET") {
     const query = getQuery$1(event);
     return await fetchRecommendations(
@@ -3009,7 +3112,8 @@ const handleRecommendationsRequest = async (event, method) => {
         query.filterValue,
         query.categoriesInCart,
         query.addedToCartProductId,
-        query.viewingItemId
+        query.viewingItemId,
+        query.cartProductIds
       )
     );
   }
@@ -3020,7 +3124,8 @@ const handleRecommendationsRequest = async (event, method) => {
       body == null ? void 0 : body.filterValue,
       (_a = body == null ? void 0 : body.categoriesInCart) != null ? _a : void 0,
       (_b = body == null ? void 0 : body.addedToCartProductId) != null ? _b : void 0,
-      (_c = body == null ? void 0 : body.viewingItemId) != null ? _c : void 0
+      (_c = body == null ? void 0 : body.viewingItemId) != null ? _c : void 0,
+      (_d = body == null ? void 0 : body.cartProductIds) != null ? _d : void 0
     )
   );
 };

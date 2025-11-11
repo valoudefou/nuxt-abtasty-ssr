@@ -119,6 +119,18 @@ declare module 'nuxt/schema' {
 
          viewed_items: string,
       },
+
+      strategyIds: {
+         brand: string,
+
+         homepage: string,
+
+         category: string,
+
+         cart_products: string,
+
+         viewed_items: string,
+      },
    },
 
    nitro: {
@@ -140,6 +152,18 @@ declare module 'nuxt/schema' {
 
    recommendations: {
       strategyNames: {
+         brand: string,
+
+         homepage: string,
+
+         category: string,
+
+         cart_products: string,
+
+         viewed_items: string,
+      },
+
+      strategyIds: {
          brand: string,
 
          homepage: string,

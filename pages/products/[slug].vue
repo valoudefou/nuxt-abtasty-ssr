@@ -116,6 +116,7 @@
             filter-field="viewed_items"
             :filter-value="viewedProductIds"
             :viewing-item-id="product.id"
+            :cart-product-ids="cartProductIds"
           />
         </div>
       </section>
@@ -151,6 +152,7 @@ const selectedSize = ref(product.sizes[0])
 const applePayEnabled = ref(Boolean(applePayFeature.value?.enabled))
 const flagshipVisitor = ref<Visitor | null>(null)
 const viewedProductIds = viewedProducts
+const cartProductIds = computed(() => cart.items.value.map((item) => item.id))
 
 const logTimestamp = () =>
   new Date().toLocaleTimeString('en-US', {

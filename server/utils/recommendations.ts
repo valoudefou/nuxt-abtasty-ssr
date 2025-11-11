@@ -4,6 +4,8 @@ import type { H3Event } from 'h3'
 
 import type { Product } from '@/types/product'
 import { fetchProducts } from '@/server/utils/products'
+import { flagshipLogStore } from '@/utils/flagship/logStore'
+import type { FlagshipLogLevel } from '@/utils/flagship/logStore'
 
 type RawRecommendation = {
   id?: string | number
@@ -36,9 +38,39 @@ type RecommendationFilter = {
   categoriesInCart?: string[]
   addedToCartProductId?: number | null
   viewingItemId?: number | null
+  cartProductIds?: number[]
 }
 
 type StrategyNameMap = Record<RecommendationFilter['field'], string>
+
+const logRecommendationEvent = (
+  level: FlagshipLogLevel,
+  message: string,
+  payload?: Record<string, unknown>
+) => {
+  try {
+    flagshipLogStore.addLog({
+      timestamp: new Date().toISOString(),
+      level,
+      tag: 'recommendations',
+      message,
+      ...payload
+    })
+  } catch (error) {
+    console.error('Failed to record recommendation log', error)
+  }
+}
+
+const extractRecommendationId = (endpoint?: string | null) => {
+  if (!endpoint) return null
+  try {
+    const url = new URL(endpoint)
+    const segments = url.pathname.split('/').filter(Boolean)
+    return segments[segments.length - 1] ?? null
+  } catch {
+    return null
+  }
+}
 
 const resolveStrategyTitle = (
   field: RecommendationFilter['field'] | undefined,
@@ -66,6 +98,13 @@ const buildRecommendationUrl = (baseEndpoint: string, filter?: RecommendationFil
       if (filter.field === 'viewed_items' && typeof filter.viewingItemId === 'number') {
         variables.viewing_item = String(filter.viewingItemId)
       }
+      const cartContextIds =
+        Array.isArray(filter?.cartProductIds)
+          ? filter.cartProductIds.filter((id) => Number.isFinite(Number(id))).map((id) => String(id))
+          : []
+      if (!variables.cart_products && cartContextIds.length > 0) {
+        variables.cart_products = cartContextIds
+      }
     } else {
       const rawValue = typeof filter?.value === 'string' ? filter.value : ''
       const normalizedValue = rawValue.trim()
@@ -76,6 +115,17 @@ const buildRecommendationUrl = (baseEndpoint: string, filter?: RecommendationFil
         } else {
           variables.brand = normalizedValue
         }
+      }
+    }
+
+    if (
+      filter?.field !== 'cart_products'
+      && Array.isArray(filter?.cartProductIds)
+      && filter.cartProductIds.length > 0
+    ) {
+      const ids = filter.cartProductIds.filter((id) => Number.isFinite(Number(id))).map((id) => String(id))
+      if (ids.length > 0) {
+        variables.cart_products = ids
       }
     }
 
@@ -227,10 +277,20 @@ export const fetchRecommendations = async (
   const performFetch = async (activeFilter?: RecommendationFilter) => {
     const requestUrl = buildRecommendationUrl(baseEndpoint, activeFilter)
     lastRequestUrl = requestUrl
+    const strategyField = activeFilter?.field ?? filter?.field ?? 'brand'
+    const recommendationName = resolveStrategyTitle(strategyField, strategyNames)
+    const recommendationId = extractRecommendationId(requestUrl)
     console.log('[Recommendations] Fetching AB Tasty feed', {
       endpoint: requestUrl,
-      field: activeFilter?.field ?? filter?.field ?? 'brand',
+      field: strategyField,
       value: activeFilter?.value ?? filter?.value
+    })
+    logRecommendationEvent('INFO', 'Fetching AB Tasty recommendations feed', {
+      endpoint: requestUrl,
+      field: strategyField,
+      value: activeFilter?.value ?? filter?.value,
+      recommendationName,
+      recommendationId
     })
 
     const response = await $fetch<{ name?: string; items?: RawRecommendation[] }>(requestUrl, {
@@ -257,8 +317,18 @@ export const fetchRecommendations = async (
         (item, index, self) => self.findIndex((candidate) => candidate.id === item.id) === index
       )
 
+    const resolvedTitle = response.name?.trim() || recommendationName
+    logRecommendationEvent('INFO', 'Recommendations feed loaded', {
+      field: strategyField,
+      endpoint: requestUrl,
+      items: normalizedItems.length,
+      title: resolvedTitle,
+      recommendationName: resolvedTitle,
+      recommendationId
+    })
+
     return {
-      title: response.name?.trim() || resolveStrategyTitle(filter?.field, strategyNames),
+      title: resolvedTitle,
       items: normalizedItems
     }
   }
@@ -267,6 +337,8 @@ export const fetchRecommendations = async (
     return await performFetch(filter)
   } catch (error) {
     const statusCode = (error as { statusCode?: number })?.statusCode
+    const failedRecommendationName = resolveStrategyTitle(filter?.field, strategyNames)
+    const failedRecommendationId = extractRecommendationId(lastRequestUrl)
 
   const shouldRetryWithoutCartContext =
     filter?.field === 'cart_products'
@@ -276,6 +348,15 @@ export const fetchRecommendations = async (
 
   if (shouldRetryWithoutCartContext) {
     console.warn('Cart recommendation request failed, retrying without cart context')
+    logRecommendationEvent('WARNING', 'Cart recommendation request failed with context, retrying', {
+      endpoint: lastRequestUrl,
+      statusCode,
+      field: filter?.field,
+      categories: filter?.categoriesInCart,
+      addedToCartProductId: filter?.addedToCartProductId,
+      recommendationName: failedRecommendationName,
+      recommendationId: failedRecommendationId
+    })
 
     return await performFetch({
       ...filter,
@@ -287,6 +368,14 @@ export const fetchRecommendations = async (
   if (statusCode) {
     if (filter?.field === 'cart_products' || filter?.field === 'viewed_items') {
       console.error('Recommendations unavailable for contextual strategy, returning empty set', error)
+      logRecommendationEvent('ERROR', 'Recommendations contextual strategy failed', {
+        endpoint: lastRequestUrl,
+        statusCode,
+        field: filter?.field,
+        error: error instanceof Error ? error.message : String(error),
+        recommendationName: failedRecommendationName,
+        recommendationId: failedRecommendationId
+      })
       return {
         title: resolveStrategyTitle(filter?.field, strategyNames),
         items: []
@@ -296,6 +385,13 @@ export const fetchRecommendations = async (
   }
 
     console.error('Failed to load recommendations, returning empty set', error)
+    logRecommendationEvent('ERROR', 'Recommendations request failed', {
+      endpoint: lastRequestUrl,
+      field: filter?.field,
+      error: error instanceof Error ? error.message : String(error),
+      recommendationName: failedRecommendationName,
+      recommendationId: failedRecommendationId
+    })
     return {
       title: resolveStrategyTitle(filter?.field, strategyNames),
       items: []
@@ -308,7 +404,8 @@ const normalizeFilterFromSource = (
   sourceValue: unknown,
   categories?: unknown,
   addedToCartProduct?: unknown,
-  viewingItem?: unknown
+  viewingItem?: unknown,
+  cartProducts?: unknown
 ): RecommendationFilter => {
   let field: RecommendationFilter['field'] = 'brand'
   if (sourceField === 'category') {
@@ -362,7 +459,21 @@ const normalizeFilterFromSource = (
     }
   }
 
-  return { field, value, categoriesInCart, addedToCartProductId, viewingItemId }
+  let cartProductIds: number[] | undefined
+  if (cartProducts !== undefined) {
+    if (Array.isArray(cartProducts)) {
+      cartProductIds = cartProducts
+        .map((id) => Number(id))
+        .filter((id) => Number.isFinite(id))
+    } else if (typeof cartProducts === 'string') {
+      cartProductIds = cartProducts
+        .split(',')
+        .map((id) => Number(id.trim()))
+        .filter((id) => Number.isFinite(id))
+    }
+  }
+
+  return { field, value, categoriesInCart, addedToCartProductId, viewingItemId, cartProductIds }
 }
 
 export const handleRecommendationsRequest = async (event: H3Event, method: 'GET' | 'POST') => {
@@ -374,7 +485,8 @@ export const handleRecommendationsRequest = async (event: H3Event, method: 'GET'
         query.filterValue,
         query.categoriesInCart,
         query.addedToCartProductId,
-        query.viewingItemId
+        query.viewingItemId,
+        query.cartProductIds
       )
     )
   }
@@ -385,6 +497,7 @@ export const handleRecommendationsRequest = async (event: H3Event, method: 'GET'
     categoriesInCart?: string[] | string | null
     addedToCartProductId?: number | string | null
     viewingItemId?: number | string | null
+    cartProductIds?: number[] | string | null
   }>(event)
 
   return await fetchRecommendations(
@@ -393,7 +506,8 @@ export const handleRecommendationsRequest = async (event: H3Event, method: 'GET'
       body?.filterValue,
       body?.categoriesInCart ?? undefined,
       body?.addedToCartProductId ?? undefined,
-      body?.viewingItemId ?? undefined
+      body?.viewingItemId ?? undefined,
+      body?.cartProductIds ?? undefined
     )
   )
 }
