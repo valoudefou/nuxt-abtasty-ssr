@@ -69,7 +69,7 @@
                 class="rounded-full border border-emerald-500/30 bg-transparent px-3 py-1.5 text-sm font-medium uppercase tracking-[0.2em] text-emerald-300 transition hover:border-emerald-400 hover:text-emerald-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
                 @click="isOpen = false"
               >
-                Hide
+                HIDE - PRESS L
               </button>
             </div>
           </header>
@@ -150,13 +150,14 @@ const isOpen = useState('flagship-log-viewer-open', () => true)
 const searchTerm = useState('flagship-log-search', () => '')
 const panelHeight = useState('flagship-log-panel-height', () => 320)
 const isResizing = ref(false)
-const ghostHeight = ref(panelHeight.value);
+const ghostHeight = ref(panelHeight.value)
 
 const MIN_HEIGHT = 200
 const MAX_HEIGHT = 640
 let resizeStartY = 0
 let resizeStartHeight = panelHeight.value
 const STORAGE_KEY = 'flagship-log-panel-open'
+let unsubscribeLogs: (() => void) | null = null
 
 const clampHeight = (value: number) => Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, value))
 
@@ -182,7 +183,7 @@ const stopResize = () => {
   if (typeof document !== 'undefined') {
     document.body.style.userSelect = ''
   }
-  ghostHeight.value = panelHeight.value;
+  ghostHeight.value = panelHeight.value
   window.removeEventListener('mousemove', handleMouseMove)
   window.removeEventListener('touchmove', handleTouchMove)
   window.removeEventListener('mouseup', stopResize)
@@ -207,7 +208,19 @@ const startResize = (event: MouseEvent | TouchEvent) => {
   window.addEventListener('touchmove', handleTouchMove, { passive: false })
   window.addEventListener('mouseup', stopResize)
   window.addEventListener('touchend', stopResize)
-  window.removeEventListener('touchcancel', stopResize)
+  window.addEventListener('touchcancel', stopResize)
+}
+
+const handleKeyboardToggle = (event: KeyboardEvent) => {
+  if (event.metaKey || event.ctrlKey || event.altKey || event.key.toLowerCase() !== 'l') {
+    return
+  }
+  const target = event.target as HTMLElement | null
+  const tag = target?.tagName?.toLowerCase()
+  if (tag && (tag === 'input' || tag === 'textarea' || target?.isContentEditable)) {
+    return
+  }
+  isOpen.value = !isOpen.value
 }
 
 const stringify = (value: unknown) => {
@@ -316,14 +329,23 @@ onMounted(() => {
     }
   }
 
-  const unsubscribe = flagshipLogStore.subscribe((entries) => {
+  unsubscribeLogs = flagshipLogStore.subscribe((entries) => {
     logs.value = entries
   })
 
-  onBeforeUnmount(() => {
-    unsubscribe()
-    stopResize()
-  })
+  if (typeof window !== 'undefined') {
+    window.addEventListener('keydown', handleKeyboardToggle)
+  }
+})
+
+onBeforeUnmount(() => {
+  unsubscribeLogs?.()
+  unsubscribeLogs = null
+  stopResize()
+
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('keydown', handleKeyboardToggle)
+  }
 })
 </script>
 

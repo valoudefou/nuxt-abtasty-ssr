@@ -36,3 +36,4 @@ export { useNotifications } from '../composables/useNotifications';
 export { useProducts } from '../composables/useProducts';
 export { useViewedProducts } from '../composables/useViewedProducts';
 export { slugifyBrand } from '../utils/brand';
+export { useNuxtDevTools } from '../node_modules/@nuxt/devtools/dist/runtime/use-nuxt-devtools';
