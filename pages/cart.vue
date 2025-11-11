@@ -22,8 +22,6 @@
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 class="text-lg font-semibold text-slate-900">{{ item.name }}</h2>
-                <p class="mt-1 text-sm text-slate-500">{{ item.category }}</p>
-                <p class="mt-3 text-sm text-slate-600">{{ item.description }}</p>
               </div>
               <p class="text-lg font-semibold text-primary-600">{{ formatCurrency(item.price) }}</p>
             </div>
@@ -63,12 +61,13 @@
           <span>Total</span>
           <span>{{ formatCurrency(subtotal) }}</span>
         </div>
-        <button
-          class="mt-8 inline-flex w-full items-center justify-center rounded-full bg-primary-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-primary-500 disabled:bg-slate-300"
-          :disabled="!items.length"
+        <NuxtLink
+          to="/checkout"
+          class="mt-8 inline-flex w-full items-center justify-center rounded-full bg-primary-600 px-6 py-3 text-center text-sm font-semibold text-white shadow-lg transition hover:bg-primary-500 disabled:bg-slate-300"
+          :class="{ 'pointer-events-none opacity-60': !items.length }"
         >
           Proceed to checkout
-        </button>
+        </NuxtLink>
         <p class="mt-4 text-xs text-slate-500">Secure payment powered by trusted partners.</p>
       </div>
       <div class="rounded-3xl bg-white p-6 shadow-lg ring-1 ring-slate-100">

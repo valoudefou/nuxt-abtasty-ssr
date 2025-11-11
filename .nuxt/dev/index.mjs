@@ -671,11 +671,17 @@ const _inlineRuntimeConfig = {
         "cart_products": "4fcf5e25-ea4e-4fea-90de-31860d544b00",
         "viewed_items": "020a5437-d72f-49ee-a720-880f05c17c1e"
       }
+    },
+    "getAddress": {
+      "apiKey": "duc3eXw-q06-drQBzXGKrA5509"
     }
   },
   "flagship": {
     "envId": "bmabnbrggr14492eb9jg",
     "apiKey": "g7WzBeejX15SYqCxKJ3oP6y335hiIYsL1jAUg7ge"
+  },
+  "getAddress": {
+    "apiKey": "duc3eXw-q06-drQBzXGKrA5509"
   },
   "recommendations": {
     "apiKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzaXRlX2lkIjoxMDMxLCJpYXQiOjE3NDYyMDIyNjAsImp0aSI6ImxELWlKVmtaVnZlOVVkYk5tVzZfcXJXN3ExaUpQM3pPRzZYNjRJcGRWNTgifQ.7IfQu2cuGktA82hElpDvJXbwnOnwGqqh-BLdmzBGPb8",
@@ -684,6 +690,7 @@ const _inlineRuntimeConfig = {
     "cartEndpoint": "https://uc-info.eu.abtasty.com/v1/reco/1031/recos/4fcf5e25-ea4e-4fea-90de-31860d544b00?fields=%5B%22price%22%2C%22name%22%2C%22img_link%22%2C%22absolute_link%22%5D",
     "viewedItemsEndpoint": "https://uc-info.eu.abtasty.com/v1/reco/1031/recos/020a5437-d72f-49ee-a720-880f05c17c1e?fields=%5B%22price%22%2C%22name%22%2C%22img_link%22%2C%22absolute_link%22%5D",
     "homepageEndpoint": "https://uc-info.eu.abtasty.com/v1/reco/1031/recos/c019fa56-8e90-4a62-9873-d43a40e110c8?fields=%5B%22price%22%2C%22name%22%2C%22img_link%22%2C%22absolute_link%22%5D",
+    "accountId": "1031",
     "siteUrl": "https://val-commerce-demo.vercel.app",
     "strategyNames": {
       "brand": "Personalized picks",

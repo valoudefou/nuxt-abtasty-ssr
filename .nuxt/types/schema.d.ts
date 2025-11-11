@@ -93,6 +93,10 @@ declare module 'nuxt/schema' {
       apiKey: string,
    },
 
+   getAddress: {
+      apiKey: string,
+   },
+
    recommendations: {
       apiKey: string,
 
@@ -105,6 +109,8 @@ declare module 'nuxt/schema' {
       viewedItemsEndpoint: string,
 
       homepageEndpoint: string,
+
+      accountId: string,
 
       siteUrl: string,
 
@@ -174,6 +180,10 @@ declare module 'nuxt/schema' {
 
          viewed_items: string,
       },
+   },
+
+   getAddress: {
+      apiKey: string,
    },
   }
 }
