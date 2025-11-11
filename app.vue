@@ -20,6 +20,13 @@ useHead({
       name: 'keywords',
       content: `nuxt, ecommerce, ${appConfig.public.companyName}`
     }
+  ],
+  script: [
+    {
+      src: 'https://try.abtasty.com/1ceff369b6cd9aceaa9ee318e6498167.js',
+      type: 'text/javascript',
+      defer: true
+    }
   ]
 })
 </script>
