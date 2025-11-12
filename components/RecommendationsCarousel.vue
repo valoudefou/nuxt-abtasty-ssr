@@ -195,6 +195,7 @@ const recommendationsLoaded = useState<boolean>('recommendations-loaded', () => 
 const recommendationsLoading = useState<boolean>('recommendations-loading', () => false)
 const recommendationsError = useState<string | null>('recommendations-error', () => null)
 const recommendationsFilterKey = useState<string>('recommendations-filter-key', () => '')
+const hydratedLogKey = ref<string | null>(null)
 
 const activeFilterValue = computed(() => props.filterValue ?? 'All')
 const activeFilterField = computed<RecommendationField>(
@@ -251,6 +252,24 @@ const normalizeCategories = (categories: string[]) => {
 
 let recommendationsRequestId = 0
 
+const logHydratedRecommendations = (
+  filterKey: string,
+  recommendationName: string,
+  recommendationId?: string
+) => {
+  if (!import.meta.client) return
+  if (hydratedLogKey.value === filterKey) return
+
+  logClientRecommendationEvent('INFO', 'Recommendations restored from cache', {
+    Variables: filterKey,
+    count: recommendations.value.length,
+    recommendationName,
+    recommendationId
+  })
+
+  hydratedLogKey.value = filterKey
+}
+
 const ensureRecommendations = async (
   value?: string | number[] | number,
   field?: RecommendationField
@@ -298,6 +317,7 @@ const ensureRecommendations = async (
   filterKey += '|klaviyio:loyal'
 
   if (recommendationsLoaded.value && recommendationsFilterKey.value === filterKey) {
+    logHydratedRecommendations(filterKey, headingState.value || strategyName, strategyId)
     return
   }
 
@@ -337,6 +357,7 @@ const ensureRecommendations = async (
       recommendationName: headingState.value,
       recommendationId: strategyId
     })
+    hydratedLogKey.value = filterKey
   } catch (err) {
     if (requestId === recommendationsRequestId) {
       console.error('Failed to load recommendations', err)
