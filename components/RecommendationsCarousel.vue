@@ -513,7 +513,6 @@ watch(
     if (filterKey === recommendationsFilterKey.value) {
       return
     }
-    recommendationsLoaded.value = false
     void ensureRecommendations(value, field)
   }
 )

@@ -24,7 +24,7 @@
             >
               All
             </button>
-            <label class="relative">
+            <label v-if="enableSearch" class="relative">
               <span class="sr-only">Search products</span>
               <input
                 :value="searchQuery"
@@ -76,7 +76,7 @@ import ProductCard from '@/components/ProductCard.vue'
 import RecommendationsCarousel from '@/components/RecommendationsCarousel.vue'
 import type { Product } from '@/types/product'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   products: Product[]
   loading: boolean
   error: string | null
@@ -84,7 +84,10 @@ const props = defineProps<{
   selectedBrand: string
   searchQuery: string
   recommendationFilterField?: 'brand' | 'homepage' | 'category'
-}>()
+  enableSearch?: boolean
+}>(), {
+  enableSearch: true
+})
 
 const emit = defineEmits<{
   (event: 'select-brand', brand: string): void
@@ -92,7 +95,7 @@ const emit = defineEmits<{
 }>()
 
 const filteredFilters = computed(() => {
-  if (!props.searchQuery?.trim()) {
+  if (!props.enableSearch || !props.searchQuery?.trim()) {
     return props.brands
   }
 
@@ -101,6 +104,10 @@ const filteredFilters = computed(() => {
 })
 
 const onSearchInput = (event: Event) => {
+  if (!props.enableSearch) {
+    return
+  }
+
   const target = event.target as HTMLInputElement
   emit('search', target.value ?? '')
 }

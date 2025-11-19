@@ -25,7 +25,7 @@
         <div class="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-sm leading-6 text-slate-600">
           <p class="font-semibold text-slate-900">Category tips</p>
           <p class="mt-2">
-            Use search to layer queries like “merino” or “travel” on top of the category filter to find the perfect kit.
+            Layer categories with brand filters to quickly zero in on the perfect kit.
           </p>
         </div>
       </div>
@@ -37,6 +37,7 @@
       :brands="categories"
       :selected-brand="selectedCategory"
       :search-query="searchQuery"
+      :enable-search="false"
       recommendation-filter-field="category"
       @select-brand="onSelectCategory"
       @search="onSearch"
