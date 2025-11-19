@@ -290,6 +290,8 @@ const navigation = [
   { label: 'Journal', href: '/journal' }
 ]
 
+const route = useRoute()
+
 const headerRef = ref<HTMLElement | null>(null)
 const overlayOffset = ref('4.5rem')
 const searchInputRef = ref<HTMLInputElement | null>(null)
@@ -606,10 +608,21 @@ const handleGlobalKeydown = (event: KeyboardEvent) => {
   }
 }
 
+const initializeFromRouteQuery = () => {
+  const param = route.query?.search
+  const value = Array.isArray(param) ? param?.[0] : param
+
+  if (typeof value === 'string' && value.trim()) {
+    openOverlay()
+    searchQuery.value = value
+  }
+}
+
 onMounted(() => {
   updateOverlayOffset()
   window.addEventListener('resize', updateOverlayOffset, { passive: true })
   window.addEventListener('keydown', handleGlobalKeydown)
+  initializeFromRouteQuery()
 })
 
 onBeforeUnmount(() => {

@@ -127,7 +127,7 @@
           @click="isOpen = true"
         >
           <span class="inline-flex h-2 w-2 animate-pulse rounded-full bg-emerald-400/90"></span>
-          <span class="tracking-widest text-[13px]">Logs</span>
+          <span class="tracking-widest text-[13px]">Logs - PRESS L</span>
           <span class="rounded-full bg-emerald-500/15 px-2 py-[2px] text-[10px] font-bold text-emerald-200">{{ logs.length }}</span>
         </button>
       </div>
@@ -145,8 +145,15 @@
 <script setup lang="ts">
 import { flagshipLogStore, type FlagshipLogEntry } from '@/utils/flagship/logStore'
 
+const route = useRoute()
+const initialSearchQuery = computed(() => {
+  const param = route.query?.search
+  const value = Array.isArray(param) ? param?.[0] : param
+  return typeof value === 'string' && value.trim().length > 0
+})
+
 const logs = ref<FlagshipLogEntry[]>([])
-const isOpen = useState('flagship-log-viewer-open', () => true)
+const isOpen = useState('flagship-log-viewer-open', () => !initialSearchQuery.value)
 const searchTerm = useState('flagship-log-search', () => '')
 const panelHeight = useState('flagship-log-panel-height', () => 320)
 const isResizing = ref(false)
@@ -318,7 +325,7 @@ watch(isOpen, (open) => {
 })
 
 onMounted(() => {
-  if (import.meta.client) {
+  if (!initialSearchQuery.value && import.meta.client) {
     try {
       const stored = window.localStorage.getItem(STORAGE_KEY)
       if (stored !== null) {
