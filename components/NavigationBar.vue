@@ -8,7 +8,7 @@
           </span>
           Commerce Demo
         </NuxtLink>
-        <div class="flex flex-1 items-center justify-center gap-8 text-sm font-medium text-slate-600">
+        <div class="hidden flex-1 items-center justify-center gap-8 text-sm font-medium text-slate-600 md:flex">
           <NuxtLink v-for="item in navigation" :key="item.href" :to="item.href" class="hover:text-primary-600">
             {{ item.label }}
           </NuxtLink>
@@ -32,9 +32,60 @@
               {{ totalItems }}
             </span>
           </NuxtLink>
+          <button
+            type="button"
+            class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-primary-500 hover:text-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 md:hidden"
+            :aria-expanded="isMobileMenuOpen"
+            aria-label="Toggle navigation menu"
+            @click="toggleMobileMenu"
+          >
+            <Bars3Icon class="h-6 w-6" v-if="!isMobileMenuOpen" />
+            <XMarkIcon class="h-6 w-6" v-else />
+          </button>
         </div>
       </nav>
     </header>
+
+    <Transition
+      enter-active-class="transition duration-150 ease-out"
+      enter-from-class="opacity-0 translate-x-4"
+      enter-to-class="opacity-100 translate-x-0"
+      leave-active-class="transition duration-150 ease-in"
+      leave-from-class="opacity-100 translate-x-0"
+      leave-to-class="opacity-0 translate-x-4"
+    >
+      <div
+        v-if="isMobileMenuOpen"
+        class="fixed inset-0 z-50 bg-slate-900/20 backdrop-blur-sm md:hidden"
+        @click.self="closeMobileMenu"
+      >
+        <div class="absolute right-0 top-0 flex h-full w-72 max-w-[80%] flex-col border-l border-slate-200 bg-white shadow-2xl">
+          <div class="flex items-center justify-between border-b border-slate-200 px-4 py-4">
+            <span class="text-sm font-semibold text-slate-700">Menu</span>
+            <button
+              type="button"
+              class="inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:text-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+              aria-label="Close navigation menu"
+              @click="closeMobileMenu"
+            >
+              <XMarkIcon class="h-5 w-5" />
+            </button>
+          </div>
+          <nav class="flex flex-col gap-1 p-4">
+            <NuxtLink
+              v-for="item in navigation"
+              :key="item.href"
+              :to="item.href"
+              class="flex items-center justify-between rounded-xl px-4 py-3 text-base font-semibold text-slate-700 transition hover:bg-primary-50 hover:text-primary-700"
+              @click="closeMobileMenu"
+            >
+              <span>{{ item.label }}</span>
+              <span aria-hidden="true" class="text-sm text-slate-400">&gt;</span>
+            </NuxtLink>
+          </nav>
+        </div>
+      </div>
+    </Transition>
 
     <Transition
       enter-active-class="transition duration-150 ease-out"
@@ -46,8 +97,10 @@
     >
       <section
         v-if="isOverlayOpen"
+        ref="overlaySectionRef"
         class="fixed inset-x-0 bottom-0 z-50 overflow-y-auto border-t border-slate-200 bg-white/95 backdrop-blur"
         :style="{ top: overlayOffset }"
+        @scroll.passive="handleOverlayScroll"
       >
         <div class="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
           <div class="flex flex-col gap-4 lg:flex-row lg:items-center">
@@ -105,7 +158,10 @@
 
           <div class="flex flex-col gap-6">
             <div v-if="hasMinimumQuery" class="flex flex-col gap-6 lg:flex-row">
-              <aside class="sticky top-6 flex flex-col gap-6 lg:w-64 self-start">
+              <aside
+                v-if="isDesktop || isFilterPanelOpen"
+                class="sticky top-6 flex flex-col gap-6 self-start rounded-2xl border border-slate-200 bg-white/70 p-4 lg:w-64 lg:border-0 lg:bg-transparent lg:p-0"
+              >
                 <div>
                   <div class="flex items-center justify-between">
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Brands</p>
@@ -142,33 +198,66 @@
                   <div class="flex items-center justify-between">
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Price</p>
                     <button
-                      v-if="selectedPriceRange"
+                      v-if="hasCustomPriceRange"
                       type="button"
                       class="text-xs font-semibold text-primary-600 hover:text-primary-500"
-                      @click="togglePriceRange(selectedPriceRange)"
+                      @click="resetPriceFilter"
                     >
-                      Clear
+                      Reset
                     </button>
                   </div>
-                  <div class="mt-3 space-y-2 rounded-2xl border border-slate-200 bg-white/80 p-3">
-                    <button
-                      v-for="range in priceRanges"
-                      :key="range.value"
-                      type="button"
-                      class="w-full rounded-full px-4 py-2 text-sm font-medium transition"
-                      :class="
-                        selectedPriceRange === range.value
-                          ? 'bg-primary-50 text-primary-600'
-                          : 'text-slate-600 hover:bg-slate-100'
-                      "
-                      @click="togglePriceRange(range.value)"
-                    >
-                      {{ range.label }}
-                    </button>
+                  <div class="mt-3 space-y-4 rounded-2xl border border-slate-200 bg-white/80 p-4">
+                    <div class="flex items-center justify-between text-sm font-semibold text-slate-700">
+                      <span>{{ formatPrice(selectedPriceMin) }}</span>
+                      <span class="text-slate-400">to</span>
+                      <span>{{ formatPrice(selectedPriceMax) }}</span>
+                    </div>
+                    <div class="relative pt-5 pb-2">
+                      <div class="pointer-events-none absolute inset-x-1 top-1/2 h-2 -translate-y-1/2 rounded-full bg-slate-200">
+                        <div
+                          class="absolute h-2 rounded-full bg-primary-300"
+                          :style="{ left: priceFillStyle.left, right: priceFillStyle.right }"
+                        />
+                      </div>
+                      <input
+                        type="range"
+                        :min="PRICE_SLIDER_MIN"
+                        :max="PRICE_SLIDER_MAX"
+                        :step="PRICE_SLIDER_STEP"
+                        :value="selectedPriceMin"
+                        class="range-input absolute inset-x-0 top-1/2 h-8 w-full -translate-y-1/2 transform cursor-pointer"
+                        @input="handleMinPriceInput"
+                      />
+                      <input
+                        type="range"
+                        :min="PRICE_SLIDER_MIN"
+                        :max="PRICE_SLIDER_MAX"
+                        :step="PRICE_SLIDER_STEP"
+                        :value="selectedPriceMax"
+                        class="range-input absolute inset-x-0 top-1/2 h-8 w-full -translate-y-1/2 transform cursor-pointer"
+                        @input="handleMaxPriceInput"
+                      />
+                    </div>
+                    <div class="flex items-center justify-between text-xs text-slate-500">
+                      <span>{{ formatPrice(PRICE_SLIDER_MIN) }}</span>
+                      <span>{{ formatPrice(PRICE_SLIDER_MAX) }}</span>
+                    </div>
                   </div>
                 </div>
               </aside>
               <div class="flex-1">
+                <div class="sticky top-0 z-10 -mx-4 px-4 pb-1 pt-2 lg:hidden">
+                  <div class="flex items-center justify-end">
+                    <button
+                      type="button"
+                      class="inline-flex items-center gap-2 rounded-full bg-white/95 border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-primary-500 hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                      @click="toggleFiltersPanel"
+                    >
+                      <AdjustmentsHorizontalIcon class="h-5 w-5" />
+                      <span>{{ isFilterPanelOpen ? 'Hide filters' : 'Filters' }}</span>
+                    </button>
+                  </div>
+                </div>
                 <div
                   v-if="isSearching"
                   class="rounded-2xl border border-slate-200 bg-white/80 px-6 py-12 text-center text-sm text-slate-500"
@@ -237,7 +326,14 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { MagnifyingGlassIcon, ShoppingBagIcon, ShoppingCartIcon, XMarkIcon } from '@heroicons/vue/24/solid'
+import {
+  AdjustmentsHorizontalIcon,
+  Bars3Icon,
+  MagnifyingGlassIcon,
+  ShoppingBagIcon,
+  ShoppingCartIcon,
+  XMarkIcon
+} from '@heroicons/vue/24/solid'
 
 interface ApiSearchHit {
   id: number | string
@@ -268,18 +364,14 @@ interface SearchHit {
   brand: string | null
 }
 
-interface PriceRange {
-  label: string
-  min?: number
-  max?: number
-  value: string
-}
-
 const SEARCH_ENDPOINT = 'https://search-api.abtasty.com/search'
 const SEARCH_INDEX = '47c5c9b4ee0a19c9859f47734c1e8200_Catalog'
 const AUTOCOMPLETE_ENDPOINT = 'https://search-api.abtasty.com/autocomplete'
 const AUTOCOMPLETE_CLIENT_ID = '47c5c9b4ee0a19c9859f47734c1e8200'
 const FALLBACK_IMAGE = 'https://assets-manager.abtasty.com/placeholder.png'
+const PRICE_SLIDER_MIN = 0
+const PRICE_SLIDER_MAX = 500
+const PRICE_SLIDER_STEP = 5
 
 const { totalItems } = useCart()
 
@@ -293,29 +385,37 @@ const navigation = [
 const route = useRoute()
 
 const headerRef = ref<HTMLElement | null>(null)
+const overlaySectionRef = ref<HTMLElement | null>(null)
 const overlayOffset = ref('4.5rem')
 const searchInputRef = ref<HTMLInputElement | null>(null)
 const isOverlayOpen = ref(false)
+const isMobileMenuOpen = ref(false)
+const isFilterPanelOpen = ref(true)
+const viewportWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024)
 const searchQuery = ref('')
 const searchResults = ref<SearchHit[]>([])
 const searchError = ref('')
 const isSearching = ref(false)
 const brandOptions = ref<string[]>([])
 const selectedBrand = ref<string | null>(null)
-const selectedPriceRange = ref<string | null>(null)
+const selectedPriceMin = ref(PRICE_SLIDER_MIN)
+const selectedPriceMax = ref(PRICE_SLIDER_MAX)
 const autocompleteSuggestions = ref<string[]>([])
 
 const hasMinimumQuery = computed(() => searchQuery.value.trim().length >= 2)
-const priceRanges: PriceRange[] = [
-  { label: 'Under $25', value: 'under-25', max: 25 },
-  { label: '$25 to $50', value: '25-50', min: 25, max: 50 },
-  { label: '$50 to $100', value: '50-100', min: 50, max: 100 },
-  { label: '$100 to $250', value: '100-250', min: 100, max: 250 },
-  { label: '$250+', value: 'over-250', min: 250 }
-]
-const selectedPriceConfig = computed(
-  () => priceRanges.find((range) => range.value === selectedPriceRange.value) ?? null
+const isDesktop = computed(() => viewportWidth.value >= 1024)
+const hasCustomPriceRange = computed(
+  () => selectedPriceMin.value > PRICE_SLIDER_MIN || selectedPriceMax.value < PRICE_SLIDER_MAX
 )
+const priceFillStyle = computed(() => {
+  const span = PRICE_SLIDER_MAX - PRICE_SLIDER_MIN || 1
+  const left = ((selectedPriceMin.value - PRICE_SLIDER_MIN) / span) * 100
+  const right = ((selectedPriceMax.value - PRICE_SLIDER_MIN) / span) * 100
+  return {
+    left: `${Math.max(0, Math.min(left, 100))}%`,
+    right: `${Math.max(0, Math.min(100 - right, 100))}%`
+  }
+})
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -324,6 +424,11 @@ const currencyFormatter = new Intl.NumberFormat('en-US', {
 })
 
 const formatPrice = (value: number) => currencyFormatter.format(value)
+const triggerSearchWithFilters = () => {
+  if (hasMinimumQuery.value) {
+    performSearch(searchQuery.value)
+  }
+}
 
 const normalizePrice = (value: number | string | null | undefined): number | null => {
   if (typeof value === 'number' && Number.isFinite(value)) return value
@@ -370,15 +475,11 @@ const performSearch = async (query: string) => {
     if (selectedBrand.value) {
       url.searchParams.append('filters[brand][]', selectedBrand.value)
     }
-    const priceConfig = selectedPriceConfig.value
-    if (priceConfig?.min !== undefined) {
+    if (hasCustomPriceRange.value) {
       url.searchParams.append('filters[price][0][operator]', '>')
-      url.searchParams.append('filters[price][0][value]', String(priceConfig.min))
-    }
-    if (priceConfig?.max !== undefined) {
-      const index = priceConfig.min !== undefined ? 1 : 0
-      url.searchParams.append(`filters[price][${index}][operator]`, '<')
-      url.searchParams.append(`filters[price][${index}][value]`, String(priceConfig.max))
+      url.searchParams.append('filters[price][0][value]', String(selectedPriceMin.value))
+      url.searchParams.append('filters[price][1][operator]', '<')
+      url.searchParams.append('filters[price][1][value]', String(selectedPriceMax.value))
     }
 
     const response = await fetch(url.toString())
@@ -482,13 +583,53 @@ watch(isOverlayOpen, (isOpen) => {
   })
 })
 
+watch(
+  () => route.fullPath,
+  () => {
+    if (isMobileMenuOpen.value) {
+      closeMobileMenu()
+    }
+  }
+)
+
 const updateOverlayOffset = () => {
   const height = headerRef.value?.getBoundingClientRect().height
   overlayOffset.value = height ? `${height}px` : '4.5rem'
 }
 
+const handleResize = () => {
+  viewportWidth.value = window.innerWidth
+  if (isDesktop.value) {
+    isFilterPanelOpen.value = true
+  }
+}
+
+const closeMobileMenu = () => {
+  isMobileMenuOpen.value = false
+}
+
+const toggleMobileMenu = () => {
+  isMobileMenuOpen.value = !isMobileMenuOpen.value
+}
+
+const toggleFiltersPanel = () => {
+  isFilterPanelOpen.value = !isFilterPanelOpen.value
+}
+
+const handleOverlayScroll = () => {
+  if (isDesktop.value || !overlaySectionRef.value) {
+    return
+  }
+
+  if (overlaySectionRef.value.scrollTop > 12 && isFilterPanelOpen.value) {
+    isFilterPanelOpen.value = false
+  }
+}
+
 const openOverlay = () => {
+  closeMobileMenu()
   isOverlayOpen.value = true
+  isFilterPanelOpen.value = true
 }
 
 const clearSearch = () => {
@@ -497,7 +638,8 @@ const clearSearch = () => {
   searchError.value = ''
   isSearching.value = false
   selectedBrand.value = null
-  selectedPriceRange.value = null
+  selectedPriceMin.value = PRICE_SLIDER_MIN
+  selectedPriceMax.value = PRICE_SLIDER_MAX
   brandOptions.value = []
   autocompleteSuggestions.value = []
   nextTick(() => searchInputRef.value?.focus())
@@ -511,8 +653,10 @@ const closeOverlay = () => {
   isSearching.value = false
   selectedBrand.value = null
   brandOptions.value = []
-  selectedPriceRange.value = null
   autocompleteSuggestions.value = []
+  selectedPriceMin.value = PRICE_SLIDER_MIN
+  selectedPriceMax.value = PRICE_SLIDER_MAX
+  isFilterPanelOpen.value = true
 }
 
 const toggleBrandFilter = (brand: string) => {
@@ -524,9 +668,7 @@ const toggleBrandFilter = (brand: string) => {
 
   selectedBrand.value = selectedBrand.value === normalized ? null : normalized
 
-  if (hasMinimumQuery.value) {
-    performSearch(searchQuery.value)
-  }
+  triggerSearchWithFilters()
 }
 
 const clearBrandFilter = () => {
@@ -536,17 +678,44 @@ const clearBrandFilter = () => {
 
   selectedBrand.value = null
 
-  if (hasMinimumQuery.value) {
-    performSearch(searchQuery.value)
+  triggerSearchWithFilters()
+}
+
+const clampMinPrice = (value: number) =>
+  Math.min(Math.max(value, PRICE_SLIDER_MIN), selectedPriceMax.value - PRICE_SLIDER_STEP)
+const clampMaxPrice = (value: number) =>
+  Math.max(Math.min(value, PRICE_SLIDER_MAX), selectedPriceMin.value + PRICE_SLIDER_STEP)
+
+const updateMinPrice = (value: number) => {
+  const next = clampMinPrice(value)
+  if (next !== selectedPriceMin.value) {
+    selectedPriceMin.value = next
+    triggerSearchWithFilters()
   }
 }
 
-const togglePriceRange = (value: string) => {
-  selectedPriceRange.value = selectedPriceRange.value === value ? null : value
-
-  if (hasMinimumQuery.value) {
-    performSearch(searchQuery.value)
+const updateMaxPrice = (value: number) => {
+  const next = clampMaxPrice(value)
+  if (next !== selectedPriceMax.value) {
+    selectedPriceMax.value = next
+    triggerSearchWithFilters()
   }
+}
+
+const handleMinPriceInput = (event: Event) => {
+  const value = Number((event.target as HTMLInputElement).value)
+  updateMinPrice(value)
+}
+
+const handleMaxPriceInput = (event: Event) => {
+  const value = Number((event.target as HTMLInputElement).value)
+  updateMaxPrice(value)
+}
+
+const resetPriceFilter = () => {
+  selectedPriceMin.value = PRICE_SLIDER_MIN
+  selectedPriceMax.value = PRICE_SLIDER_MAX
+  triggerSearchWithFilters()
 }
 
 const applySuggestion = (suggestion: string) => {
@@ -602,9 +771,19 @@ const performAutocomplete = async (query: string) => {
 }
 
 const handleGlobalKeydown = (event: KeyboardEvent) => {
-  if (event.key === 'Escape' && isOverlayOpen.value) {
+  if (event.key !== 'Escape') {
+    return
+  }
+
+  if (isOverlayOpen.value) {
     event.preventDefault()
     closeOverlay()
+    return
+  }
+
+  if (isMobileMenuOpen.value) {
+    event.preventDefault()
+    closeMobileMenu()
   }
 }
 
@@ -620,13 +799,16 @@ const initializeFromRouteQuery = () => {
 
 onMounted(() => {
   updateOverlayOffset()
+  handleResize()
   window.addEventListener('resize', updateOverlayOffset, { passive: true })
+  window.addEventListener('resize', handleResize, { passive: true })
   window.addEventListener('keydown', handleGlobalKeydown)
   initializeFromRouteQuery()
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', updateOverlayOffset)
+  window.removeEventListener('resize', handleResize)
   window.removeEventListener('keydown', handleGlobalKeydown)
 
   if (debounceTimeout) {
@@ -635,3 +817,39 @@ onBeforeUnmount(() => {
   }
 })
 </script>
+
+<style scoped>
+.range-input {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  pointer-events: none;
+}
+.range-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 18px;
+  width: 18px;
+  border-radius: 9999px;
+  border: 2px solid #5d63ec;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  pointer-events: auto;
+  margin-top: -5px; /* pull thumb to the center of the custom track */
+}
+.range-input::-moz-range-thumb {
+  height: 18px;
+  width: 18px;
+  border-radius: 9999px;
+  border: 2px solid #5d63ec;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  pointer-events: auto;
+}
+.range-input::-webkit-slider-runnable-track {
+  height: 8px;
+}
+.range-input::-moz-range-track {
+  height: 8px;
+}
+</style>
