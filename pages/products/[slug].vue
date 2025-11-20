@@ -366,15 +366,15 @@ useHead({ title: `${product.name} – Val Commerce` })
 }
 
 .apple-pay-button__icon svg {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 4rem;
+  height: 4rem;
   fill: currentColor;
 }
 
 .apple-pay-button__fallback-label {
   font-family: 'SF Pro Display', 'SF Pro', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 1.25rem;
   letter-spacing: 0.02em;
   line-height: 1.2;
 }
