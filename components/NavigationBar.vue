@@ -127,24 +127,6 @@
               >
                 <XMarkIcon class="h-5 w-5" />
               </button>
-              <div
-                v-if="autocompleteSuggestions.length"
-                class="absolute left-0 right-0 top-full z-10 mt-2 rounded-2xl border border-slate-200 bg-white/95 shadow-xl"
-              >
-                <ul>
-                  <li v-for="suggestion in autocompleteSuggestions" :key="suggestion">
-                    <button
-                      type="button"
-                      class="flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-slate-700 transition hover:bg-primary-50 hover:text-primary-700"
-                      @mousedown.prevent
-                      @click="applySuggestion(suggestion)"
-                    >
-                      <MagnifyingGlassIcon class="h-4 w-4 text-slate-400" />
-                      <span>{{ suggestion }}</span>
-                    </button>
-                  </li>
-                </ul>
-              </div>
             </div>
             <button
               type="button"
@@ -276,32 +258,54 @@
                 >
                   No products found for "{{ searchQuery.trim() }}".
                 </div>
-                <div v-else class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                  <article
-                    v-for="product in searchResults"
-                    :key="product.id"
-                    class="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+                <div v-else class="relative">
+                  <div
+                    v-if="autocompleteSuggestions.length"
+                    class="pointer-events-auto no-scrollbar absolute inset-x-0 top-0 z-10 overflow-x-auto whitespace-nowrap px-1 py-2"
                   >
-                    <img :src="product.image" :alt="product.name" class="h-48 w-full rounded-xl object-cover" />
-                    <div class="mt-4">
-                      <p class="text-sm font-semibold text-slate-900">
-                        {{ product.name }}
-                      </p>
-                      <p class="text-xs uppercase tracking-wide text-slate-500" v-if="product.brand">
-                        {{ product.brand }}
-                      </p>
-                      <p class="mt-1 text-base font-semibold text-primary-600" v-if="product.price !== null">
-                        {{ formatPrice(product.price) }}
-                      </p>
+                    <div class="no-scrollbar flex items-center gap-2">
+                      <button
+                        v-for="suggestion in autocompleteSuggestions"
+                        :key="suggestion"
+                        type="button"
+                        class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                        @click="applySuggestion(suggestion)"
+                      >
+                        <MagnifyingGlassIcon class="h-4 w-4 text-slate-500" />
+                        <span>{{ suggestion }}</span>
+                      </button>
                     </div>
-                    <NuxtLink
-                      :to="product.link"
-                      class="mt-4 inline-flex w-full items-center justify-center rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-700"
-                      @click="closeOverlay"
+                  </div>
+                  <div
+                    class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+                    :class="{ 'pt-16': autocompleteSuggestions.length }"
+                  >
+                    <article
+                      v-for="product in searchResults"
+                      :key="product.id"
+                      class="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
                     >
-                      View product
-                    </NuxtLink>
-                  </article>
+                      <img :src="product.image" :alt="product.name" class="h-48 w-full rounded-xl object-cover" />
+                      <div class="mt-4">
+                        <p class="text-sm font-semibold text-slate-900">
+                          {{ product.name }}
+                        </p>
+                        <p class="text-xs uppercase tracking-wide text-slate-500" v-if="product.brand">
+                          {{ product.brand }}
+                        </p>
+                        <p class="mt-1 text-base font-semibold text-primary-600" v-if="product.price !== null">
+                          {{ formatPrice(product.price) }}
+                        </p>
+                      </div>
+                      <NuxtLink
+                        :to="product.link"
+                        class="mt-4 inline-flex w-full items-center justify-center rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-700"
+                        @click="closeOverlay"
+                      >
+                        View product
+                      </NuxtLink>
+                    </article>
+                  </div>
                 </div>
               </div>
             </div>
@@ -817,6 +821,17 @@ onBeforeUnmount(() => {
   }
 })
 </script>
+
+<style scoped>
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+</style>
 
 <style scoped>
 .range-input {
