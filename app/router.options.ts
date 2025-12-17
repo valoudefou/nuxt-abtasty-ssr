@@ -6,8 +6,7 @@ export default <RouterConfig>{
       return savedPosition
     }
 
-    // Returning false tells Vue Router to leave the scroll position untouched,
-    // preventing Nuxt from forcing the viewport back to the top during navigation.
-    return false
+    // Always reset to the top on navigation so product pages don’t open at a scrolled position.
+    return { top: 0, left: 0 }
   }
 }

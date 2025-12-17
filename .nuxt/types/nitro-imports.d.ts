@@ -43,6 +43,7 @@ declare global {
   const fetchProducts: typeof import('../../server/utils/products').fetchProducts
   const fetchRecommendations: typeof import('../../server/utils/recommendations').fetchRecommendations
   const fetchWithEvent: typeof import('../../node_modules/h3').fetchWithEvent
+  const findProductById: typeof import('../../server/utils/products').findProductById
   const findProductBySlug: typeof import('../../server/utils/products').findProductBySlug
   const findProductsByBrand: typeof import('../../server/utils/products').findProductsByBrand
   const flagshipLogStore: typeof import('../../server/utils/flagship/logStore').flagshipLogStore
@@ -158,5 +159,5 @@ export { buildAssetsURL as __buildAssetsURL, publicAssetsURL as __publicAssetsUR
 export { defineAppConfig } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/node_modules/@nuxt/nitro-server/dist/runtime/utils/config';
 export { initializeFlagship } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/flagship/index';
 export { flagshipLogStore } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/flagship/logStore';
-export { fetchProducts, findProductBySlug, fetchProductBrands, findProductsByBrand } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/products';
+export { fetchProducts, findProductBySlug, findProductById, fetchProductBrands, findProductsByBrand } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/products';
 export { fetchRecommendations, handleRecommendationsRequest } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/recommendations';

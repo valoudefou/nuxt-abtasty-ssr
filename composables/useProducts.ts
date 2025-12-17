@@ -169,9 +169,25 @@ export const useProducts = () => {
     }
   }
 
-  const findBySlug = async (slug: string) => {
+  const extractNumericId = (value: string | number) => {
+    if (typeof value === 'number') {
+      return value
+    }
+
+    // Use the last numeric segment (e.g., "2016-ford-ranger-1589" -> 1589).
+    const match = String(value).match(/(\d+)(?!.*\d)/)
+    return match ? Number.parseInt(match[1], 10) : Number.NaN
+  }
+
+  const findById = async (id: string | number) => {
+    const numericId = extractNumericId(id)
+
+    if (!Number.isFinite(numericId)) {
+      throw createError({ statusCode: 404, statusMessage: 'Product not found' })
+    }
+
     try {
-      return await $fetch<Product>(`/api/products/${slug}`)
+      return await $fetch<Product>(`/api/products/${encodeURIComponent(String(numericId))}`)
     } catch (err) {
       throw createError({ statusCode: 404, statusMessage: 'Product not found' })
     }
@@ -188,6 +204,6 @@ export const useProducts = () => {
     fetchBrands,
     selectBrand,
     searchProducts,
-    findBySlug
+    findById
   }
 }

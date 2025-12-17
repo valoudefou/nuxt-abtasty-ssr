@@ -133,13 +133,17 @@ import { ArrowLeftIcon, CheckCircleIcon, ShoppingCartIcon } from '@heroicons/vue
 import RecommendationsCarousel from '@/components/RecommendationsCarousel.vue'
 // Client-side Flagship helper mirrors the server bootstrap so the SDK picked up during SSR
 // is re-used in the browser with identical runtime config and logging behaviour.
-import { initializeFlagship } from '@/utils/flagship'
+import { initializeFlagship, logFlagExposureToLooker } from '@/utils/flagship'
 import { flagshipLogStore } from '@/utils/flagship/logStore'
+
+definePageMeta({
+  middleware: 'product-canonical'
+})
 
 const route = useRoute()
 const cart = useCart()
 const notifications = useNotifications()
-const { findBySlug } = useProducts()
+const { findById } = useProducts()
 const { viewedProducts, addViewedProduct } = useViewedProducts()
 
 const { data: applePayFeature } = await useFetch<{ enabled: boolean }>('/api/features/apple-pay', {
@@ -147,7 +151,7 @@ const { data: applePayFeature } = await useFetch<{ enabled: boolean }>('/api/fea
   default: () => ({ enabled: false })
 })
 
-const product = await findBySlug(route.params.slug as string)
+const product = await findById(route.params.id as string)
 
 const selectedSize = ref(product.sizes[0])
 // applePayEnabled starts with the server-evaluated flag so SSR HTML and hydration match;
@@ -192,6 +196,20 @@ const runFlagship = async () => {
     // without reloading the page.
     applePayEnabled.value = flagEnabled
     flagshipVisitor.value = visitor
+
+    // Capture Looker-style exposure logs (including metadata like variation name) so the
+    // "L" panel reflects the exact payload we would send to Looker.
+    logFlagExposureToLooker(
+      visitor.getFlags(),
+      {
+        info: (msg, meta) => console.info(msg, meta)
+      },
+      {
+        visitorId: visitor.visitorId,
+        anonymousId: visitor.anonymousId ?? undefined,
+        extraProps: { page: 'product', productSlug: product.slug }
+      }
+    )
 
     console.log('Flagship paymentFeature1Click flag', {
       visitorId: visitor.visitorId,

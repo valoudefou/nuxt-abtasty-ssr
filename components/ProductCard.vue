@@ -1,6 +1,6 @@
 <template>
   <div class="group flex h-full flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
-    <NuxtLink :to="`/products/${product.slug}`" class="relative block overflow-hidden rounded-2xl bg-slate-100">
+    <NuxtLink :to="product.link || `/products/${product.id}`" class="relative block overflow-hidden rounded-2xl bg-slate-100">
       <img :src="product.image" :alt="product.name" class="h-64 w-full object-cover transition duration-500 group-hover:scale-105" />
       <div v-if="!product.inStock" class="absolute inset-0 flex items-center justify-center bg-black/40">
         <span class="rounded-full bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-900">Sold out</span>
@@ -8,7 +8,7 @@
     </NuxtLink>
     <div class="mt-6 flex flex-1 flex-col">
       <div class="flex items-start justify-between gap-4">
-        <NuxtLink :to="`/products/${product.slug}`" class="text-lg font-semibold text-slate-900">
+        <NuxtLink :to="product.link || `/products/${product.id}`" class="text-lg font-semibold text-slate-900">
           {{ product.name }}
         </NuxtLink>
         <p class="text-lg font-semibold text-primary-600">
@@ -16,7 +16,7 @@
         </p>
       </div>
       <NuxtLink
-        :to="`/products/${product.slug}`"
+        :to="product.link || `/products/${product.id}`"
         class="mt-3 block text-sm leading-6 text-slate-600"
       >
         <span class="line-clamp-3">
@@ -47,7 +47,7 @@
           <span class="sr-only sm:hidden">{{ product.inStock ? 'Add to cart' : 'Notify me' }}</span>
         </button>
         <NuxtLink
-          :to="`/products/${product.slug}`"
+          :to="product.link || `/products/${product.id}`"
           class="inline-flex flex-1 items-center justify-center rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
         >
           View details

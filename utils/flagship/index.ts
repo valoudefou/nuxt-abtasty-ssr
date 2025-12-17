@@ -79,3 +79,5 @@ export const initializeFlagship = async ({
 
   return visitor
 }
+
+export { fakeLookerClient, logApplePayPdpExposure, logFlagExposureToLooker } from '@/utils/flagship/lookerLogging'

@@ -1507,7 +1507,22 @@ const plugins = [
 _ZK7nA5r6JyOJP7h9QkD_Yikqkqf1rUFS5iMDJQJqLZU
 ];
 
-const assets = {};
+const assets = {
+  "/index.mjs": {
+    "type": "text/javascript; charset=utf-8",
+    "etag": "\"1dc7f-Ojgi/GbgrN7FRkP0436dq5D97L0\"",
+    "mtime": "2025-12-17T13:06:02.668Z",
+    "size": 121983,
+    "path": "index.mjs"
+  },
+  "/index.mjs.map": {
+    "type": "application/json",
+    "etag": "\"71260-Cga/LOsH6xcysrKNBzwTsWPZPvw\"",
+    "mtime": "2025-12-17T13:06:02.669Z",
+    "size": 463456,
+    "path": "index.mjs.map"
+  }
+};
 
 function readAsset (id) {
   const serverDir = dirname$1(fileURLToPath(globalThis._importMeta_.url));
@@ -1918,7 +1933,7 @@ async function getIslandContext(event) {
 }
 
 const _lazy_0By3q6 = () => Promise.resolve().then(function () { return applePay_get$1; });
-const _lazy_RPHsNg = () => Promise.resolve().then(function () { return _slug__get$1; });
+const _lazy__bRZZm = () => Promise.resolve().then(function () { return _id__get$1; });
 const _lazy_2FLXRz = () => Promise.resolve().then(function () { return _brand__get$1; });
 const _lazy_nJ6mvh = () => Promise.resolve().then(function () { return brands_get$1; });
 const _lazy_lPJa6u = () => Promise.resolve().then(function () { return index_get$1; });
@@ -1930,7 +1945,7 @@ const _lazy_8i5jFq = () => Promise.resolve().then(function () { return renderer$
 const handlers = [
   { route: '', handler: _aUbVTW, lazy: false, middleware: true, method: undefined },
   { route: '/api/features/apple-pay', handler: _lazy_0By3q6, lazy: true, middleware: false, method: "get" },
-  { route: '/api/products/:slug', handler: _lazy_RPHsNg, lazy: true, middleware: false, method: "get" },
+  { route: '/api/products/:id', handler: _lazy__bRZZm, lazy: true, middleware: false, method: "get" },
   { route: '/api/products/brand/:brand', handler: _lazy_2FLXRz, lazy: true, middleware: false, method: "get" },
   { route: '/api/products/brands', handler: _lazy_nJ6mvh, lazy: true, middleware: false, method: "get" },
   { route: '/api/products', handler: _lazy_lPJa6u, lazy: true, middleware: false, method: "get" },
@@ -2572,8 +2587,15 @@ const slugify$1 = (value, fallback) => {
   const normalized = value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   return normalized.length > 0 ? normalized : fallback;
 };
+const extractNumericId = (value) => {
+  if (typeof value === "number") {
+    return value;
+  }
+  const match = String(value).match(/(\d+)(?!.*\d)/);
+  return match ? Number.parseInt(match[1], 10) : Number.NaN;
+};
 const toProduct = (raw) => {
-  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
+  var _a, _b, _c, _d, _e, _f, _g, _h, _i;
   const id = parseNumber(raw.id);
   const price = Math.max(parseNumber((_a = raw.price) != null ? _a : raw.price_before_discount), 0);
   const rating = Math.min(Math.max(parseNumber(raw.rating), 0), 5);
@@ -2597,6 +2619,7 @@ const toProduct = (raw) => {
   const tags = Array.from(tagSet);
   const slugBase = slugify$1((_d = raw.title) != null ? _d : `product-${id}`, `product-${id}`);
   const slug = `${slugBase}-${id}`;
+  const productLink = `/products/${id}`;
   return {
     id,
     slug,
@@ -2615,7 +2638,7 @@ const toProduct = (raw) => {
     discountPercentage: discount,
     availabilityStatus: availability || void 0,
     returnPolicy: (_i = raw.returnPolicy) != null ? _i : void 0,
-    link: (_j = raw.link) != null ? _j : void 0
+    link: productLink
   };
 };
 const fetchProducts = async () => {
@@ -2640,6 +2663,14 @@ const fetchProducts = async () => {
 const findProductBySlug = async (slug) => {
   const products = await fetchProducts();
   return products.find((product) => product.slug === slug);
+};
+const findProductById = async (id) => {
+  const numericId = extractNumericId(id);
+  if (!Number.isFinite(numericId)) {
+    return void 0;
+  }
+  const products = await fetchProducts();
+  return products.find((product) => product.id === numericId);
 };
 const sanitizeBrand = (value) => {
   if (value === null || value === void 0) {
@@ -2685,18 +2716,19 @@ const findProductsByBrand = async (brand) => {
   }
 };
 
-const _slug__get = defineEventHandler(async (event) => {
-  const { slug } = getRouterParams(event);
-  const product = await findProductBySlug(slug);
+const _id__get = defineEventHandler(async (event) => {
+  var _a;
+  const { id } = getRouterParams(event);
+  const product = (_a = await findProductById(id)) != null ? _a : await findProductBySlug(id);
   if (!product) {
     throw createError({ statusCode: 404, statusMessage: "Product not found" });
   }
   return product;
 });
 
-const _slug__get$1 = /*#__PURE__*/Object.freeze(/*#__PURE__*/Object.defineProperty({
+const _id__get$1 = /*#__PURE__*/Object.freeze(/*#__PURE__*/Object.defineProperty({
   __proto__: null,
-  default: _slug__get
+  default: _id__get
 }, Symbol.toStringTag, { value: 'Module' }));
 
 const _brand__get = defineEventHandler(async (event) => {

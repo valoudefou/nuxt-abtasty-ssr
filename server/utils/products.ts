@@ -51,6 +51,17 @@ const slugify = (value: string, fallback: string) => {
   return normalized.length > 0 ? normalized : fallback
 }
 
+const extractNumericId = (value: string | number) => {
+  if (typeof value === 'number') {
+    return value
+  }
+
+  // Prefer the last numeric segment so slugs like "2016-ford-ranger-1589"
+  // resolve to the catalog ID (1589) instead of the year in the title.
+  const match = String(value).match(/(\d+)(?!.*\d)/)
+  return match ? Number.parseInt(match[1], 10) : Number.NaN
+}
+
 const toProduct = (raw: RemoteProduct): Product => {
   const id = parseNumber(raw.id)
   const price = Math.max(parseNumber(raw.price ?? raw.price_before_discount), 0)
@@ -83,6 +94,8 @@ const toProduct = (raw: RemoteProduct): Product => {
   const slugBase = slugify(raw.title ?? `product-${id}`, `product-${id}`)
   const slug = `${slugBase}-${id}`
 
+  const productLink = `/products/${id}`
+
   return {
     id,
     slug,
@@ -101,7 +114,7 @@ const toProduct = (raw: RemoteProduct): Product => {
     discountPercentage: discount,
     availabilityStatus: availability || undefined,
     returnPolicy: raw.returnPolicy ?? undefined,
-    link: raw.link ?? undefined
+    link: productLink
   }
 }
 
@@ -132,6 +145,17 @@ export const fetchProducts = async (): Promise<Product[]> => {
 export const findProductBySlug = async (slug: string): Promise<Product | undefined> => {
   const products = await fetchProducts()
   return products.find((product) => product.slug === slug)
+}
+
+export const findProductById = async (id: string | number): Promise<Product | undefined> => {
+  const numericId = extractNumericId(id)
+
+  if (!Number.isFinite(numericId)) {
+    return undefined
+  }
+
+  const products = await fetchProducts()
+  return products.find((product) => product.id === numericId)
 }
 
 const sanitizeBrand = (value: string | null | undefined) => {
