@@ -20,9 +20,23 @@ const getProductCategories = (product: Product) => {
   return Array.from(unique.values())
 }
 
-const deriveCategories = (collection: Product[]) => {
+const matchesCategory = (product: Product, category: string) => {
+  if (category === 'All') {
+    return true
+  }
+
+  const target = category.toLowerCase()
+  return getProductCategories(product).some((value) => value.toLowerCase() === target)
+}
+
+const deriveCategories = (collection: Product[], activeCategory: string) => {
   const unique = new Map<string, string>()
-  for (const item of collection) {
+  const source =
+    activeCategory === 'All'
+      ? collection
+      : collection.filter((item) => matchesCategory(item, activeCategory))
+
+  for (const item of source) {
     for (const category of getProductCategories(item)) {
       const key = category.toLowerCase()
       if (!unique.has(key)) {
@@ -38,11 +52,7 @@ const filterByCategory = (collection: Product[], category: string) => {
     return collection
   }
 
-  const target = category.toLowerCase()
-  return collection.filter((product) => {
-    const categories = getProductCategories(product).map((value) => value.toLowerCase())
-    return categories.includes(target)
-  })
+  return collection.filter((product) => matchesCategory(product, category))
 }
 
 const deriveBrands = (collection: Product[]) => {
@@ -84,7 +94,7 @@ export const useCategoryProducts = () => {
 
   const refreshCategories = (collection: Product[]) => {
     const brandScoped = selectedBrand.value === 'All' ? collection : filterByBrand(collection, selectedBrand.value)
-    const derived = deriveCategories(brandScoped)
+    const derived = deriveCategories(brandScoped, selectedCategory.value)
     categories.value = derived
     if (selectedCategory.value !== 'All' && !derived.includes(selectedCategory.value)) {
       selectedCategory.value = 'All'
@@ -103,7 +113,7 @@ export const useCategoryProducts = () => {
       const response = await $fetch<Product[]>('/api/products')
       allProducts.value = response
       products.value = response
-      categories.value = deriveCategories(response)
+      categories.value = deriveCategories(response, selectedCategory.value)
       brands.value = deriveBrands(response)
       selectedCategory.value = 'All'
       selectedBrand.value = 'All'
@@ -126,6 +136,7 @@ export const useCategoryProducts = () => {
     const baseCollection = searchQuery.value ? searchResults.value : allProducts.value
     const filtered = applyFilters(baseCollection)
     products.value = filtered
+    refreshCategories(baseCollection)
 
     if (filtered.length === 0) {
       error.value =
