@@ -12,6 +12,7 @@ export interface Product {
   colors: string[]
   sizes: string[]
   brand?: string
+  vendor?: string
   stock?: number
   discountPercentage?: number
   availabilityStatus?: string

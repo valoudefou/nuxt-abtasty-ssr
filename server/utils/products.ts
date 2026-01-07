@@ -74,6 +74,15 @@ const sanitizeCategory = (value: string | null | undefined) => {
   return trimmed.length > 0 ? trimmed : undefined
 }
 
+const sanitizeVendor = (value: string | null | undefined) => {
+  if (value === null || value === undefined) {
+    return undefined
+  }
+
+  const trimmed = String(value).trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}
+
 const toProduct = (raw: RemoteProduct): Product => {
   const id = parseNumber(raw.id)
   const price = Math.max(parseNumber(raw.price ?? raw.price_before_discount), 0)
@@ -125,6 +134,7 @@ const toProduct = (raw: RemoteProduct): Product => {
     colors: tags,
     sizes: ['One Size'],
     brand: brand || undefined,
+    vendor: sanitizeVendor(raw.vendor),
     stock,
     discountPercentage: discount,
     availabilityStatus: availability || undefined,
@@ -142,7 +152,9 @@ export const fetchProducts = async (): Promise<Product[]> => {
 
   try {
     const { products } = await $fetch<RemoteResponse>(PRODUCT_SOURCE_URL)
-    const mapped = products.map(toProduct)
+    const mapped = products
+      .filter((product) => sanitizeVendor(product.vendor)?.toLowerCase() === 'jacamo')
+      .map(toProduct)
 
     cachedProducts = mapped
     lastFetch = now
