@@ -31,9 +31,11 @@ type RemoteResponse = {
 
 const PRODUCT_SOURCE_URL = 'https://live-server1.vercel.app/products'
 const CACHE_TTL = 1000 * 60 * 5 // 5 minutes
+const CACHE_VERSION = 1
 
 let cachedProducts: Product[] | null = null
 let lastFetch = 0
+let cachedVersion = 0
 
 const PLACEHOLDER_IMAGE = 'https://assets-manager.abtasty.com/placeholder.png'
 
@@ -162,7 +164,7 @@ const toProduct = (raw: RemoteProduct): Product => {
 export const fetchProducts = async (): Promise<Product[]> => {
   const now = Date.now()
 
-  if (cachedProducts && now - lastFetch < CACHE_TTL) {
+  if (cachedProducts && cachedVersion === CACHE_VERSION && now - lastFetch < CACHE_TTL) {
     return cachedProducts
   }
 
@@ -174,6 +176,7 @@ export const fetchProducts = async (): Promise<Product[]> => {
 
     cachedProducts = mapped
     lastFetch = now
+    cachedVersion = CACHE_VERSION
 
     return mapped
   } catch (error) {
