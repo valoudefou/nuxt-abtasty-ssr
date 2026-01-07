@@ -1,13 +1,36 @@
 import type { Product } from '@/types/product'
 
-const deriveCategories = (collection: Product[]) => {
-  const unique = new Set<string>()
-  for (const item of collection) {
-    if (item.category) {
-      unique.add(item.category)
+const getProductCategories = (product: Product) => {
+  const unique = new Map<string, string>()
+  const addCategory = (value?: string) => {
+    if (!value) return
+    const trimmed = value.trim()
+    if (!trimmed) return
+    const key = trimmed.toLowerCase()
+    if (!unique.has(key)) {
+      unique.set(key, trimmed)
     }
   }
-  return Array.from(unique).sort((a, b) => a.localeCompare(b))
+
+  addCategory(product.category)
+  addCategory(product.category_level2)
+  addCategory(product.category_level3)
+  addCategory(product.category_level4)
+
+  return Array.from(unique.values())
+}
+
+const deriveCategories = (collection: Product[]) => {
+  const unique = new Map<string, string>()
+  for (const item of collection) {
+    for (const category of getProductCategories(item)) {
+      const key = category.toLowerCase()
+      if (!unique.has(key)) {
+        unique.set(key, category)
+      }
+    }
+  }
+  return Array.from(unique.values()).sort((a, b) => a.localeCompare(b))
 }
 
 const filterByCategory = (collection: Product[], category: string) => {
@@ -16,7 +39,10 @@ const filterByCategory = (collection: Product[], category: string) => {
   }
 
   const target = category.toLowerCase()
-  return collection.filter((product) => product.category?.toLowerCase() === target)
+  return collection.filter((product) => {
+    const categories = getProductCategories(product).map((value) => value.toLowerCase())
+    return categories.includes(target)
+  })
 }
 
 const deriveBrands = (collection: Product[]) => {

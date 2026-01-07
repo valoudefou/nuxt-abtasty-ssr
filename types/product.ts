@@ -17,4 +17,7 @@ export interface Product {
   availabilityStatus?: string
   returnPolicy?: string
   link?: string
+  category_level2?: string
+  category_level3?: string
+  category_level4?: string
 }

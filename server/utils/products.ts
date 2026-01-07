@@ -6,6 +6,9 @@ type RemoteProduct = {
   title: string
   description: string
   category?: string | null
+  category_level2?: string | null
+  category_level3?: string | null
+  category_level4?: string | null
   link?: string | null
   price?: string | number | null
   price_before_discount?: string | number | null
@@ -62,6 +65,15 @@ const extractNumericId = (value: string | number) => {
   return match ? Number.parseInt(match[1], 10) : Number.NaN
 }
 
+const sanitizeCategory = (value: string | null | undefined) => {
+  if (value === null || value === undefined) {
+    return undefined
+  }
+
+  const trimmed = String(value).trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}
+
 const toProduct = (raw: RemoteProduct): Product => {
   const id = parseNumber(raw.id)
   const price = Math.max(parseNumber(raw.price ?? raw.price_before_discount), 0)
@@ -102,7 +114,10 @@ const toProduct = (raw: RemoteProduct): Product => {
     name: raw.title ?? `Product ${id}`,
     description: raw.description ?? '',
     price,
-    category: raw.category ?? 'General',
+    category: sanitizeCategory(raw.category) ?? 'General',
+    category_level2: sanitizeCategory(raw.category_level2),
+    category_level3: sanitizeCategory(raw.category_level3),
+    category_level4: sanitizeCategory(raw.category_level4),
     image: raw.thumbnail ?? '',
     rating,
     highlights: highlightItems,
