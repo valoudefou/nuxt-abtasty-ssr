@@ -83,6 +83,21 @@ const sanitizeVendor = (value: string | null | undefined) => {
   return trimmed.length > 0 ? trimmed : undefined
 }
 
+const buildImageUrl = (value: string | null | undefined) => {
+  if (!value) {
+    return ''
+  }
+
+  const trimmed = String(value).trim()
+  if (!trimmed) {
+    return ''
+  }
+
+  // Proxy external images to avoid hosts that block direct hotlinking.
+  const withoutProtocol = trimmed.replace(/^https?:\/\//i, '')
+  return `https://images.weserv.nl/?url=${encodeURIComponent(withoutProtocol)}`
+}
+
 const toProduct = (raw: RemoteProduct): Product => {
   const id = parseNumber(raw.id)
   const price = Math.max(parseNumber(raw.price ?? raw.price_before_discount), 0)
@@ -127,7 +142,7 @@ const toProduct = (raw: RemoteProduct): Product => {
     category_level2: sanitizeCategory(raw.category_level2),
     category_level3: sanitizeCategory(raw.category_level3),
     category_level4: sanitizeCategory(raw.category_level4),
-    image: raw.thumbnail ?? '',
+    image: buildImageUrl(raw.thumbnail),
     rating,
     highlights: highlightItems,
     inStock: availability.toLowerCase() === 'in stock' || stock > 0,
