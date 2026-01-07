@@ -6,6 +6,9 @@ declare module "nitropack/types" {
     '/api/features/apple-pay': {
       'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/features/apple-pay.get').default>>>>
     }
+    '/api/image': {
+      'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/image.get').default>>>>
+    }
     '/api/products/:id': {
       'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/products/[id].get').default>>>>
     }

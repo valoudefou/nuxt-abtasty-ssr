@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
     setHeader(event, 'Cache-Control', 'public, max-age=600')
 
     const arrayBuffer = await response.arrayBuffer()
-    return Buffer.from(arrayBuffer)
+    return new Uint8Array(arrayBuffer)
   } catch (err) {
     console.error('Image proxy failed', err)
     return sendRedirect(event, PLACEHOLDER, 302)
