@@ -35,6 +35,8 @@ const CACHE_TTL = 1000 * 60 * 5 // 5 minutes
 let cachedProducts: Product[] | null = null
 let lastFetch = 0
 
+const PLACEHOLDER_IMAGE = 'https://images.weserv.nl/?url=assets-manager.abtasty.com/placeholder.png'
+
 const parseNumber = (value: string | number | null | undefined) => {
   if (value === null || value === undefined) {
     return 0
@@ -85,12 +87,12 @@ const sanitizeVendor = (value: string | null | undefined) => {
 
 const buildImageUrl = (value: string | null | undefined) => {
   if (!value) {
-    return ''
+    return PLACEHOLDER_IMAGE
   }
 
   const trimmed = String(value).trim()
   if (!trimmed) {
-    return ''
+    return PLACEHOLDER_IMAGE
   }
 
   // Proxy external images to avoid hosts that block direct hotlinking.
