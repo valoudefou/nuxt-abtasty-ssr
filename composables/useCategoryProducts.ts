@@ -86,39 +86,6 @@ export const useCategoryProducts = () => {
   const loading = ref(false)
   const error = ref<string | null>(null)
   const hasFetched = useState<boolean>('category-has-fetched', () => false)
-  const selectedCategoryHierarchy = computed(() => {
-    if (selectedCategory.value === 'All') {
-      return []
-    }
-
-    const match = allProducts.value.find((product) =>
-      matchesCategory(product, selectedCategory.value)
-    )
-
-    if (!match) {
-      return []
-    }
-
-    const hierarchy = [
-      match.category,
-      match.category_level2,
-      match.category_level3,
-      match.category_level4
-    ]
-      .map((entry) => (entry ? entry.trim() : ''))
-      .filter((entry) => entry.length > 0)
-
-    const unique = new Map<string, string>()
-    for (const entry of hierarchy) {
-      const key = entry.toLowerCase()
-      if (!unique.has(key)) {
-        unique.set(key, entry)
-      }
-    }
-
-    return Array.from(unique.values())
-  })
-
   const applyFilters = (collection: Product[]) => {
     const brandFiltered = filterByBrand(collection, selectedBrand.value)
     return filterByCategory(brandFiltered, selectedCategory.value)
@@ -245,7 +212,6 @@ export const useCategoryProducts = () => {
     fetchProducts,
     selectCategory,
     selectBrand,
-    searchProducts,
-    selectedCategoryHierarchy
+    searchProducts
   }
 }

@@ -170,7 +170,9 @@ export const fetchProducts = async (): Promise<Product[]> => {
 
   try {
     const { products } = await $fetch<RemoteResponse>(PRODUCT_SOURCE_URL)
-    const mapped = products.map(toProduct)
+    const mapped = products
+      .filter((product) => sanitizeVendor(product.vendor)?.toLowerCase() === 'jacamo')
+      .map(toProduct)
 
     cachedProducts = mapped
     lastFetch = now

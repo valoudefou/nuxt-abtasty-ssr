@@ -39,7 +39,6 @@ type RecommendationFilter = {
   addedToCartProductId?: number | null
   viewingItemId?: number | null
   cartProductIds?: number[]
-  categoryHierarchy?: string[]
 }
 
 type StrategyNameMap = Record<RecommendationFilter['field'], string>
@@ -111,24 +110,8 @@ const buildRecommendationUrl = (baseEndpoint: string, filter?: RecommendationFil
       const normalizedValue = rawValue.trim()
       const isAllValue = normalizedValue.toLowerCase() === 'all'
 
-      if (filter?.field === 'category' && !isAllValue) {
-        const hierarchy = Array.isArray(filter?.categoryHierarchy)
-          ? filter.categoryHierarchy
-              .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
-              .filter((entry) => entry.length > 0)
-          : []
-
-        const categories = [normalizedValue, ...hierarchy].filter((entry) => entry.length > 0)
-        if (categories.length > 0) {
-          const unique = new Map<string, string>()
-          for (const category of categories) {
-            const key = category.toLowerCase()
-            if (!unique.has(key)) {
-              unique.set(key, category)
-            }
-          }
-          variables.category_id = Array.from(unique.values())
-        }
+      if (filter?.field === 'category' && !isAllValue && normalizedValue) {
+        variables.category_id = normalizedValue
       } else if (normalizedValue && !isAllValue) {
         variables.brand = normalizedValue
       }
@@ -421,8 +404,7 @@ const normalizeFilterFromSource = (
   categories?: unknown,
   addedToCartProduct?: unknown,
   viewingItem?: unknown,
-  cartProducts?: unknown,
-  categoryHierarchy?: unknown
+  cartProducts?: unknown
 ): RecommendationFilter => {
   let field: RecommendationFilter['field'] = 'brand'
   if (sourceField === 'category') {
@@ -490,38 +472,13 @@ const normalizeFilterFromSource = (
     }
   }
 
-  let normalizedCategoryHierarchy: string[] | undefined
-  if (field === 'category' && categoryHierarchy !== undefined) {
-    const source = Array.isArray(categoryHierarchy)
-      ? categoryHierarchy
-      : typeof categoryHierarchy === 'string'
-        ? categoryHierarchy.split(',')
-        : []
-
-    const sanitized = source
-      .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
-      .filter((entry) => entry.length > 0)
-
-    if (sanitized.length > 0) {
-      const unique = new Map<string, string>()
-      for (const entry of sanitized) {
-        const key = entry.toLowerCase()
-        if (!unique.has(key)) {
-          unique.set(key, entry)
-        }
-      }
-      normalizedCategoryHierarchy = Array.from(unique.values())
-    }
-  }
-
   return {
     field,
     value,
     categoriesInCart,
     addedToCartProductId,
     viewingItemId,
-    cartProductIds,
-    categoryHierarchy: normalizedCategoryHierarchy
+    cartProductIds
   }
 }
 
@@ -535,8 +492,7 @@ export const handleRecommendationsRequest = async (event: H3Event, method: 'GET'
         query.categoriesInCart,
         query.addedToCartProductId,
         query.viewingItemId,
-        query.cartProductIds,
-        query.categoryHierarchy
+        query.cartProductIds
       )
     )
   }
@@ -548,7 +504,6 @@ export const handleRecommendationsRequest = async (event: H3Event, method: 'GET'
     addedToCartProductId?: number | string | null
     viewingItemId?: number | string | null
     cartProductIds?: number[] | string | null
-    categoryHierarchy?: string[] | string | null
   }>(event)
 
   return await fetchRecommendations(
@@ -558,8 +513,7 @@ export const handleRecommendationsRequest = async (event: H3Event, method: 'GET'
       body?.categoriesInCart ?? undefined,
       body?.addedToCartProductId ?? undefined,
       body?.viewingItemId ?? undefined,
-      body?.cartProductIds ?? undefined,
-      body?.categoryHierarchy ?? undefined
+      body?.cartProductIds ?? undefined
     )
   )
 }

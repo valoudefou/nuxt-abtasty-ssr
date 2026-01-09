@@ -39,7 +39,6 @@
       :search-query="searchQuery"
       :enable-search="false"
       recommendation-filter-field="category"
-      :category-hierarchy="selectedCategoryHierarchy"
       @select-brand="onSelectCategory"
       @search="onSearch"
     />
@@ -63,8 +62,7 @@ const {
   fetchProducts,
   selectCategory,
   selectBrand,
-  searchProducts,
-  selectedCategoryHierarchy
+  searchProducts
 } = useCategoryProducts()
 
 await fetchProducts()
