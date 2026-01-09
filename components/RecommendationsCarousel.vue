@@ -156,6 +156,7 @@ const props = defineProps<{
   addedToCartProductId?: number | null
   viewingItemId?: number | null
   cartProductIds?: number[]
+  categoryHierarchy?: string[]
 }>()
 
 const logClientRecommendationEvent = (
@@ -204,6 +205,13 @@ const activeFilterField = computed<RecommendationField>(
 const cartCategoryFilters = computed(() => props.cartCategories ?? [])
 const addedToCartProductId = computed(() => props.addedToCartProductId ?? null)
 const viewingItemId = computed(() => props.viewingItemId ?? null)
+const categoryHierarchy = computed(() =>
+  Array.isArray(props.categoryHierarchy)
+    ? props.categoryHierarchy
+        .map((value) => (typeof value === 'string' ? value.trim() : ''))
+        .filter((value) => value.length > 0)
+    : []
+)
 const cartProductContextIds = computed(() =>
   Array.isArray(props.cartProductIds)
     ? props.cartProductIds.filter((id) => Number.isFinite(Number(id))).map((id) => Number(id))
@@ -285,6 +293,8 @@ const ensureRecommendations = async (
   const normalizedViewingItemId =
     filterField === 'viewed_items' ? viewingItemId.value : null
   const normalizedCartProducts = cartProductContextIds.value
+  const normalizedCategoryHierarchy =
+    filterField === 'category' ? normalizeCategories(categoryHierarchy.value) : []
 
   if (
     isArrayFilter(filterField)
@@ -314,7 +324,9 @@ const ensureRecommendations = async (
   if (normalizedCartProducts.length > 0) {
     filterKey += `|cart:${normalizedCartProducts.sort().join(',')}`
   }
-  filterKey += '|klaviyio:loyal'
+  if (filterField === 'category' && normalizedCategoryHierarchy.length > 0) {
+    filterKey += `|catHierarchy:${normalizedCategoryHierarchy.sort().join(',')}`
+  }
 
   if (recommendationsLoaded.value && recommendationsFilterKey.value === filterKey) {
     logHydratedRecommendations(filterKey, headingState.value || strategyName, strategyId)
@@ -338,6 +350,10 @@ const ensureRecommendations = async (
         viewingItemId:
           filterField === 'viewed_items' && typeof normalizedViewingItemId === 'number'
             ? normalizedViewingItemId
+            : undefined,
+        categoryHierarchy:
+          filterField === 'category' && normalizedCategoryHierarchy.length > 0
+            ? normalizedCategoryHierarchy
             : undefined,
         cartProductIds: normalizedCartProducts.length > 0 ? normalizedCartProducts : undefined
       }

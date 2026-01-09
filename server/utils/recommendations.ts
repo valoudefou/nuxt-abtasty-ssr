@@ -39,6 +39,7 @@ type RecommendationFilter = {
   addedToCartProductId?: number | null
   viewingItemId?: number | null
   cartProductIds?: number[]
+  categoryHierarchy?: string[]
 }
 
 type StrategyNameMap = Record<RecommendationFilter['field'], string>
@@ -108,13 +109,28 @@ const buildRecommendationUrl = (baseEndpoint: string, filter?: RecommendationFil
     } else {
       const rawValue = typeof filter?.value === 'string' ? filter.value : ''
       const normalizedValue = rawValue.trim()
+      const isAllValue = normalizedValue.toLowerCase() === 'all'
 
-      if (normalizedValue && normalizedValue.toLowerCase() !== 'all') {
-        if (filter?.field === 'category') {
-          variables.category_id = normalizedValue
-        } else {
-          variables.brand = normalizedValue
+      if (filter?.field === 'category' && !isAllValue) {
+        const hierarchy = Array.isArray(filter?.categoryHierarchy)
+          ? filter.categoryHierarchy
+              .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+              .filter((entry) => entry.length > 0)
+          : []
+
+        const categories = [normalizedValue, ...hierarchy].filter((entry) => entry.length > 0)
+        if (categories.length > 0) {
+          const unique = new Map<string, string>()
+          for (const category of categories) {
+            const key = category.toLowerCase()
+            if (!unique.has(key)) {
+              unique.set(key, category)
+            }
+          }
+          variables.category_id = Array.from(unique.values())
         }
+      } else if (normalizedValue && !isAllValue) {
+        variables.brand = normalizedValue
       }
     }
 
@@ -128,8 +144,6 @@ const buildRecommendationUrl = (baseEndpoint: string, filter?: RecommendationFil
         variables.cart_products = ids
       }
     }
-
-    variables.klaviyio = 'loyal'
 
     url.searchParams.set('variables', JSON.stringify(variables))
     return url.toString()
@@ -392,8 +406,7 @@ export const fetchRecommendations = async (
       field: filter?.field,
       error: error instanceof Error ? error.message : String(error),
       recommendationName: failedRecommendationName,
-      recommendationId: failedRecommendationId,
-      user: { klaviyio: 'loyal' }
+      recommendationId: failedRecommendationId
     })
     return {
       title: resolveStrategyTitle(filter?.field, strategyNames),
@@ -408,7 +421,8 @@ const normalizeFilterFromSource = (
   categories?: unknown,
   addedToCartProduct?: unknown,
   viewingItem?: unknown,
-  cartProducts?: unknown
+  cartProducts?: unknown,
+  categoryHierarchy?: unknown
 ): RecommendationFilter => {
   let field: RecommendationFilter['field'] = 'brand'
   if (sourceField === 'category') {
@@ -476,7 +490,39 @@ const normalizeFilterFromSource = (
     }
   }
 
-  return { field, value, categoriesInCart, addedToCartProductId, viewingItemId, cartProductIds }
+  let normalizedCategoryHierarchy: string[] | undefined
+  if (field === 'category' && categoryHierarchy !== undefined) {
+    const source = Array.isArray(categoryHierarchy)
+      ? categoryHierarchy
+      : typeof categoryHierarchy === 'string'
+        ? categoryHierarchy.split(',')
+        : []
+
+    const sanitized = source
+      .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+      .filter((entry) => entry.length > 0)
+
+    if (sanitized.length > 0) {
+      const unique = new Map<string, string>()
+      for (const entry of sanitized) {
+        const key = entry.toLowerCase()
+        if (!unique.has(key)) {
+          unique.set(key, entry)
+        }
+      }
+      normalizedCategoryHierarchy = Array.from(unique.values())
+    }
+  }
+
+  return {
+    field,
+    value,
+    categoriesInCart,
+    addedToCartProductId,
+    viewingItemId,
+    cartProductIds,
+    categoryHierarchy: normalizedCategoryHierarchy
+  }
 }
 
 export const handleRecommendationsRequest = async (event: H3Event, method: 'GET' | 'POST') => {
@@ -489,7 +535,8 @@ export const handleRecommendationsRequest = async (event: H3Event, method: 'GET'
         query.categoriesInCart,
         query.addedToCartProductId,
         query.viewingItemId,
-        query.cartProductIds
+        query.cartProductIds,
+        query.categoryHierarchy
       )
     )
   }
@@ -501,6 +548,7 @@ export const handleRecommendationsRequest = async (event: H3Event, method: 'GET'
     addedToCartProductId?: number | string | null
     viewingItemId?: number | string | null
     cartProductIds?: number[] | string | null
+    categoryHierarchy?: string[] | string | null
   }>(event)
 
   return await fetchRecommendations(
@@ -510,7 +558,8 @@ export const handleRecommendationsRequest = async (event: H3Event, method: 'GET'
       body?.categoriesInCart ?? undefined,
       body?.addedToCartProductId ?? undefined,
       body?.viewingItemId ?? undefined,
-      body?.cartProductIds ?? undefined
+      body?.cartProductIds ?? undefined,
+      body?.categoryHierarchy ?? undefined
     )
   )
 }
