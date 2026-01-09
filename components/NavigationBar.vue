@@ -346,6 +346,7 @@ interface ApiSearchHit {
   link?: string
   price?: number | string | null
   brand?: string | null
+  vendor?: string | null
 }
 
 interface ApiFacetResponse {
@@ -498,7 +499,15 @@ const performSearch = async (query: string) => {
       return
     }
 
-    const normalizedHits = (data.hits ?? []).map(normalizeHit)
+    const isJacamoHit = (hit: ApiSearchHit) => {
+      const vendor = typeof hit.vendor === 'string' ? hit.vendor.trim().toLowerCase() : ''
+      const brand = typeof hit.brand === 'string' ? hit.brand.trim().toLowerCase() : ''
+      return vendor === 'jacamo' || brand === 'jacamo'
+    }
+
+    const normalizedHits = (data.hits ?? [])
+      .filter(isJacamoHit)
+      .map(normalizeHit)
     searchResults.value = normalizedHits
 
     const brandsFromHits = Array.from(
