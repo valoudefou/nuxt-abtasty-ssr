@@ -30,9 +30,10 @@ export const useProducts = () => {
     error.value = null
 
     try {
-      const response = await $fetch<Product[]>('/api/products')
-      products.value = response
-      allProducts.value = response
+      const response = await $fetch<Product[] | { products: Product[] }>('/api/products')
+      const normalized = Array.isArray(response) ? response : response.products ?? []
+      products.value = normalized
+      allProducts.value = normalized
       selectedBrand.value = 'All'
       searchQuery.value = ''
       searchResults.value = []

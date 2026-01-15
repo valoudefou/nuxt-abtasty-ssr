@@ -1,11 +1,12 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
 
+import { useRuntimeConfig } from '#imports'
+
 import type { Product } from '@/types/product'
 import { products as fallbackProducts } from '@/data/products'
-import { slugifyBrand } from '@/utils/brand'
 
-type RemoteProduct = {
+export type RemoteProduct = {
   id: string | number
   title: string
   description: string
@@ -29,11 +30,11 @@ type RemoteProduct = {
   vendor?: string | null
 }
 
-type RemoteResponse = {
+export type RemoteResponse = {
   products: RemoteProduct[]
 }
 
-const PRODUCT_SOURCE_URL = 'https://live-server1.vercel.app/products'
+const DEFAULT_API_BASE = 'https://live-server1.vercel.app'
 const CACHE_TTL = 1000 * 60 * 5 // 5 minutes
 const CACHE_VERSION = 1
 const CACHE_FILE = path.resolve(process.cwd(), 'data', 'products-cache.json')
@@ -74,6 +75,17 @@ const writeCacheFile = async (payload: ProductCacheFile) => {
   } catch (error) {
     console.warn('Failed to write product cache file', error)
   }
+}
+
+const normalizeProductsResponse = (response: RemoteResponse | RemoteProduct[]): RemoteProduct[] =>
+  Array.isArray(response) ? response : response.products ?? []
+
+const getApiConfig = () => {
+  const config = useRuntimeConfig()
+  const baseRaw = config.public?.productsApiBase || DEFAULT_API_BASE
+  const base = baseRaw.replace(/\/+$/, '')
+  const feed = config.public?.productsFeed || 'global'
+  return { base, feed }
 }
 
 const parseNumber = (value: string | number | null | undefined) => {
@@ -124,6 +136,13 @@ const sanitizeVendor = (value: string | null | undefined) => {
   return trimmed.length > 0 ? trimmed : undefined
 }
 
+const normalizeVendor = (value: string | null | undefined) => {
+  const trimmed = sanitizeVendor(value)
+  return trimmed ? trimmed.toLowerCase() : undefined
+}
+
+const isKarkkainenVendor = (value: string | null | undefined) => normalizeVendor(value) === 'karkkainen'
+
 const buildImageUrl = (value: string | null | undefined) => {
   if (!value) {
     return PLACEHOLDER_IMAGE
@@ -138,7 +157,7 @@ const buildImageUrl = (value: string | null | undefined) => {
   return trimmed
 }
 
-const toProduct = (raw: RemoteProduct): Product => {
+export const normalizeRemoteProduct = (raw: RemoteProduct): Product => {
   const id = parseNumber(raw.id)
   const price = Math.max(parseNumber(raw.price ?? raw.price_before_discount), 0)
   const rating = Math.min(Math.max(parseNumber(raw.rating), 0), 5)
@@ -176,6 +195,7 @@ const toProduct = (raw: RemoteProduct): Product => {
     id,
     slug,
     name: raw.title ?? `Product ${id}`,
+    title: raw.title ?? `Product ${id}`,
     description: raw.description ?? '',
     price,
     category: sanitizeCategory(raw.category) ?? 'General',
@@ -183,6 +203,7 @@ const toProduct = (raw: RemoteProduct): Product => {
     category_level3: sanitizeCategory(raw.category_level3),
     category_level4: sanitizeCategory(raw.category_level4),
     image: buildImageUrl(raw.thumbnail),
+    thumbnail: raw.thumbnail ?? undefined,
     rating,
     highlights: highlightItems,
     inStock: availability.toLowerCase() === 'in stock' || stock > 0,
@@ -192,11 +213,23 @@ const toProduct = (raw: RemoteProduct): Product => {
     vendor: sanitizeVendor(raw.vendor),
     stock,
     discountPercentage: discount,
+    price_before_discount: raw.price_before_discount ?? undefined,
+    sku: raw.sku ?? undefined,
+    tag: raw.tag ?? undefined,
+    recency: raw.recency ?? undefined,
     availabilityStatus: availability || undefined,
     returnPolicy: raw.returnPolicy ?? undefined,
     link: productLink
   }
 }
+
+const normalizeFallbackProduct = (product: Product): Product => ({
+  ...product,
+  title: product.title ?? product.name,
+  thumbnail: product.thumbnail ?? product.image
+})
+
+const fallbackCatalog = fallbackProducts.map(normalizeFallbackProduct)
 
 export const fetchProducts = async (): Promise<Product[]> => {
   const now = Date.now()
@@ -218,18 +251,21 @@ export const fetchProducts = async (): Promise<Product[]> => {
       }
     }
 
-    const response = await $fetch<RemoteResponse | RemoteProduct[]>(PRODUCT_SOURCE_URL)
-    const products = Array.isArray(response) ? response : response.products ?? []
+    const { base, feed } = getApiConfig()
+    const response = await $fetch<RemoteResponse | RemoteProduct[]>(`${base}/products`, {
+      params: { feed }
+    })
+    const products = normalizeProductsResponse(response)
     const mapped = products
-      .filter((product) => sanitizeVendor(product.vendor)?.toLowerCase() === 'karkkainen')
-      .map(toProduct)
+      .filter((product) => isKarkkainenVendor(product.vendor))
+      .map(normalizeRemoteProduct)
 
     if (mapped.length === 0) {
       console.warn('Remote product feed returned no matching products; using fallback catalog.')
-      cachedProducts = fallbackProducts
+      cachedProducts = fallbackCatalog
       lastFetch = now
       cachedVersion = CACHE_VERSION
-      await writeCacheFile({ version: CACHE_VERSION, fetchedAt: now, products: fallbackProducts })
+      await writeCacheFile({ version: CACHE_VERSION, fetchedAt: now, products: fallbackCatalog })
       return cachedProducts
     }
 
@@ -246,10 +282,10 @@ export const fetchProducts = async (): Promise<Product[]> => {
     }
 
     console.warn('Using fallback catalog because remote feed is unavailable.')
-    cachedProducts = fallbackProducts
+    cachedProducts = fallbackCatalog
     lastFetch = now
     cachedVersion = CACHE_VERSION
-    await writeCacheFile({ version: CACHE_VERSION, fetchedAt: now, products: fallbackProducts })
+    await writeCacheFile({ version: CACHE_VERSION, fetchedAt: now, products: fallbackCatalog })
     return cachedProducts
   }
 }
@@ -266,8 +302,20 @@ export const findProductById = async (id: string | number): Promise<Product | un
     return undefined
   }
 
-  const products = await fetchProducts()
-  return products.find((product) => product.id === numericId)
+  const { base, feed } = getApiConfig()
+
+  try {
+    const response = await $fetch<RemoteProduct>(`${base}/products/${encodeURIComponent(String(numericId))}`, {
+      params: { feed }
+    })
+    if (!isKarkkainenVendor(response.vendor)) {
+      throw new Error('Non-karkkainen vendor product')
+    }
+    return normalizeRemoteProduct(response)
+  } catch (error) {
+    const cached = cachedProducts ?? (await fetchProducts())
+    return cached.find((product) => product.id === numericId)
+  }
 }
 
 const sanitizeBrand = (value: string | null | undefined) => {
@@ -280,17 +328,26 @@ const sanitizeBrand = (value: string | null | undefined) => {
 }
 
 export const fetchProductBrands = async (): Promise<string[]> => {
-  const products = await fetchProducts()
-  const unique = new Set<string>()
+  const { base, feed } = getApiConfig()
+  try {
+    const response = await $fetch<{ brands: string[] } | string[]>(`${base}/products/brands`, {
+      params: { feed }
+    })
+    const brands = Array.isArray(response) ? response : response.brands ?? []
+    return brands.filter(Boolean).map((brand) => String(brand).trim())
+  } catch (error) {
+    const products = await fetchProducts()
+    const unique = new Set<string>()
 
-  for (const product of products) {
-    const brand = sanitizeBrand(product.brand)
-    if (brand) {
-      unique.add(brand)
+    for (const product of products) {
+      const brand = sanitizeBrand(product.brand)
+      if (brand) {
+        unique.add(brand)
+      }
     }
-  }
 
-  return Array.from(unique)
+    return Array.from(unique)
+  }
 }
 
 export const findProductsByBrand = async (brand: string): Promise<Product[]> => {
@@ -300,15 +357,17 @@ export const findProductsByBrand = async (brand: string): Promise<Product[]> => 
     return []
   }
 
-  const brandSlug = slugifyBrand(normalizedBrand)
-
-  if (!brandSlug) {
-    return []
-  }
-
   try {
-    const { products } = await $fetch<RemoteResponse>(`${PRODUCT_SOURCE_URL}/brand/${brandSlug}`)
-    return products.map(toProduct)
+    const { base, feed } = getApiConfig()
+    const response = await $fetch<RemoteResponse | RemoteProduct[]>(
+      `${base}/products/brand/${encodeURIComponent(normalizedBrand)}`,
+      {
+      params: { feed }
+      }
+    )
+    return normalizeProductsResponse(response)
+      .filter((product) => isKarkkainenVendor(product.vendor))
+      .map(normalizeRemoteProduct)
   } catch (error) {
     const status =
       (error as { statusCode?: number; status?: number })?.statusCode
@@ -318,7 +377,7 @@ export const findProductsByBrand = async (brand: string): Promise<Product[]> => 
       return []
     }
 
-    console.error(`Failed to load products for brand slug "${brandSlug}"`, error)
+    console.error(`Failed to load products for brand "${normalizedBrand}"`, error)
     throw createError({
       statusCode: 502,
       statusMessage: 'Unable to load product catalog right now.'

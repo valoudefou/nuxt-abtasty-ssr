@@ -148,6 +148,10 @@ declare module 'nuxt/schema' {
 
    supportEmail: string,
 
+   productsApiBase: string,
+
+   productsFeed: string,
+
    flagship: {
       envId: string,
 

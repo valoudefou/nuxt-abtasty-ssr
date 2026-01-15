@@ -19,7 +19,7 @@ const parseNumberParam = (value: unknown, fallback: number) => {
 
 const getProductCategories = (product: Product) => {
   const unique = new Map<string, string>()
-  const addCategory = (value?: string) => {
+  const addCategory = (value?: string | null) => {
     if (!value) return
     const trimmed = value.trim()
     if (!trimmed) return

@@ -89,6 +89,7 @@ declare global {
   const isWebResponse: typeof import('../../node_modules/h3').isWebResponse
   const lazyEventHandler: typeof import('../../node_modules/h3').lazyEventHandler
   const nitroPlugin: typeof import('../../node_modules/nitropack/dist/runtime/internal/plugin').nitroPlugin
+  const normalizeRemoteProduct: typeof import('../../server/utils/products').normalizeRemoteProduct
   const parseCookies: typeof import('../../node_modules/h3').parseCookies
   const promisifyNodeListener: typeof import('../../node_modules/h3').promisifyNodeListener
   const proxyRequest: typeof import('../../node_modules/h3').proxyRequest
@@ -140,6 +141,9 @@ declare global {
   export type { FlagshipLogLevel, FlagshipLogEntry } from '../../server/utils/flagship/logStore'
   import('../../server/utils/flagship/logStore')
   // @ts-ignore
+  export type { RemoteProduct, RemoteResponse } from '../../server/utils/products'
+  import('../../server/utils/products')
+  // @ts-ignore
   export type { RecommendationProduct, RecommendationResponse } from '../../server/utils/recommendations'
   import('../../server/utils/recommendations')
 }
@@ -159,5 +163,5 @@ export { buildAssetsURL as __buildAssetsURL, publicAssetsURL as __publicAssetsUR
 export { defineAppConfig } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/node_modules/@nuxt/nitro-server/dist/runtime/utils/config';
 export { initializeFlagship } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/flagship/index';
 export { flagshipLogStore } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/flagship/logStore';
-export { fetchProducts, findProductBySlug, findProductById, fetchProductBrands, findProductsByBrand } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/products';
+export { normalizeRemoteProduct, fetchProducts, findProductBySlug, findProductById, fetchProductBrands, findProductsByBrand } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/products';
 export { fetchRecommendations, handleRecommendationsRequest } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/recommendations';

@@ -15,16 +15,19 @@ export default defineEventHandler(async (event) => {
   const products = await fetchProducts()
   const normalizedTerm = term.toLowerCase()
 
-  const matches = products.filter((product) => {
-    const fields = [product.name, product.description, product.brand, product.category]
-
-    return fields.some((field) => {
-      if (!field) return false
-      return field.toLowerCase().includes(normalizedTerm)
-    })
-  })
-
   return {
-    products: matches
+    products: products.filter((product) => {
+      const fields = [
+        product.name,
+        product.description,
+        product.brand,
+        product.category,
+        product.category_level2,
+        product.category_level3,
+        product.category_level4
+      ]
+
+      return fields.some((field) => field?.toLowerCase().includes(normalizedTerm))
+    })
   }
 })
