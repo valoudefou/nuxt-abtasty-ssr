@@ -106,7 +106,7 @@ export default defineNuxtConfig({
       companyName: 'Commerce Demo',
       supportEmail: 'hello@commerce.demo',
       productsApiBase: env.NUXT_PRODUCTS_API_BASE || 'https://live-server1.vercel.app',
-      productsFeed: env.NUXT_PRODUCTS_FEED || 'global',
+      productsDisableRemote: env.NUXT_PRODUCTS_DISABLE_REMOTE === 'true',
       flagship: {
         envId: env.NUXT_FLAGSHIP_ENV_ID || '',
         apiKey: env.NUXT_FLAGSHIP_API_KEY || ''

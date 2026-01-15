@@ -96,6 +96,7 @@ export default defineEventHandler(async (event) => {
   const category = normalizeParam(query.category) || 'All'
   const brand = normalizeParam(query.brand) || 'All'
   const term = normalizeParam(query.q).toLowerCase()
+  const requestStart = Date.now()
 
   const products = await fetchProducts()
   const searched = term ? products.filter((product) => matchesSearch(product, term)) : products

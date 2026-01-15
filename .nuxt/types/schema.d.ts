@@ -150,7 +150,7 @@ declare module 'nuxt/schema' {
 
    productsApiBase: string,
 
-   productsFeed: string,
+   productsDisableRemote: boolean,
 
    flagship: {
       envId: string,

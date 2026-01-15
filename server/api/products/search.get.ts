@@ -3,6 +3,7 @@ import { fetchProducts } from '@/server/utils/products'
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
   const term = typeof query.q === 'string' ? query.q.trim() : ''
+  const requestStart = Date.now()
 
   if (!term) {
     throw createError({
@@ -14,20 +15,27 @@ export default defineEventHandler(async (event) => {
 
   const products = await fetchProducts()
   const normalizedTerm = term.toLowerCase()
+  const matches = products.filter((product) => {
+    const fields = [
+      product.name,
+      product.description,
+      product.brand,
+      product.category,
+      product.category_level2,
+      product.category_level3,
+      product.category_level4
+    ]
+
+    return fields.some((field) => field?.toLowerCase().includes(normalizedTerm))
+  })
+
+  console.info('[ProductsSearch]', {
+    term,
+    total: matches.length,
+    durationMs: Date.now() - requestStart
+  })
 
   return {
-    products: products.filter((product) => {
-      const fields = [
-        product.name,
-        product.description,
-        product.brand,
-        product.category,
-        product.category_level2,
-        product.category_level3,
-        product.category_level4
-      ]
-
-      return fields.some((field) => field?.toLowerCase().includes(normalizedTerm))
-    })
+    products: matches
   }
 })

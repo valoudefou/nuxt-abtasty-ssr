@@ -38,10 +38,14 @@ const DEFAULT_API_BASE = 'https://live-server1.vercel.app'
 const CACHE_TTL = 1000 * 60 * 5 // 5 minutes
 const CACHE_VERSION = 1
 const CACHE_FILE = path.resolve(process.cwd(), 'data', 'products-cache.json')
+const REMOTE_FETCH_TIMEOUT_MS = 0
+const LOG_PREFIX = '[ProductsAPI]'
+const REMOTE_BACKOFF_MS = 0
 
 let cachedProducts: Product[] | null = null
 let lastFetch = 0
 let cachedVersion = 0
+let remoteBackoffUntil = 0
 
 const PLACEHOLDER_IMAGE = 'https://assets-manager.abtasty.com/placeholder.png'
 
@@ -84,8 +88,30 @@ const getApiConfig = () => {
   const config = useRuntimeConfig()
   const baseRaw = config.public?.productsApiBase || DEFAULT_API_BASE
   const base = baseRaw.replace(/\/+$/, '')
-  const feed = config.public?.productsFeed || 'global'
-  return { base, feed }
+  const disableRemote = Boolean(config.public?.productsDisableRemote)
+  return { base, disableRemote }
+}
+
+const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
+  if (timeoutMs <= 0) {
+    return await promise
+  }
+
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`Remote fetch timed out after ${timeoutMs}ms`))
+    }, timeoutMs)
+  })
+
+  try {
+    return await Promise.race([promise, timeoutPromise])
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
+  }
 }
 
 const parseNumber = (value: string | number | null | undefined) => {
@@ -136,12 +162,9 @@ const sanitizeVendor = (value: string | null | undefined) => {
   return trimmed.length > 0 ? trimmed : undefined
 }
 
-const normalizeVendor = (value: string | null | undefined) => {
-  const trimmed = sanitizeVendor(value)
-  return trimmed ? trimmed.toLowerCase() : undefined
-}
+const VENDOR_FILTER = 'karkkainen'
+const VENDOR_LIMIT = 2000
 
-const isKarkkainenVendor = (value: string | null | undefined) => normalizeVendor(value) === 'karkkainen'
 
 const buildImageUrl = (value: string | null | undefined) => {
   if (!value) {
@@ -156,6 +179,14 @@ const buildImageUrl = (value: string | null | undefined) => {
   // Use the original upstream image URL from the feed.
   return trimmed
 }
+
+const normalizeFallbackProduct = (product: Product): Product => ({
+  ...product,
+  title: product.title ?? product.name,
+  thumbnail: product.thumbnail ?? product.image
+})
+
+const fallbackCatalog = fallbackProducts.map(normalizeFallbackProduct)
 
 export const normalizeRemoteProduct = (raw: RemoteProduct): Product => {
   const id = parseNumber(raw.id)
@@ -223,19 +254,17 @@ export const normalizeRemoteProduct = (raw: RemoteProduct): Product => {
   }
 }
 
-const normalizeFallbackProduct = (product: Product): Product => ({
-  ...product,
-  title: product.title ?? product.name,
-  thumbnail: product.thumbnail ?? product.image
-})
-
-const fallbackCatalog = fallbackProducts.map(normalizeFallbackProduct)
-
 export const fetchProducts = async (): Promise<Product[]> => {
   const now = Date.now()
 
   if (cachedProducts && cachedVersion === CACHE_VERSION && now - lastFetch < CACHE_TTL) {
     return cachedProducts
+  }
+
+  if (now < remoteBackoffUntil) {
+    if (cachedProducts && cachedVersion === CACHE_VERSION) {
+      return cachedProducts
+    }
   }
 
   try {
@@ -251,42 +280,61 @@ export const fetchProducts = async (): Promise<Product[]> => {
       }
     }
 
-    const { base, feed } = getApiConfig()
-    const response = await $fetch<RemoteResponse | RemoteProduct[]>(`${base}/products`, {
-      params: { feed }
+    const { base, disableRemote } = getApiConfig()
+    if (disableRemote) {
+      console.warn(`${LOG_PREFIX} remote fetch disabled; using cache/fallback only.`)
+      if (cachedProducts && cachedVersion === CACHE_VERSION) {
+        return cachedProducts
+      }
+      return fallbackCatalog
+    }
+    const requestStart = Date.now()
+    const response = await withTimeout(
+      $fetch<RemoteResponse | RemoteProduct[]>(`${base}/products/vendor/${encodeURIComponent(VENDOR_FILTER)}`, {
+        params: { limit: VENDOR_LIMIT }
+      }),
+      REMOTE_FETCH_TIMEOUT_MS
+    )
+    console.info(`${LOG_PREFIX} upstream response`, {
+      url: `${base}/products/vendor/${VENDOR_FILTER}`,
+      durationMs: Date.now() - requestStart
     })
     const products = normalizeProductsResponse(response)
-    const mapped = products
-      .filter((product) => isKarkkainenVendor(product.vendor))
-      .map(normalizeRemoteProduct)
+    const mapped = products.map(normalizeRemoteProduct)
 
     if (mapped.length === 0) {
-      console.warn('Remote product feed returned no matching products; using fallback catalog.')
-      cachedProducts = fallbackCatalog
-      lastFetch = now
-      cachedVersion = CACHE_VERSION
-      await writeCacheFile({ version: CACHE_VERSION, fetchedAt: now, products: fallbackCatalog })
-      return cachedProducts
+      console.warn(`${LOG_PREFIX} no karkkainen products from upstream; using cached/fallback catalog.`, {
+        upstreamCount: products.length
+      })
+      if (cachedProducts && cachedVersion === CACHE_VERSION) {
+        return cachedProducts
+      }
+      return fallbackCatalog
     }
 
     cachedProducts = mapped
     lastFetch = now
     cachedVersion = CACHE_VERSION
+    remoteBackoffUntil = 0
     await writeCacheFile({ version: CACHE_VERSION, fetchedAt: now, products: mapped })
 
     return mapped
   } catch (error) {
     console.error('Failed to load products from remote source', error)
+    remoteBackoffUntil = Date.now() + REMOTE_BACKOFF_MS
     if (cachedProducts && cachedVersion === CACHE_VERSION) {
+      console.warn(`${LOG_PREFIX} using cached products after error`, {
+        source: 'memory',
+        count: cachedProducts.length
+      })
       return cachedProducts
     }
 
-    console.warn('Using fallback catalog because remote feed is unavailable.')
-    cachedProducts = fallbackCatalog
-    lastFetch = now
-    cachedVersion = CACHE_VERSION
-    await writeCacheFile({ version: CACHE_VERSION, fetchedAt: now, products: fallbackCatalog })
-    return cachedProducts
+    console.warn(`${LOG_PREFIX} using cached/fallback catalog because remote feed is unavailable.`)
+    if (cachedProducts && cachedVersion === CACHE_VERSION) {
+      return cachedProducts
+    }
+    return fallbackCatalog
   }
 }
 
@@ -302,15 +350,10 @@ export const findProductById = async (id: string | number): Promise<Product | un
     return undefined
   }
 
-  const { base, feed } = getApiConfig()
+  const { base } = getApiConfig()
 
   try {
-    const response = await $fetch<RemoteProduct>(`${base}/products/${encodeURIComponent(String(numericId))}`, {
-      params: { feed }
-    })
-    if (!isKarkkainenVendor(response.vendor)) {
-      throw new Error('Non-karkkainen vendor product')
-    }
+    const response = await $fetch<RemoteProduct>(`${base}/products/${encodeURIComponent(String(numericId))}`)
     return normalizeRemoteProduct(response)
   } catch (error) {
     const cached = cachedProducts ?? (await fetchProducts())
@@ -328,26 +371,17 @@ const sanitizeBrand = (value: string | null | undefined) => {
 }
 
 export const fetchProductBrands = async (): Promise<string[]> => {
-  const { base, feed } = getApiConfig()
-  try {
-    const response = await $fetch<{ brands: string[] } | string[]>(`${base}/products/brands`, {
-      params: { feed }
-    })
-    const brands = Array.isArray(response) ? response : response.brands ?? []
-    return brands.filter(Boolean).map((brand) => String(brand).trim())
-  } catch (error) {
-    const products = await fetchProducts()
-    const unique = new Set<string>()
+  const products = await fetchProducts()
+  const unique = new Set<string>()
 
-    for (const product of products) {
-      const brand = sanitizeBrand(product.brand)
-      if (brand) {
-        unique.add(brand)
-      }
+  for (const product of products) {
+    const brand = sanitizeBrand(product.brand)
+    if (brand) {
+      unique.add(brand)
     }
-
-    return Array.from(unique)
   }
+
+  return Array.from(unique)
 }
 
 export const findProductsByBrand = async (brand: string): Promise<Product[]> => {
@@ -357,30 +391,7 @@ export const findProductsByBrand = async (brand: string): Promise<Product[]> => 
     return []
   }
 
-  try {
-    const { base, feed } = getApiConfig()
-    const response = await $fetch<RemoteResponse | RemoteProduct[]>(
-      `${base}/products/brand/${encodeURIComponent(normalizedBrand)}`,
-      {
-      params: { feed }
-      }
-    )
-    return normalizeProductsResponse(response)
-      .filter((product) => isKarkkainenVendor(product.vendor))
-      .map(normalizeRemoteProduct)
-  } catch (error) {
-    const status =
-      (error as { statusCode?: number; status?: number })?.statusCode
-      ?? (error as { status?: number })?.status
-
-    if (status === 404) {
-      return []
-    }
-
-    console.error(`Failed to load products for brand "${normalizedBrand}"`, error)
-    throw createError({
-      statusCode: 502,
-      statusMessage: 'Unable to load product catalog right now.'
-    })
-  }
+  const products = await fetchProducts()
+  const target = normalizedBrand.toLowerCase()
+  return products.filter((product) => product.brand?.toLowerCase() === target)
 }

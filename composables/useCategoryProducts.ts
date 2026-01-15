@@ -92,6 +92,7 @@ export const useCategoryProducts = () => {
   const products = useState<Product[]>('category-products', () => [])
   const categories = useState<string[]>('product-categories', () => [])
   const brands = useState<string[]>('category-brands', () => [])
+  const brandsLoaded = useState<boolean>('category-brands-loaded', () => false)
   const selectedCategory = useState<string>('selected-category', () => 'All')
   const selectedBrand = useState<string>('selected-brand', () => 'All')
   const searchQuery = useState<string>('category-search-query', () => '')
@@ -103,10 +104,16 @@ export const useCategoryProducts = () => {
   const error = ref<string | null>(null)
   const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
 
-  const applySearchFilters = () => {
-    const baseCollection = searchResults.value
-    const brandFiltered = filterByBrand(baseCollection, selectedBrand.value)
-    const categoryFiltered = filterByCategory(brandFiltered, selectedCategory.value)
+  const refreshCategories = (collection: Product[]) => {
+    const derived = deriveCategories(collection, selectedCategory.value)
+    categories.value = derived
+    if (selectedCategory.value !== 'All' && !derived.includes(selectedCategory.value)) {
+      selectedCategory.value = 'All'
+    }
+  }
+
+  const applyPagedResults = (collection: Product[]) => {
+    const categoryFiltered = filterByCategory(collection, selectedCategory.value)
     const totalMatches = categoryFiltered.length
 
     total.value = totalMatches
@@ -115,8 +122,7 @@ export const useCategoryProducts = () => {
     const start = (clampedPage - 1) * pageSize
     products.value = categoryFiltered.slice(start, start + pageSize)
 
-    categories.value = deriveCategories(brandFiltered, selectedCategory.value)
-    brands.value = deriveBrands(baseCollection)
+    refreshCategories(collection)
 
     if (categoryFiltered.length === 0) {
       error.value =
@@ -124,6 +130,33 @@ export const useCategoryProducts = () => {
           ? 'No products available for the current filters.'
           : `No products found in the "${selectedCategory.value}" category.`
     }
+  }
+
+  const applySearchFilters = () => {
+    const baseCollection = searchResults.value
+    const brandFiltered = filterByBrand(baseCollection, selectedBrand.value)
+    applyPagedResults(brandFiltered)
+  }
+
+  const fetchBrands = async () => {
+    if (brandsLoaded.value) {
+      return
+    }
+
+    const response = await $fetch<string[] | { brands: string[] }>('/api/products/brands')
+    const normalized = Array.isArray(response) ? response : response.brands ?? []
+    brands.value = normalized.filter(Boolean).map((brand) => String(brand).trim())
+    brandsLoaded.value = true
+  }
+
+  const fetchBrandProducts = async (brand: string) => {
+    const response = await $fetch<{ products: Product[] }>(`/api/products/brand/${encodeURIComponent(brand)}`)
+    return response.products
+  }
+
+  const fetchCategoryProducts = async (category: string) => {
+    const response = await $fetch<{ products: Product[] }>(`/api/products/category/${encodeURIComponent(category)}`)
+    return response.products
   }
 
   const fetchPagedProducts = async () => {
@@ -138,7 +171,6 @@ export const useCategoryProducts = () => {
 
     products.value = response.products
     categories.value = response.categories
-    brands.value = response.brands
     total.value = response.total
     page.value = response.page
 
@@ -163,6 +195,8 @@ export const useCategoryProducts = () => {
     error.value = null
 
     try {
+      await fetchBrands()
+
       if (searchQuery.value) {
         await fetchSearchResults(searchQuery.value)
         applySearchFilters()
@@ -170,6 +204,19 @@ export const useCategoryProducts = () => {
       }
 
       searchResults.value = []
+
+      if (selectedBrand.value !== 'All') {
+        const brandProducts = await fetchBrandProducts(selectedBrand.value)
+        applyPagedResults(brandProducts)
+        return
+      }
+
+      if (selectedCategory.value !== 'All') {
+        const categoryProducts = await fetchCategoryProducts(selectedCategory.value)
+        applyPagedResults(categoryProducts)
+        return
+      }
+
       await fetchPagedProducts()
     } catch (err) {
       console.error('Failed to load products for categories view', err)

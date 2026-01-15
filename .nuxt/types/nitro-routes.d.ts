@@ -18,6 +18,12 @@ declare module "nitropack/types" {
     '/api/products/brands': {
       'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/products/brands.get').default>>>>
     }
+    '/api/products/categories': {
+      'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/products/categories.get').default>>>>
+    }
+    '/api/products/category/:category': {
+      'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/products/category/[category].get').default>>>>
+    }
     '/api/products': {
       'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/products/index.get').default>>>>
     }
