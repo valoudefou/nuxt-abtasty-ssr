@@ -169,9 +169,10 @@ export const fetchProducts = async (): Promise<Product[]> => {
   }
 
   try {
-    const { products } = await $fetch<RemoteResponse>(PRODUCT_SOURCE_URL)
+    const response = await $fetch<RemoteResponse | RemoteProduct[]>(PRODUCT_SOURCE_URL)
+    const products = Array.isArray(response) ? response : response.products ?? []
     const mapped = products
-      .filter((product) => sanitizeVendor(product.vendor)?.toLowerCase() === 'jacamo')
+      .filter((product) => sanitizeVendor(product.vendor)?.toLowerCase() === 'karkkainen')
       .map(toProduct)
 
     cachedProducts = mapped

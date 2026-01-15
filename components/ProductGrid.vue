@@ -66,11 +66,18 @@
     </div>
 
     <p v-if="error" class="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-600">{{ error }}</p>
+
+    <div
+      v-if="enableInfiniteScroll && hasMore && !loading && !error"
+      ref="loadMoreTrigger"
+      class="h-10"
+      aria-hidden="true"
+    ></div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import ProductCard from '@/components/ProductCard.vue'
 import RecommendationsCarousel from '@/components/RecommendationsCarousel.vue'
@@ -85,13 +92,18 @@ const props = withDefaults(defineProps<{
   searchQuery: string
   recommendationFilterField?: 'brand' | 'homepage' | 'category'
   enableSearch?: boolean
+  enableInfiniteScroll?: boolean
+  hasMore?: boolean
 }>(), {
-  enableSearch: true
+  enableSearch: true,
+  enableInfiniteScroll: true,
+  hasMore: false
 })
 
 const emit = defineEmits<{
   (event: 'select-brand', brand: string): void
   (event: 'search', query: string): void
+  (event: 'load-more'): void
 }>()
 
 const filteredFilters = computed(() => {
@@ -111,4 +123,47 @@ const onSearchInput = (event: Event) => {
   const target = event.target as HTMLInputElement
   emit('search', target.value ?? '')
 }
+
+const loadMoreTrigger = ref<HTMLElement | null>(null)
+let observer: IntersectionObserver | null = null
+
+const handleIntersect: IntersectionObserverCallback = (entries) => {
+  const [entry] = entries
+  if (!entry?.isIntersecting) return
+  if (!props.enableInfiniteScroll || !props.hasMore || props.loading) return
+  emit('load-more')
+}
+
+const startObserving = () => {
+  if (!props.enableInfiniteScroll || !props.hasMore || !loadMoreTrigger.value) return
+  if (!observer) {
+    observer = new IntersectionObserver(handleIntersect, { rootMargin: '200px' })
+  }
+  observer.observe(loadMoreTrigger.value)
+}
+
+const stopObserving = () => {
+  if (!observer || !loadMoreTrigger.value) return
+  observer.unobserve(loadMoreTrigger.value)
+}
+
+onMounted(() => {
+  startObserving()
+})
+
+watch(
+  [() => props.hasMore, () => props.enableInfiniteScroll, loadMoreTrigger],
+  async () => {
+    stopObserving()
+    await nextTick()
+    startObserving()
+  }
+)
+
+onBeforeUnmount(() => {
+  if (observer) {
+    observer.disconnect()
+    observer = null
+  }
+})
 </script>

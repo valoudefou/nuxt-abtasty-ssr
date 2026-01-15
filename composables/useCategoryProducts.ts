@@ -1,4 +1,8 @@
+import { computed } from 'vue'
+
 import type { Product } from '@/types/product'
+
+const PAGE_SIZE = 12
 
 const getProductCategories = (product: Product) => {
   const unique = new Map<string, string>()
@@ -77,12 +81,14 @@ const filterByBrand = (collection: Product[], brand: string) => {
 export const useCategoryProducts = () => {
   const products = useState<Product[]>('category-products', () => [])
   const allProducts = useState<Product[]>('category-all-products', () => [])
+  const filteredProducts = useState<Product[]>('category-filtered-products', () => [])
   const categories = useState<string[]>('product-categories', () => [])
   const brands = useState<string[]>('category-brands', () => [])
   const selectedCategory = useState<string>('selected-category', () => 'All')
   const selectedBrand = useState<string>('selected-brand', () => 'All')
   const searchQuery = useState<string>('category-search-query', () => '')
   const searchResults = useState<Product[]>('category-search-results', () => [])
+  const visibleCount = useState<number>('category-visible-count', () => PAGE_SIZE)
   const loading = ref(false)
   const error = ref<string | null>(null)
   const hasFetched = useState<boolean>('category-has-fetched', () => false)
@@ -90,6 +96,26 @@ export const useCategoryProducts = () => {
     const brandFiltered = filterByBrand(collection, selectedBrand.value)
     return filterByCategory(brandFiltered, selectedCategory.value)
   }
+
+  const resetVisibleCount = () => {
+    visibleCount.value = PAGE_SIZE
+  }
+
+  const applyVisibleProducts = (collection: Product[]) => {
+    filteredProducts.value = collection
+    products.value = collection.slice(0, visibleCount.value)
+  }
+
+  const loadMore = () => {
+    if (visibleCount.value >= filteredProducts.value.length) {
+      return
+    }
+
+    visibleCount.value = Math.min(visibleCount.value + PAGE_SIZE, filteredProducts.value.length)
+    products.value = filteredProducts.value.slice(0, visibleCount.value)
+  }
+
+  const hasMore = computed(() => filteredProducts.value.length > products.value.length)
 
   const refreshCategories = (collection: Product[]) => {
     const brandScoped = selectedBrand.value === 'All' ? collection : filterByBrand(collection, selectedBrand.value)
@@ -111,7 +137,8 @@ export const useCategoryProducts = () => {
     try {
       const response = await $fetch<Product[]>('/api/products')
       allProducts.value = response
-      products.value = response
+      resetVisibleCount()
+      applyVisibleProducts(response)
       categories.value = deriveCategories(response, selectedCategory.value)
       brands.value = deriveBrands(response)
       selectedCategory.value = 'All'
@@ -134,7 +161,8 @@ export const useCategoryProducts = () => {
 
     const baseCollection = searchQuery.value ? searchResults.value : allProducts.value
     const filtered = applyFilters(baseCollection)
-    products.value = filtered
+    resetVisibleCount()
+    applyVisibleProducts(filtered)
     refreshCategories(baseCollection)
 
     if (filtered.length === 0) {
@@ -152,7 +180,8 @@ export const useCategoryProducts = () => {
     const baseCollection = searchQuery.value ? searchResults.value : allProducts.value
     refreshCategories(baseCollection)
     const filtered = applyFilters(baseCollection)
-    products.value = filtered
+    resetVisibleCount()
+    applyVisibleProducts(filtered)
 
     if (filtered.length === 0) {
       error.value =
@@ -169,7 +198,6 @@ export const useCategoryProducts = () => {
 
     if (!trimmed) {
       searchResults.value = []
-      refreshCategories(allProducts.value)
       selectCategory(selectedCategory.value)
       return
     }
@@ -184,7 +212,8 @@ export const useCategoryProducts = () => {
       searchResults.value = response.products
       refreshCategories(response.products)
       const filtered = applyFilters(response.products)
-      products.value = filtered
+      resetVisibleCount()
+      applyVisibleProducts(filtered)
 
       if (filtered.length === 0) {
         error.value =
@@ -212,6 +241,8 @@ export const useCategoryProducts = () => {
     fetchProducts,
     selectCategory,
     selectBrand,
-    searchProducts
+    searchProducts,
+    hasMore,
+    loadMore
   }
 }

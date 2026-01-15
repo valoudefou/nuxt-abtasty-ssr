@@ -122,6 +122,17 @@ export default defineNuxtConfig({
   nitro: {
     compatibilityDate: '2025-11-04'
   },
+  vite: {
+    resolve: {
+      alias: {
+        // Stub React Native AsyncStorage for web builds to avoid optional dependency resolution errors
+        '@react-native-async-storage/async-storage': new URL(
+          './utils/asyncStorageShim.ts',
+          import.meta.url
+        ).pathname
+      }
+    }
+  },
   typescript: {
     typeCheck: true
   }

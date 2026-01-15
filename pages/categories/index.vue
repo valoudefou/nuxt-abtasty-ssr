@@ -38,9 +38,11 @@
       :selected-brand="selectedCategory"
       :search-query="searchQuery"
       :enable-search="false"
+      :has-more="hasMore"
       recommendation-filter-field="category"
       @select-brand="onSelectCategory"
       @search="onSearch"
+      @load-more="loadMore"
     />
     <NewsletterBanner />
   </div>
@@ -62,7 +64,9 @@ const {
   fetchProducts,
   selectCategory,
   selectBrand,
-  searchProducts
+  searchProducts,
+  loadMore,
+  hasMore
 } = useCategoryProducts()
 
 await fetchProducts()

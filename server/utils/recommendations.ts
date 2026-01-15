@@ -33,7 +33,7 @@ export type RecommendationResponse = {
 const PLACEHOLDER_IMAGE = 'https://assets-manager.abtasty.com/placeholder.png'
 
 type RecommendationFilter = {
-  field: 'brand' | 'homepage' | 'category' | 'cart_products' | 'viewed_items'
+  field: 'brand' | 'homepage' | 'category' | 'category_level2' | 'category_level3' | 'category_level4' | 'cart_products' | 'viewed_items'
   value?: string | number[]
   categoriesInCart?: string[]
   addedToCartProductId?: number | null

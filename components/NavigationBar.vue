@@ -457,6 +457,33 @@ let latestRequestId = 0
 let debounceTimeout: ReturnType<typeof setTimeout> | null = null
 let autocompleteRequestId = 0
 let suppressAutocomplete = false
+const karkkainenCatalogIds = new Set<string>()
+let karkkainenIdsLoaded = false
+let karkkainenIdsLoading: Promise<void> | null = null
+
+const ensureKarkkainenIds = async () => {
+  if (karkkainenIdsLoaded) {
+    return
+  }
+
+  if (!karkkainenIdsLoading) {
+    karkkainenIdsLoading = $fetch<{ id: string | number }[]>('/api/products')
+      .then((products) => {
+        for (const product of products) {
+          karkkainenCatalogIds.add(String(product.id))
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to load Karkkainen product ids for search filter', error)
+      })
+      .finally(() => {
+        karkkainenIdsLoaded = true
+        karkkainenIdsLoading = null
+      })
+  }
+
+  await karkkainenIdsLoading
+}
 
 const performSearch = async (query: string) => {
   const trimmed = query.trim()
@@ -473,6 +500,8 @@ const performSearch = async (query: string) => {
   searchError.value = ''
 
   try {
+    await ensureKarkkainenIds()
+
     const url = new URL(SEARCH_ENDPOINT)
     url.searchParams.set('index', SEARCH_INDEX)
     url.searchParams.set('text', trimmed)
@@ -499,14 +528,22 @@ const performSearch = async (query: string) => {
       return
     }
 
-    const isJacamoHit = (hit: ApiSearchHit) => {
+    const isKarkkainenHit = (hit: ApiSearchHit) => {
       const vendor = typeof hit.vendor === 'string' ? hit.vendor.trim().toLowerCase() : ''
       const brand = typeof hit.brand === 'string' ? hit.brand.trim().toLowerCase() : ''
-      return vendor === 'jacamo' || brand === 'jacamo'
+      if (vendor === 'karkkainen' || brand === 'karkkainen') {
+        return true
+      }
+
+      if (karkkainenCatalogIds.size > 0 && karkkainenCatalogIds.has(String(hit.id))) {
+        return true
+      }
+
+      return false
     }
 
     const normalizedHits = (data.hits ?? [])
-      .filter(isJacamoHit)
+      .filter(isKarkkainenHit)
       .map(normalizeHit)
     searchResults.value = normalizedHits
 
