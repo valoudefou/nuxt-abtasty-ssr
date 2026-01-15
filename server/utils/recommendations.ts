@@ -213,7 +213,7 @@ const normalizeItem = (
     id: fallbackId,
     slug: `${slug}-${fallbackId}`,
     name,
-    description: item.description?.trim() || 'Hand-picked for you by Val Commerce.',
+    description: item.description?.trim() || 'Hand-picked for you by Commerce Demo.',
     price: normalizePrice(item.price),
     category: 'Recommendations',
     image: item.img_link?.trim() || PLACEHOLDER_IMAGE,

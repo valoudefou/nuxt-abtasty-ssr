@@ -252,5 +252,5 @@ const printReceipt = () => {
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
 
-useHead({ title: 'Order confirmation – Val Commerce' })
+useHead({ title: 'Order confirmation – Commerce Demo' })
 </script>

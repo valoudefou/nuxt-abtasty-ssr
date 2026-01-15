@@ -133,5 +133,5 @@ const remove = (id: number) => removeItem(id)
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
 
-useHead({ title: 'Your cart – Val Commerce' })
+useHead({ title: 'Your cart – Commerce Demo' })
 </script>

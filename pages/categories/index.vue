@@ -38,11 +38,13 @@
       :selected-brand="selectedCategory"
       :search-query="searchQuery"
       :enable-search="false"
-      :has-more="hasMore"
+      :current-page="page"
+      :total-pages="totalPages"
+      :enable-pagination="true"
       recommendation-filter-field="category"
       @select-brand="onSelectCategory"
       @search="onSearch"
-      @load-more="loadMore"
+      @page-change="onPageChange"
     />
     <NewsletterBanner />
   </div>
@@ -65,8 +67,9 @@ const {
   selectCategory,
   selectBrand,
   searchProducts,
-  loadMore,
-  hasMore
+  page,
+  totalPages,
+  goToPage
 } = useCategoryProducts()
 
 await fetchProducts()
@@ -81,5 +84,9 @@ const onSelectBrand = (brand: string) => {
 
 const onSearch = async (query: string) => {
   await searchProducts(query)
+}
+
+const onPageChange = async (nextPage: number) => {
+  await goToPage(nextPage)
 }
 </script>

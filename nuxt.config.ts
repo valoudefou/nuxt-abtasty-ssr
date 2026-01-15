@@ -51,7 +51,7 @@ const defaultStrategyIds = {
 export default defineNuxtConfig({
   app: {
     head: {
-      title: 'Val Commerce',
+      title: 'Commerce Demo',
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
         {

@@ -1,3 +1,6 @@
+import { readFile, writeFile, mkdir } from 'node:fs/promises'
+import path from 'node:path'
+
 import type { Product } from '@/types/product'
 import { slugifyBrand } from '@/utils/brand'
 
@@ -32,12 +35,41 @@ type RemoteResponse = {
 const PRODUCT_SOURCE_URL = 'https://live-server1.vercel.app/products'
 const CACHE_TTL = 1000 * 60 * 5 // 5 minutes
 const CACHE_VERSION = 1
+const CACHE_FILE = path.resolve(process.cwd(), 'data', 'products-cache.json')
 
 let cachedProducts: Product[] | null = null
 let lastFetch = 0
 let cachedVersion = 0
 
 const PLACEHOLDER_IMAGE = 'https://assets-manager.abtasty.com/placeholder.png'
+
+type ProductCacheFile = {
+  version: number
+  fetchedAt: number
+  products: Product[]
+}
+
+const readCacheFile = async (): Promise<ProductCacheFile | null> => {
+  try {
+    const data = await readFile(CACHE_FILE, 'utf-8')
+    const parsed = JSON.parse(data) as ProductCacheFile
+    if (!parsed || !Array.isArray(parsed.products)) {
+      return null
+    }
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+const writeCacheFile = async (payload: ProductCacheFile) => {
+  try {
+    await mkdir(path.dirname(CACHE_FILE), { recursive: true })
+    await writeFile(CACHE_FILE, JSON.stringify(payload))
+  } catch (error) {
+    console.warn('Failed to write product cache file', error)
+  }
+}
 
 const parseNumber = (value: string | number | null | undefined) => {
   if (value === null || value === undefined) {
@@ -119,7 +151,7 @@ const toProduct = (raw: RemoteProduct): Product => {
   ].filter((item): item is string => Boolean(item))
 
   if (highlightItems.length === 0) {
-    highlightItems.push('Curated selection from Val Commerce partners.')
+    highlightItems.push('Curated selection from Commerce Demo partners.')
   }
 
   const tagSet = new Set<string>()
@@ -169,6 +201,18 @@ export const fetchProducts = async (): Promise<Product[]> => {
   }
 
   try {
+    if (!cachedProducts) {
+      const cached = await readCacheFile()
+      if (cached && cached.version === CACHE_VERSION) {
+        cachedProducts = cached.products
+        cachedVersion = cached.version
+        lastFetch = cached.fetchedAt
+        if (now - cached.fetchedAt < CACHE_TTL) {
+          return cached.products
+        }
+      }
+    }
+
     const response = await $fetch<RemoteResponse | RemoteProduct[]>(PRODUCT_SOURCE_URL)
     const products = Array.isArray(response) ? response : response.products ?? []
     const mapped = products
@@ -178,10 +222,15 @@ export const fetchProducts = async (): Promise<Product[]> => {
     cachedProducts = mapped
     lastFetch = now
     cachedVersion = CACHE_VERSION
+    await writeCacheFile({ version: CACHE_VERSION, fetchedAt: now, products: mapped })
 
     return mapped
   } catch (error) {
     console.error('Failed to load products from remote source', error)
+    if (cachedProducts && cachedVersion === CACHE_VERSION) {
+      return cachedProducts
+    }
+
     throw createError({
       statusCode: 502,
       statusMessage: 'Unable to load product catalog right now.'

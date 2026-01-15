@@ -499,5 +499,5 @@ if (import.meta.client) {
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
 
-useHead({ title: 'Checkout – Val Commerce' })
+useHead({ title: 'Checkout – Commerce Demo' })
 </script>

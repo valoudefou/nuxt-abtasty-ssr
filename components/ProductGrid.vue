@@ -68,16 +68,37 @@
     <p v-if="error" class="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-600">{{ error }}</p>
 
     <div
-      v-if="enableInfiniteScroll && hasMore && !loading && !error"
-      ref="loadMoreTrigger"
-      class="h-10"
-      aria-hidden="true"
-    ></div>
+      v-if="enablePagination && totalPages > 1"
+      class="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-white px-6 py-4 text-sm text-slate-600 shadow-sm"
+    >
+      <p>
+        Page <span class="font-semibold text-slate-900">{{ currentPage }}</span> of
+        <span class="font-semibold text-slate-900">{{ totalPages }}</span>
+      </p>
+      <div class="flex items-center gap-3">
+        <button
+          type="button"
+          class="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-primary-400 hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+          :disabled="currentPage <= 1"
+          @click="emit('page-change', currentPage - 1)"
+        >
+          Previous
+        </button>
+        <button
+          type="button"
+          class="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-primary-400 hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+          :disabled="currentPage >= totalPages"
+          @click="emit('page-change', currentPage + 1)"
+        >
+          Next
+        </button>
+      </div>
+    </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed } from 'vue'
 
 import ProductCard from '@/components/ProductCard.vue'
 import RecommendationsCarousel from '@/components/RecommendationsCarousel.vue'
@@ -92,18 +113,20 @@ const props = withDefaults(defineProps<{
   searchQuery: string
   recommendationFilterField?: 'brand' | 'homepage' | 'category'
   enableSearch?: boolean
-  enableInfiniteScroll?: boolean
-  hasMore?: boolean
+  enablePagination?: boolean
+  currentPage?: number
+  totalPages?: number
 }>(), {
   enableSearch: true,
-  enableInfiniteScroll: true,
-  hasMore: false
+  enablePagination: false,
+  currentPage: 1,
+  totalPages: 1
 })
 
 const emit = defineEmits<{
   (event: 'select-brand', brand: string): void
   (event: 'search', query: string): void
-  (event: 'load-more'): void
+  (event: 'page-change', page: number): void
 }>()
 
 const filteredFilters = computed(() => {
@@ -124,46 +147,6 @@ const onSearchInput = (event: Event) => {
   emit('search', target.value ?? '')
 }
 
-const loadMoreTrigger = ref<HTMLElement | null>(null)
-let observer: IntersectionObserver | null = null
-
-const handleIntersect: IntersectionObserverCallback = (entries) => {
-  const [entry] = entries
-  if (!entry?.isIntersecting) return
-  if (!props.enableInfiniteScroll || !props.hasMore || props.loading) return
-  emit('load-more')
-}
-
-const startObserving = () => {
-  if (!props.enableInfiniteScroll || !props.hasMore || !loadMoreTrigger.value) return
-  if (!observer) {
-    observer = new IntersectionObserver(handleIntersect, { rootMargin: '200px' })
-  }
-  observer.observe(loadMoreTrigger.value)
-}
-
-const stopObserving = () => {
-  if (!observer || !loadMoreTrigger.value) return
-  observer.unobserve(loadMoreTrigger.value)
-}
-
-onMounted(() => {
-  startObserving()
-})
-
-watch(
-  [() => props.hasMore, () => props.enableInfiniteScroll, loadMoreTrigger],
-  async () => {
-    stopObserving()
-    await nextTick()
-    startObserving()
-  }
-)
-
-onBeforeUnmount(() => {
-  if (observer) {
-    observer.disconnect()
-    observer = null
-  }
-})
+const currentPage = computed(() => props.currentPage ?? 1)
+const totalPages = computed(() => props.totalPages ?? 1)
 </script>
