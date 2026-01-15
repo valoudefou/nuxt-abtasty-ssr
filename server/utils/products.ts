@@ -2,6 +2,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
 
 import type { Product } from '@/types/product'
+import { products as fallbackProducts } from '@/data/products'
 import { slugifyBrand } from '@/utils/brand'
 
 type RemoteProduct = {
@@ -223,6 +224,15 @@ export const fetchProducts = async (): Promise<Product[]> => {
       .filter((product) => sanitizeVendor(product.vendor)?.toLowerCase() === 'karkkainen')
       .map(toProduct)
 
+    if (mapped.length === 0) {
+      console.warn('Remote product feed returned no matching products; using fallback catalog.')
+      cachedProducts = fallbackProducts
+      lastFetch = now
+      cachedVersion = CACHE_VERSION
+      await writeCacheFile({ version: CACHE_VERSION, fetchedAt: now, products: fallbackProducts })
+      return cachedProducts
+    }
+
     cachedProducts = mapped
     lastFetch = now
     cachedVersion = CACHE_VERSION
@@ -235,10 +245,12 @@ export const fetchProducts = async (): Promise<Product[]> => {
       return cachedProducts
     }
 
-    throw createError({
-      statusCode: 502,
-      statusMessage: 'Unable to load product catalog right now.'
-    })
+    console.warn('Using fallback catalog because remote feed is unavailable.')
+    cachedProducts = fallbackProducts
+    lastFetch = now
+    cachedVersion = CACHE_VERSION
+    await writeCacheFile({ version: CACHE_VERSION, fetchedAt: now, products: fallbackProducts })
+    return cachedProducts
   }
 }
 
