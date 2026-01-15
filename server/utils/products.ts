@@ -53,7 +53,7 @@ const readCacheFile = async (): Promise<ProductCacheFile | null> => {
   try {
     const data = await readFile(CACHE_FILE, 'utf-8')
     const parsed = JSON.parse(data) as ProductCacheFile
-    if (!parsed || !Array.isArray(parsed.products)) {
+    if (!parsed || !Array.isArray(parsed.products) || parsed.products.length === 0) {
       return null
     }
     return parsed
@@ -63,6 +63,10 @@ const readCacheFile = async (): Promise<ProductCacheFile | null> => {
 }
 
 const writeCacheFile = async (payload: ProductCacheFile) => {
+  if (payload.products.length === 0) {
+    return
+  }
+
   try {
     await mkdir(path.dirname(CACHE_FILE), { recursive: true })
     await writeFile(CACHE_FILE, JSON.stringify(payload))
