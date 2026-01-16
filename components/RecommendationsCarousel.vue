@@ -154,7 +154,7 @@ const props = defineProps<{
   filterField?: RecommendationField
   cartCategories?: string[]
   addedToCartProductId?: number | null
-  viewingItemId?: number | null
+  viewingItemId?: string | number | null
   cartProductIds?: number[]
 }>()
 

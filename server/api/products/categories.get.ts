@@ -1,25 +1,11 @@
-import { fetchProducts } from '@/server/utils/products'
+import { useRuntimeConfig } from '#imports'
 
 export default defineEventHandler(async () => {
-  const products = await fetchProducts()
-  const unique = new Set<string>()
+  const config = useRuntimeConfig()
+  const baseRaw = config.public?.productsApiBase || 'https://live-server1.vercel.app'
+  const base = baseRaw.replace(/\/+$/, '')
 
-  for (const product of products) {
-    const fields = [
-      product.category,
-      product.category_level2,
-      product.category_level3,
-      product.category_level4
-    ]
-
-    for (const field of fields) {
-      if (!field) continue
-      const normalized = field.trim().toLowerCase()
-      if (normalized) {
-        unique.add(normalized)
-      }
-    }
-  }
-
-  return Array.from(unique)
+  return await $fetch<string[]>(`${base}/products/vendor/karkkainen/categories`, {
+    params: { limit: 2000 }
+  })
 })

@@ -1,5 +1,40 @@
 <template>
   <div class="space-y-16">
+    <transition v-if="productLoading" name="product-loader">
+      <div
+        class="fixed inset-0 z-50 flex items-center justify-center bg-white/75 px-6 py-10 backdrop-blur-sm"
+      >
+        <div class="w-full max-w-md rounded-3xl border border-sky-100 bg-white p-6 shadow-xl">
+          <div class="flex items-center gap-4">
+            <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50">
+              <div class="flex items-center gap-1">
+                <span class="product-loader-dot h-2 w-2 rounded-full bg-sky-500"></span>
+                <span class="product-loader-dot h-2 w-2 rounded-full bg-emerald-500"></span>
+                <span class="product-loader-dot h-2 w-2 rounded-full bg-amber-500"></span>
+              </div>
+            </div>
+            <div>
+              <p class="text-sm font-semibold text-slate-900">Loading product details</p>
+              <p class="mt-1 text-sm text-slate-600">
+                Fetching data from the demo catalog. This may take a moment.
+              </p>
+            </div>
+          </div>
+          <div class="mt-6 h-1 w-full overflow-hidden rounded-full bg-slate-100">
+            <div class="product-loader-bar h-full w-1/2 bg-gradient-to-r from-sky-400 via-emerald-400 to-amber-400"></div>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <p
+      v-else-if="productError"
+      class="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700"
+    >
+      We were unable to load this product. Please try again later.
+    </p>
+
+    <div v-else class="space-y-16">
     <div class="grid gap-16 lg:grid-cols-[1.2fr,1fr]">
       <div>
       <div class="overflow-hidden rounded-3xl bg-white shadow-xl">
@@ -124,6 +159,7 @@
         </div>
       </section>
     </ClientOnly>
+    </div>
   </div>
 </template>
 
@@ -135,6 +171,7 @@ import RecommendationsCarousel from '@/components/RecommendationsCarousel.vue'
 // is re-used in the browser with identical runtime config and logging behaviour.
 import { initializeFlagship, logFlagExposureToLooker } from '@/utils/flagship'
 import { flagshipLogStore } from '@/utils/flagship/logStore'
+import type { Product } from '@/types/product'
 
 definePageMeta({
   middleware: 'product-canonical'
@@ -151,9 +188,23 @@ const { data: applePayFeature } = await useFetch<{ enabled: boolean }>('/api/fea
   default: () => ({ enabled: false })
 })
 
-const product = await findById(route.params.id as string)
+const { data: productData, pending: productLoading, error: productError } = await useAsyncData<Product>(
+  () => `product-${route.params.id}`,
+  () => findById(route.params.id as string),
+  { watch: [() => route.params.id] }
+)
 
-const selectedSize = ref(product.sizes[0])
+const product = computed(() => productData.value as Product)
+
+const selectedSize = ref<string | null>(product.value?.sizes?.[0] ?? null)
+watch(
+  () => product.value?.sizes?.[0],
+  (size) => {
+    if (!selectedSize.value && size) {
+      selectedSize.value = size
+    }
+  }
+)
 // applePayEnabled starts with the server-evaluated flag so SSR HTML and hydration match;
 // subsequent client checks overwrite it if the visitor’s decision changes.
 const applePayEnabled = ref(Boolean(applePayFeature.value?.enabled))
@@ -199,7 +250,7 @@ const runFlagship = async () => {
 
     // Capture Looker-style exposure logs (including metadata like variation name) so the
     // "L" panel reflects the exact payload we would send to Looker.
-    logFlagExposureToLooker(
+      logFlagExposureToLooker(
       visitor.getFlags(),
       {
         info: (msg, meta) => console.info(msg, meta)
@@ -207,7 +258,7 @@ const runFlagship = async () => {
       {
         visitorId: visitor.visitorId,
         anonymousId: visitor.anonymousId ?? undefined,
-        extraProps: { page: 'product', productSlug: product.slug }
+        extraProps: { page: 'product', productSlug: product.value?.slug }
       }
     )
 
@@ -242,13 +293,15 @@ const runFlagship = async () => {
 if (import.meta.client) {
   onMounted(() => {
     runFlagship()
-    addViewedProduct(product.id)
+    if (product.value) {
+      addViewedProduct(product.value.id)
+    }
   })
 }
 
 const addToCart = () => {
-  if (!product.inStock) return
-  cart.addItem(product)
+  if (!product.value?.inStock) return
+  cart.addItem(product.value)
 }
 
 const trackApplePayClick = async () => {
@@ -271,7 +324,7 @@ const hit = HitType.EVENT;
       type: HitType.EVENT,
       category: EventCategory.USER_ENGAGEMENT,
       action: 'Click Apple Pay',
-      label: product.slug,
+      label: product.value?.slug ?? '',
       value: 1
     })
 
@@ -281,7 +334,7 @@ const hit = HitType.EVENT;
       tag: 'flagship-client',
       message: 'Tracked Apple Pay click hit',
       action: 'Click Apple Pay',
-      label: product.slug
+      label: product.value?.slug ?? ''
     })
   } catch (error) {
     console.error('Failed to send Flagship Apple Pay click hit', error)
@@ -307,7 +360,7 @@ const beginApplePay = async () => {
     return
   }
 
-  if (!product.inStock) {
+  if (!product.value?.inStock) {
     notifications.show({
       title: 'Unavailable',
       message: 'This product is currently out of stock.'
@@ -332,8 +385,58 @@ const beginApplePay = async () => {
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
 
-useHead({ title: `${product.name} – Commerce Demo` })
+useHead({ title: computed(() => `${product.value?.name ?? 'Product'} – Commerce Demo`) })
 </script>
+
+<style scoped>
+.product-loader-dot {
+  animation: product-loader-bounce 1.2s ease-in-out infinite;
+}
+
+.product-loader-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.product-loader-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+.product-loader-bar {
+  animation: product-loader-bar 1.6s ease-in-out infinite;
+}
+
+@keyframes product-loader-bounce {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.6;
+  }
+  40% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+@keyframes product-loader-bar {
+  0% {
+    transform: translateX(-60%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+.product-loader-enter-active,
+.product-loader-leave-active {
+  transition: opacity 200ms ease;
+}
+
+.product-loader-enter-from,
+.product-loader-leave-to {
+  opacity: 0;
+}
+</style>
 
 <style scoped>
 .apple-pay-button {

@@ -353,7 +353,16 @@ export const findProductById = async (id: string | number): Promise<Product | un
   const { base } = getApiConfig()
 
   try {
-    const response = await $fetch<RemoteProduct>(`${base}/products/${encodeURIComponent(String(numericId))}`)
+    if (cachedProducts && cachedVersion === CACHE_VERSION) {
+      const cachedMatch = cachedProducts.find((product) => product.id === numericId)
+      if (cachedMatch) {
+        return cachedMatch
+      }
+    }
+
+    const response = await $fetch<RemoteProduct>(
+      `${base}/products/vendor/${encodeURIComponent(VENDOR_FILTER)}/${encodeURIComponent(String(numericId))}`
+    )
     return normalizeRemoteProduct(response)
   } catch (error) {
     const cached = cachedProducts ?? (await fetchProducts())
@@ -371,17 +380,29 @@ const sanitizeBrand = (value: string | null | undefined) => {
 }
 
 export const fetchProductBrands = async (): Promise<string[]> => {
-  const products = await fetchProducts()
-  const unique = new Set<string>()
+  const { base } = getApiConfig()
+  try {
+    const response = await $fetch<{ brands: string[] } | string[]>(
+      `${base}/products/vendor/${encodeURIComponent(VENDOR_FILTER)}/brands`,
+      {
+        params: { limit: VENDOR_LIMIT }
+      }
+    )
+    const brands = Array.isArray(response) ? response : response.brands ?? []
+    return brands.filter(Boolean).map((brand) => String(brand).trim())
+  } catch (error) {
+    const products = await fetchProducts()
+    const unique = new Set<string>()
 
-  for (const product of products) {
-    const brand = sanitizeBrand(product.brand)
-    if (brand) {
-      unique.add(brand)
+    for (const product of products) {
+      const brand = sanitizeBrand(product.brand)
+      if (brand) {
+        unique.add(brand)
+      }
     }
-  }
 
-  return Array.from(unique)
+    return Array.from(unique)
+  }
 }
 
 export const findProductsByBrand = async (brand: string): Promise<Product[]> => {
@@ -391,7 +412,18 @@ export const findProductsByBrand = async (brand: string): Promise<Product[]> => 
     return []
   }
 
-  const products = await fetchProducts()
-  const target = normalizedBrand.toLowerCase()
-  return products.filter((product) => product.brand?.toLowerCase() === target)
+  const { base } = getApiConfig()
+  try {
+    const response = await $fetch<RemoteResponse | RemoteProduct[]>(
+      `${base}/products/vendor/${encodeURIComponent(VENDOR_FILTER)}/brand/${encodeURIComponent(normalizedBrand)}`,
+      {
+        params: { limit: VENDOR_LIMIT }
+      }
+    )
+    return normalizeProductsResponse(response).map(normalizeRemoteProduct)
+  } catch (error) {
+    const products = await fetchProducts()
+    const target = normalizedBrand.toLowerCase()
+    return products.filter((product) => product.brand?.toLowerCase() === target)
+  }
 }

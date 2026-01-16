@@ -1,4 +1,6 @@
-import { fetchProducts } from '@/server/utils/products'
+import { useRuntimeConfig } from '#imports'
+
+import { normalizeRemoteProduct, type RemoteResponse } from '@/server/utils/products'
 
 export default defineEventHandler(async (event) => {
   const { category } = getRouterParams(event)
@@ -10,20 +12,18 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const products = await fetchProducts()
-  const target = category.toLowerCase()
-  const matches = products.filter((product) => {
-    const categories = [
-      product.category,
-      product.category_level2,
-      product.category_level3,
-      product.category_level4
-    ]
-      .filter(Boolean)
-      .map((value) => value?.toLowerCase())
+  const config = useRuntimeConfig()
+  const baseRaw = config.public?.productsApiBase || 'https://live-server1.vercel.app'
+  const base = baseRaw.replace(/\/+$/, '')
 
-    return categories.includes(target)
-  })
+  const decodedCategory = decodeURIComponent(category)
+  const response = await $fetch<RemoteResponse | RemoteResponse['products']>(
+    `${base}/products/vendor/karkkainen/category/${encodeURIComponent(decodedCategory)}`,
+    {
+      params: { limit: 2000 }
+    }
+  )
+  const matches = (Array.isArray(response) ? response : response.products ?? []).map(normalizeRemoteProduct)
 
   if (matches.length === 0) {
     throw createError({
