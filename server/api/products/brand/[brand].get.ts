@@ -12,14 +12,6 @@ export default defineEventHandler(async (event) => {
 
   const products = await findProductsByBrand(brand)
 
-  if (products.length === 0) {
-    throw createError({
-      statusCode: 404,
-      statusMessage: `No products found for brand "${brand}"`,
-      data: { error: `No products found for brand "${brand}"` }
-    })
-  }
-
   return {
     products
   }
