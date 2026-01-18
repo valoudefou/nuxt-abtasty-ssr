@@ -121,7 +121,7 @@
       </article>
     </div>
 
-    <p v-else class="mt-4 text-sm text-slate-500">
+    <p v-else-if="recommendationsLoaded" class="mt-4 text-sm text-slate-500">
       There are no recommendations available right now. Please check back later.
     </p>
   </section>
@@ -378,8 +378,6 @@ const ensureRecommendations = async (
   }
 }
 
-await ensureRecommendations(activeFilterValue.value, activeFilterField.value)
-
 const heading = computed(() => headingState.value)
 
 const carouselRef = ref<HTMLDivElement | null>(null)
@@ -521,6 +519,7 @@ onMounted(() => {
     window.addEventListener('resize', handleResize)
   }
 
+  void ensureRecommendations(activeFilterValue.value, activeFilterField.value)
   void syncCarousel()
 })
 
