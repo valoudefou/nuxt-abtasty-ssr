@@ -207,6 +207,11 @@ export const useCategoryProducts = () => {
 
       if (selectedBrand.value !== 'All') {
         const brandProducts = await fetchBrandProducts(selectedBrand.value)
+        if (brandProducts.length === 0) {
+          selectedBrand.value = 'All'
+          await fetchPagedProducts()
+          return
+        }
         applyPagedResults(brandProducts)
         return
       }
@@ -243,6 +248,7 @@ export const useCategoryProducts = () => {
     selectedBrand.value = brand
     error.value = null
     page.value = 1
+    selectedCategory.value = 'All'
 
     if (searchQuery.value) {
       applySearchFilters()

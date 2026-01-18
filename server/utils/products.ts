@@ -31,16 +31,22 @@ export type RemoteProduct = {
 }
 
 export type RemoteResponse = {
+  page?: number
+  limit?: number
   products: RemoteProduct[]
 }
 
-const DEFAULT_API_BASE = 'https://live-server1.vercel.app'
+const DEFAULT_API_BASE = 'https://api.live-server1.com'
 const CACHE_TTL = 1000 * 60 * 5 // 5 minutes
 const CACHE_VERSION = 1
 const CACHE_FILE = path.resolve(process.cwd(), 'data', 'products-cache.json')
 const REMOTE_FETCH_TIMEOUT_MS = 0
 const LOG_PREFIX = '[ProductsAPI]'
 const REMOTE_BACKOFF_MS = 0
+const PAGE_SIZE = 100
+const PAGE_RETRY_COUNT = 2
+const PAGE_RETRY_DELAY_MS = 300
+const VENDOR_FILTER = 'karkkainen'
 
 let cachedProducts: Product[] | null = null
 let lastFetch = 0
@@ -162,10 +168,6 @@ const sanitizeVendor = (value: string | null | undefined) => {
   return trimmed.length > 0 ? trimmed : undefined
 }
 
-const VENDOR_FILTER = 'karkkainen'
-const VENDOR_LIMIT = 2000
-
-
 const buildImageUrl = (value: string | null | undefined) => {
   if (!value) {
     return PLACEHOLDER_IMAGE
@@ -195,11 +197,17 @@ export const normalizeRemoteProduct = (raw: RemoteProduct): Product => {
   const stock = Math.max(parseNumber(raw.stock), 0)
   const discount = parseNumber(raw.discountPercentage)
   const availability = raw.availabilityStatus?.trim() ?? ''
+  const hasStockSignal = raw.stock !== null && raw.stock !== undefined
+  const hasAvailabilitySignal = availability.length > 0
+  const inStock =
+    hasAvailabilitySignal || hasStockSignal ? availability.toLowerCase() === 'in stock' || stock > 0 : true
 
   const brand = raw.brand ? String(raw.brand).trim() : ''
+  const vendor = sanitizeVendor(raw.vendor)
 
   const highlightItems = [
     brand ? `Brand: ${brand}` : null,
+    vendor ? `Vendor: ${vendor}` : null,
     discount > 0 ? `Save ${discount.toFixed(0)}% today` : null,
     raw.returnPolicy ? `Returns: ${raw.returnPolicy}` : null,
     availability ? `Availability: ${availability}` : null
@@ -237,11 +245,11 @@ export const normalizeRemoteProduct = (raw: RemoteProduct): Product => {
     thumbnail: raw.thumbnail ?? undefined,
     rating,
     highlights: highlightItems,
-    inStock: availability.toLowerCase() === 'in stock' || stock > 0,
+    inStock,
     colors: tags,
     sizes: ['One Size'],
     brand: brand || undefined,
-    vendor: sanitizeVendor(raw.vendor),
+    vendor: vendor || undefined,
     stock,
     discountPercentage: discount,
     price_before_discount: raw.price_before_discount ?? undefined,
@@ -252,6 +260,61 @@ export const normalizeRemoteProduct = (raw: RemoteProduct): Product => {
     returnPolicy: raw.returnPolicy ?? undefined,
     link: productLink
   }
+}
+
+const fetchRemoteProducts = async (
+  base: string,
+  params: Record<string, string | number> = {}
+): Promise<RemoteProduct[]> => {
+  const products: RemoteProduct[] = []
+
+  for (let page = 1; ; page += 1) {
+    let response: RemoteResponse | RemoteProduct[] | null = null
+    let attempt = 0
+    let pageError: unknown = null
+
+    while (attempt <= PAGE_RETRY_COUNT) {
+      try {
+        response = await withTimeout(
+          $fetch<RemoteResponse | RemoteProduct[]>(`${base}/products`, {
+            params: { ...params, page, limit: PAGE_SIZE }
+          }),
+          REMOTE_FETCH_TIMEOUT_MS
+        )
+        pageError = null
+        break
+      } catch (error) {
+        pageError = error
+        attempt += 1
+        if (attempt <= PAGE_RETRY_COUNT) {
+          await new Promise((resolve) => setTimeout(resolve, PAGE_RETRY_DELAY_MS))
+        }
+      }
+    }
+
+    if (!response) {
+      console.warn(`${LOG_PREFIX} failed to fetch page; returning partial catalog.`, {
+        page,
+        error: pageError
+      })
+      break
+    }
+
+    const batch = normalizeProductsResponse(response)
+    if (batch.length === 0) {
+      break
+    }
+
+    products.push(...batch)
+
+    const pageLimit =
+      Array.isArray(response) ? batch.length : response.limit ?? batch.length
+    if (batch.length < pageLimit) {
+      break
+    }
+  }
+
+  return products
 }
 
 export const fetchProducts = async (): Promise<Product[]> => {
@@ -289,21 +352,16 @@ export const fetchProducts = async (): Promise<Product[]> => {
       return fallbackCatalog
     }
     const requestStart = Date.now()
-    const response = await withTimeout(
-      $fetch<RemoteResponse | RemoteProduct[]>(`${base}/products/vendor/${encodeURIComponent(VENDOR_FILTER)}`, {
-        params: { limit: VENDOR_LIMIT }
-      }),
-      REMOTE_FETCH_TIMEOUT_MS
-    )
+    const products = await fetchRemoteProducts(base, { vendor: VENDOR_FILTER })
     console.info(`${LOG_PREFIX} upstream response`, {
-      url: `${base}/products/vendor/${VENDOR_FILTER}`,
+      url: `${base}/products`,
+      count: products.length,
       durationMs: Date.now() - requestStart
     })
-    const products = normalizeProductsResponse(response)
     const mapped = products.map(normalizeRemoteProduct)
 
     if (mapped.length === 0) {
-      console.warn(`${LOG_PREFIX} no karkkainen products from upstream; using cached/fallback catalog.`, {
+      console.warn(`${LOG_PREFIX} no products from upstream; using cached/fallback catalog.`, {
         upstreamCount: products.length
       })
       if (cachedProducts && cachedVersion === CACHE_VERSION) {
@@ -360,9 +418,7 @@ export const findProductById = async (id: string | number): Promise<Product | un
       }
     }
 
-    const response = await $fetch<RemoteProduct>(
-      `${base}/products/vendor/${encodeURIComponent(VENDOR_FILTER)}/${encodeURIComponent(String(numericId))}`
-    )
+    const response = await $fetch<RemoteProduct>(`${base}/products/${encodeURIComponent(String(numericId))}`)
     return normalizeRemoteProduct(response)
   } catch (error) {
     const cached = cachedProducts ?? (await fetchProducts())
@@ -380,29 +436,17 @@ const sanitizeBrand = (value: string | null | undefined) => {
 }
 
 export const fetchProductBrands = async (): Promise<string[]> => {
-  const { base } = getApiConfig()
-  try {
-    const response = await $fetch<{ brands: string[] } | string[]>(
-      `${base}/products/vendor/${encodeURIComponent(VENDOR_FILTER)}/brands`,
-      {
-        params: { limit: VENDOR_LIMIT }
-      }
-    )
-    const brands = Array.isArray(response) ? response : response.brands ?? []
-    return brands.filter(Boolean).map((brand) => String(brand).trim())
-  } catch (error) {
-    const products = await fetchProducts()
-    const unique = new Set<string>()
+  const products = await fetchProducts()
+  const unique = new Set<string>()
 
-    for (const product of products) {
-      const brand = sanitizeBrand(product.brand)
-      if (brand) {
-        unique.add(brand)
-      }
+  for (const product of products) {
+    const brand = sanitizeBrand(product.brand)
+    if (brand) {
+      unique.add(brand)
     }
-
-    return Array.from(unique)
   }
+
+  return Array.from(unique)
 }
 
 export const findProductsByBrand = async (brand: string): Promise<Product[]> => {
@@ -414,16 +458,28 @@ export const findProductsByBrand = async (brand: string): Promise<Product[]> => 
 
   const { base } = getApiConfig()
   try {
-    const response = await $fetch<RemoteResponse | RemoteProduct[]>(
-      `${base}/products/vendor/${encodeURIComponent(VENDOR_FILTER)}/brand/${encodeURIComponent(normalizedBrand)}`,
-      {
-        params: { limit: VENDOR_LIMIT }
-      }
+    const response = await fetchRemoteProducts(base, { brand: normalizedBrand, vendor: VENDOR_FILTER })
+    const mapped = response.map(normalizeRemoteProduct)
+    if (mapped.length > 0) {
+      return mapped
+    }
+
+    const brands = await fetchProductBrands()
+    const canonical = brands.find(
+      (entry) => entry.trim().toLowerCase() === normalizedBrand.toLowerCase()
     )
-    return normalizeProductsResponse(response).map(normalizeRemoteProduct)
+    if (canonical && canonical !== normalizedBrand) {
+      const retry = await fetchRemoteProducts(base, { brand: canonical, vendor: VENDOR_FILTER })
+      const retried = retry.map(normalizeRemoteProduct)
+      if (retried.length > 0) {
+        return retried
+      }
+    }
   } catch (error) {
-    const products = await fetchProducts()
-    const target = normalizedBrand.toLowerCase()
-    return products.filter((product) => product.brand?.toLowerCase() === target)
+    console.error('Failed to load products by brand from upstream', error)
   }
+
+  const products = await fetchProducts()
+  const target = normalizedBrand.toLowerCase()
+  return products.filter((product) => product.brand?.toLowerCase() === target)
 }

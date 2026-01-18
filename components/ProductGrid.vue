@@ -57,31 +57,7 @@
       </div>
     </div>
 
-    <div v-if="loading" class="space-y-6">
-      <div class="overflow-hidden rounded-3xl border border-sky-100 bg-white shadow-sm">
-        <div class="flex flex-wrap items-center gap-4 px-6 py-4">
-          <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50">
-            <div class="flex items-center gap-1">
-              <span class="loading-dot h-2 w-2 rounded-full bg-sky-500"></span>
-              <span class="loading-dot h-2 w-2 rounded-full bg-emerald-500"></span>
-              <span class="loading-dot h-2 w-2 rounded-full bg-amber-500"></span>
-            </div>
-          </div>
-          <div>
-            <p class="text-sm font-semibold text-slate-900">Loading demo catalog</p>
-            <p class="mt-1 text-sm text-slate-600">
-              We are fetching products from the demo database. This may take a few extra seconds.
-            </p>
-          </div>
-        </div>
-        <div class="h-1 w-full bg-gradient-to-r from-sky-400 via-emerald-400 to-amber-400"></div>
-      </div>
-      <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <div v-for="n in 3" :key="n" class="h-96 animate-pulse rounded-3xl bg-slate-100"></div>
-      </div>
-    </div>
-
-    <div v-else class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
       <ProductCard v-for="product in products" :key="product.id" :product="product" />
     </div>
 
@@ -171,29 +147,4 @@ const currentPage = computed(() => props.currentPage ?? 1)
 const totalPages = computed(() => props.totalPages ?? 1)
 </script>
 
-<style scoped>
-.loading-dot {
-  animation: loading-bounce 1.2s ease-in-out infinite;
-}
-
-.loading-dot:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.loading-dot:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-@keyframes loading-bounce {
-  0%,
-  80%,
-  100% {
-    transform: translateY(0);
-    opacity: 0.6;
-  }
-  40% {
-    transform: translateY(-4px);
-    opacity: 1;
-  }
-}
-</style>
+<style scoped></style>

@@ -48,7 +48,7 @@ Make sure to create a local `.env` file before running the project. The file is 
 ```
 NUXT_FLAGSHIP_ENV_ID=your-flagship-environment-id
 NUXT_FLAGSHIP_API_KEY=your-flagship-api-key
-NUXT_PRODUCTS_API_BASE=https://live-server1.vercel.app
+NUXT_PRODUCTS_API_BASE=https://api.live-server1.com
 NUXT_PRODUCTS_DISABLE_REMOTE=true
 ```
 

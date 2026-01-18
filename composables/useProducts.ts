@@ -1,5 +1,4 @@
 import type { Product } from '@/types/product'
-import { slugifyBrand } from '@/utils/brand'
 
 export const useProducts = () => {
   const products = useState<Product[]>('products', () => [])
@@ -88,9 +87,9 @@ export const useProducts = () => {
 
     loading.value = true
 
-    const brandSlug = slugifyBrand(brand)
+    const brandName = brand.trim()
 
-    if (!brandSlug) {
+    if (!brandName) {
       products.value = []
       error.value = `No products found for brand "${brand}".`
       loading.value = false
@@ -99,7 +98,7 @@ export const useProducts = () => {
 
     try {
       const response = await $fetch<{ products: Product[] }>(
-        `/api/products/brand/${encodeURIComponent(brandSlug)}`
+        `/api/products/brand/${encodeURIComponent(brandName)}`
       )
 
       products.value = response.products

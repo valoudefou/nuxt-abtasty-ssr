@@ -1,6 +1,4 @@
-import { useRuntimeConfig } from '#imports'
-
-import { normalizeRemoteProduct, type RemoteResponse } from '@/server/utils/products'
+import { fetchProducts } from '@/server/utils/products'
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
@@ -15,17 +13,12 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const config = useRuntimeConfig()
-  const baseRaw = config.public?.productsApiBase || 'https://live-server1.vercel.app'
-  const base = baseRaw.replace(/\/+$/, '')
-  const response = await $fetch<RemoteResponse | RemoteResponse['products']>(
-    `${base}/products/vendor/karkkainen/search`,
-    {
-      params: { q: term, limit: 2000 }
-    }
-  )
-
-  const matches = (Array.isArray(response) ? response : response.products ?? []).map(normalizeRemoteProduct)
+  const products = await fetchProducts()
+  const target = term.toLowerCase()
+  const matches = products.filter((product) => {
+    const title = product.title ?? product.name
+    return title?.toLowerCase().includes(target)
+  })
 
   console.info('[ProductsSearch]', {
     term,
