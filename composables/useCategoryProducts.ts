@@ -31,21 +31,29 @@ export const useCategoryProducts = () => {
   const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
 
   const fetchPagedProducts = async () => {
-    const cursor = page.value > 1 ? pageCursors.value[page.value] : undefined
+    const brandFilter = selectedBrand.value.trim() || 'All'
+    const categoryFilter = selectedCategory.value.trim() || 'All'
+    const cursor =
+      page.value > 1 ? pageCursors.value[page.value] ?? '' : ''
     let response: PagedResponse | null = null
     let attempt = 0
 
     while (attempt < 2) {
       try {
+        const params: Record<string, string | number | undefined> = {
+          page: page.value,
+          pageSize,
+          brand: brandFilter,
+          category: categoryFilter,
+          q: searchQuery.value || undefined
+        }
+
+        if (cursor) {
+          params.cursor = cursor
+        }
+
         response = await $fetch<PagedResponse>('/api/products/paged', {
-          params: {
-            page: page.value,
-            pageSize,
-            cursor,
-            brand: selectedBrand.value,
-            category: selectedCategory.value,
-            q: searchQuery.value || undefined
-          }
+          params
         })
         break
       } catch (err) {
@@ -68,7 +76,10 @@ export const useCategoryProducts = () => {
       throw new Error('Failed to load products.')
     }
 
-    products.value = response.products
+    const brandTarget = brandFilter === 'All' ? null : brandFilter.toLowerCase()
+    products.value = brandTarget
+      ? response.products.filter((product) => product.brand?.toLowerCase() === brandTarget)
+      : response.products
     categories.value = response.categories ?? []
     brands.value = response.brands ?? []
     total.value = response.total
@@ -91,12 +102,6 @@ export const useCategoryProducts = () => {
 
     try {
       await fetchPagedProducts()
-
-      if (products.value.length === 0 && selectedBrand.value !== 'All') {
-        selectedBrand.value = 'All'
-        error.value = null
-        await fetchPagedProducts()
-      }
     } catch (err) {
       console.error('Failed to load products for categories view', err)
       error.value = 'We were unable to load products. Please try again later.'

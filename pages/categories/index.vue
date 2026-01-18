@@ -51,6 +51,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
 import ProductGrid from '@/components/ProductGrid.vue'
 
@@ -74,11 +75,14 @@ const {
 
 await fetchProducts()
 
+const brandQuery = ref('')
+
 const onSelectCategory = (category: string) => {
   selectCategory(category)
 }
 
 const onSelectBrand = (brand: string) => {
+  brandQuery.value = ''
   selectBrand(brand)
 }
 

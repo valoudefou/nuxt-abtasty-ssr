@@ -1,6 +1,7 @@
 import { setResponseHeader } from 'h3'
 import { useRuntimeConfig } from '#imports'
 
+import type { Product } from '@/types/product'
 import type { RemoteResponse } from '@/server/utils/products'
 import { normalizeRemoteProduct } from '@/server/utils/products'
 
@@ -20,6 +21,20 @@ const parseNumberParam = (value: unknown, fallback: number) => {
   }
   return fallback
 }
+
+const deriveCategories = (collection: Product[]) => {
+  const unique = new Map<string, string>()
+  for (const item of collection) {
+    const category = item.category?.trim()
+    if (!category) continue
+    const key = category.toLowerCase()
+    if (!unique.has(key)) {
+      unique.set(key, category)
+    }
+  }
+  return Array.from(unique.values()).sort((a, b) => a.localeCompare(b))
+}
+
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
@@ -52,10 +67,13 @@ export default defineEventHandler(async (event) => {
     const status = (error as { statusCode?: number; response?: { status?: number } })?.statusCode
       ?? (error as { response?: { status?: number } })?.response?.status
     if (status === 429) {
-      const retryAfter = (error as { response?: { headers?: { get?: (key: string) => string | null } } })
+      const retryAfterHeader = (error as { response?: { headers?: { get?: (key: string) => string | null } } })
         ?.response?.headers?.get?.('retry-after')
-      if (retryAfter) {
-        setResponseHeader(event, 'Retry-After', retryAfter)
+      if (retryAfterHeader) {
+        const retryAfterSeconds = Number.parseInt(retryAfterHeader, 10)
+        if (Number.isFinite(retryAfterSeconds)) {
+          setResponseHeader(event, 'retry-after', retryAfterSeconds)
+        }
       }
       throw createError({ statusCode: 429, statusMessage: 'Rate limited' })
     }
@@ -68,7 +86,9 @@ export default defineEventHandler(async (event) => {
   const total = totalPages * pageSize
 
   const [categories, brands] = await Promise.all([
-    $fetch<string[]>(`${base}/products/categories`).catch(() => []),
+    brand !== 'All'
+      ? Promise.resolve(deriveCategories(products))
+      : $fetch<string[]>(`${base}/products/categories`).catch(() => []),
     $fetch<{ brands: string[] } | string[]>(`${base}/products/brands`)
       .then((payload) => (Array.isArray(payload) ? payload : payload.brands ?? []))
       .catch(() => [])

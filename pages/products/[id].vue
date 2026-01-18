@@ -80,24 +80,6 @@
             {{ color }}
           </span>
         </div>
-        <div class="mt-6">
-          <label class="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Size</label>
-          <div class="mt-3 flex flex-wrap gap-2">
-            <button
-              v-for="size in product.sizes"
-              :key="size"
-              :class="[
-                'rounded-full border px-4 py-2 text-sm font-medium transition',
-                selectedSize === size
-                  ? 'border-primary-500 bg-primary-50 text-primary-600'
-                  : 'border-slate-200 bg-white text-slate-600 hover:border-primary-200 hover:text-primary-600'
-              ]"
-              @click="selectedSize = size"
-            >
-              {{ size }}
-            </button>
-          </div>
-        </div>
         <button
           class="mt-8 inline-flex w-full items-center justify-center rounded-full bg-primary-600 px-6 py-3 text-md font-semibold text-white shadow-lg transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
           :disabled="!product.inStock"
@@ -196,15 +178,6 @@ const { data: productData, pending: productLoading, error: productError } = awai
 
 const product = computed(() => productData.value as Product)
 
-const selectedSize = ref<string | null>(product.value?.sizes?.[0] ?? null)
-watch(
-  () => product.value?.sizes?.[0],
-  (size) => {
-    if (!selectedSize.value && size) {
-      selectedSize.value = size
-    }
-  }
-)
 // applePayEnabled starts with the server-evaluated flag so SSR HTML and hydration match;
 // subsequent client checks overwrite it if the visitor’s decision changes.
 const applePayEnabled = ref(Boolean(applePayFeature.value?.enabled))
