@@ -145,15 +145,8 @@
 <script setup lang="ts">
 import { flagshipLogStore, type FlagshipLogEntry } from '@/utils/flagship/logStore'
 
-const route = useRoute()
-const initialSearchQuery = computed(() => {
-  const param = route.query?.search
-  const value = Array.isArray(param) ? param?.[0] : param
-  return typeof value === 'string' && value.trim().length > 0
-})
-
 const logs = ref<FlagshipLogEntry[]>([])
-const isOpen = useState('flagship-log-viewer-open', () => !initialSearchQuery.value)
+const isOpen = useState('flagship-log-viewer-open', () => false)
 const searchTerm = useState('flagship-log-search', () => '')
 const panelHeight = useState('flagship-log-panel-height', () => 320)
 const isResizing = ref(false)
@@ -325,7 +318,7 @@ watch(isOpen, (open) => {
 })
 
 onMounted(() => {
-  if (!initialSearchQuery.value && import.meta.client) {
+  if (import.meta.client) {
     try {
       const stored = window.localStorage.getItem(STORAGE_KEY)
       if (stored !== null) {
