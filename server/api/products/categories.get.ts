@@ -1,33 +1,14 @@
-import type { Product } from '@/types/product'
-import { fetchProducts } from '@/server/utils/products'
-
-const getProductCategories = (product: Product) => {
-  const unique = new Set<string>()
-  const addCategory = (value?: string | null) => {
-    if (!value) return
-    const trimmed = value.trim()
-    if (!trimmed) return
-    unique.add(trimmed)
-  }
-
-  addCategory(product.category)
-  addCategory(product.category_level2)
-  addCategory(product.category_level3)
-  addCategory(product.category_level4)
-
-  return unique
-}
+import { useRuntimeConfig } from '#imports'
 
 export default defineEventHandler(async () => {
-  const products = await fetchProducts()
-  const unique = new Map<string, string>()
-  for (const product of products) {
-    for (const category of getProductCategories(product)) {
-      const key = category.toLowerCase()
-      if (!unique.has(key)) {
-        unique.set(key, category)
-      }
-    }
+  const config = useRuntimeConfig()
+  const baseRaw = config.public?.productsApiBase || 'https://api.live-server1.com'
+  const base = baseRaw.replace(/\/+$/, '')
+
+  try {
+    return await $fetch<string[]>(`${base}/products/categories`)
+  } catch (error) {
+    console.error('Failed to load product categories from upstream', error)
+    return []
   }
-  return Array.from(unique.values()).sort((a, b) => a.localeCompare(b))
 })

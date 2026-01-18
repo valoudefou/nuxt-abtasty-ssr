@@ -436,17 +436,24 @@ const sanitizeBrand = (value: string | null | undefined) => {
 }
 
 export const fetchProductBrands = async (): Promise<string[]> => {
-  const products = await fetchProducts()
-  const unique = new Set<string>()
+  const { base } = getApiConfig()
+  try {
+    const response = await $fetch<{ brands: string[] } | string[]>(`${base}/products/brands`)
+    const brands = Array.isArray(response) ? response : response.brands ?? []
+    return brands.filter(Boolean).map((brand) => String(brand).trim())
+  } catch (error) {
+    const products = await fetchProducts()
+    const unique = new Set<string>()
 
-  for (const product of products) {
-    const brand = sanitizeBrand(product.brand)
-    if (brand) {
-      unique.add(brand)
+    for (const product of products) {
+      const brand = sanitizeBrand(product.brand)
+      if (brand) {
+        unique.add(brand)
+      }
     }
-  }
 
-  return Array.from(unique)
+    return Array.from(unique)
+  }
 }
 
 export const findProductsByBrand = async (brand: string): Promise<Product[]> => {
