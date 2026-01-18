@@ -1,3 +1,4 @@
+import { setResponseHeader } from 'h3'
 import { useRuntimeConfig } from '#imports'
 
 import type { RemoteResponse } from '@/server/utils/products'
@@ -27,24 +28,42 @@ export default defineEventHandler(async (event) => {
   const category = normalizeParam(query.category) || 'All'
   const brand = normalizeParam(query.brand) || 'All'
   const term = normalizeParam(query.q)
+  const cursor = normalizeParam(query.cursor)
 
   const config = useRuntimeConfig()
   const baseRaw = config.public?.productsApiBase || 'https://api.live-server1.com'
   const base = baseRaw.replace(/\/+$/, '')
 
-  const response = await $fetch<RemoteResponse>(`${base}/products`, {
-    params: {
-      page,
-      limit: pageSize,
-      vendor: VENDOR_FILTER,
-      ...(brand !== 'All' ? { brand } : {}),
-      ...(category !== 'All' ? { category } : {}),
-      ...(term ? { q: term } : {})
+  type RemotePagedResponse = RemoteResponse & { next_cursor?: string }
+  let response: RemotePagedResponse
+
+  try {
+    response = await $fetch<RemotePagedResponse>(`${base}/products`, {
+      params: {
+        limit: pageSize,
+        vendor: VENDOR_FILTER,
+        ...(cursor ? { cursor } : { page }),
+        ...(brand !== 'All' ? { brand } : {}),
+        ...(category !== 'All' ? { category } : {}),
+        ...(term ? { q: term } : {})
+      }
+    })
+  } catch (error) {
+    const status = (error as { statusCode?: number; response?: { status?: number } })?.statusCode
+      ?? (error as { response?: { status?: number } })?.response?.status
+    if (status === 429) {
+      const retryAfter = (error as { response?: { headers?: { get?: (key: string) => string | null } } })
+        ?.response?.headers?.get?.('retry-after')
+      if (retryAfter) {
+        setResponseHeader(event, 'Retry-After', retryAfter)
+      }
+      throw createError({ statusCode: 429, statusMessage: 'Rate limited' })
     }
-  })
+    throw error
+  }
 
   const products = (response?.products ?? []).map(normalizeRemoteProduct)
-  const hasNext = products.length === pageSize
+  const hasNext = Boolean(response?.next_cursor) || products.length === pageSize
   const totalPages = hasNext ? page + 1 : page
   const total = totalPages * pageSize
 
@@ -61,6 +80,7 @@ export default defineEventHandler(async (event) => {
     pageSize,
     total,
     totalPages,
+    nextCursor: response?.next_cursor ?? null,
     categories: categories ?? [],
     brands: brands ?? []
   }
