@@ -1,5 +1,5 @@
 <template>
-  <section class="rounded-3xl border-slate-200 backdrop-blur">
+  <section class="min-h-[360px] rounded-3xl border-slate-200 backdrop-blur">
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div>
         <h3 class="section-title">{{ heading }}</h3>
@@ -111,8 +111,6 @@
           <a
             v-else-if="item.externalUrl"
             :href="item.externalUrl"
-            target="_blank"
-            rel="noopener noreferrer"
             class="inline-flex flex-1 items-center justify-center rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
           >
             View detail
@@ -132,6 +130,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { flagshipLogStore, type FlagshipLogLevel } from '@/utils/flagship/logStore'
 import type { Product } from '@/types/product'
+import { type RecommendationParams, useRecommendations } from '@/composables/useRecommendations'
 
 const placeholderImage = 'https://assets-manager.abtasty.com/placeholder.png'
 
@@ -142,11 +141,6 @@ type RecommendationItem = {
   product: Product
   detailUrl?: string
   externalUrl?: string
-}
-
-type RecommendationPayload = {
-  title: string
-  items: RecommendationItem[]
 }
 
 const props = defineProps<{
@@ -186,34 +180,19 @@ const getStrategyId = (field?: RecommendationField) =>
 
 const isArrayFilter = (field?: string) => field === 'cart_products' || field === 'viewed_items'
 
-const headingState = useState<string>(
-  'recommendations-heading',
-  () => getStrategyName(props.filterField)
-)
-const recommendations = useState<RecommendationItem[]>('recommendations-items', () => [])
-const recommendationsLoaded = useState<boolean>('recommendations-loaded', () => false)
-const recommendationsLoading = useState<boolean>('recommendations-loading', () => false)
-const recommendationsError = useState<string | null>('recommendations-error', () => null)
-const recommendationsFilterKey = useState<string>('recommendations-filter-key', () => '')
-const hydratedLogKey = ref<string | null>(null)
+const cart = useCart()
+const { getRecommendations, refreshRecommendations, stateFor, buildKey } = useRecommendations()
 
-const activeFilterValue = computed(() => props.filterValue ?? 'All')
-const activeFilterField = computed<RecommendationField>(
-  () => props.filterField ?? 'brand'
-)
-const cartCategoryFilters = computed(() => props.cartCategories ?? [])
-const addedToCartProductId = computed(() => props.addedToCartProductId ?? null)
-const viewingItemId = computed(() => props.viewingItemId ?? null)
-const cartProductContextIds = computed(() =>
-  Array.isArray(props.cartProductIds)
-    ? props.cartProductIds.filter((id) => Number.isFinite(Number(id))).map((id) => Number(id))
-    : []
-)
+const activeFilterField = computed<RecommendationField>(() => props.filterField ?? 'brand')
 
 const normalizeFilterValue = (value?: string | number[] | number, field?: string) => {
   if (isArrayFilter(field)) {
     const arr = Array.isArray(value) ? value : typeof value === 'number' ? [value] : []
     return arr.filter((item) => Number.isFinite(item)).map((item) => Number(item))
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value)
   }
 
   if (typeof value !== 'string') {
@@ -227,17 +206,6 @@ const normalizeFilterValue = (value?: string | number[] | number, field?: string
   return trimmed
 }
 
-const getFilterKey = (value: string | number[] | number, field: string) => {
-  if (isArrayFilter(field)) {
-    const arr = Array.isArray(value) ? value : typeof value === 'number' ? [value] : []
-    return `${field}:${arr.sort().join(',')}`
-  }
-  if (typeof value === 'string') {
-    return `${field}:${value.trim().toLowerCase()}`
-  }
-  return field
-}
-
 const normalizeCategories = (categories: string[]) => {
   const set = new Set<string>()
   for (const category of categories) {
@@ -249,151 +217,113 @@ const normalizeCategories = (categories: string[]) => {
   return Array.from(set)
 }
 
-
-let recommendationsRequestId = 0
-
-const logHydratedRecommendations = (
-  filterKey: string,
-  recommendationName: string,
-  recommendationId?: string
-) => {
-  if (!import.meta.client) return
-  if (hydratedLogKey.value === filterKey) return
-
-  logClientRecommendationEvent('INFO', 'Recommendations restored from cache', {
-    Variables: filterKey,
-    count: recommendations.value.length,
-    recommendationName,
-    recommendationId
-  })
-
-  hydratedLogKey.value = filterKey
+const normalizeNumberParam = (value?: string | number | null) => {
+  if (value === null || value === undefined) return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
 }
 
-const ensureRecommendations = async (
-  value?: string | number[] | number,
-  field?: RecommendationField
-) => {
-  const normalizedValue = normalizeFilterValue(value, field)
-  const filterField = field ?? activeFilterField.value
-  const strategyName = getStrategyName(filterField)
-  const strategyId = getStrategyId(filterField)
-  const normalizedCategories =
-    filterField === 'cart_products' ? normalizeCategories(cartCategoryFilters.value) : []
-  const normalizedAddedProductId =
-    filterField === 'cart_products' ? addedToCartProductId.value : null
-  const normalizedViewingItemId =
-    filterField === 'viewed_items' ? viewingItemId.value : null
-  const normalizedCartProducts = cartProductContextIds.value
+const cartProductContextIds = computed(() => {
+  const raw =
+    Array.isArray(props.cartProductIds) && props.cartProductIds.length > 0
+      ? props.cartProductIds
+      : cart.items.value.map((item) => item.id)
+  return raw
+    .map((id) => Number(id))
+    .filter((id) => Number.isFinite(id))
+    .sort((a, b) => a - b)
+})
 
-  if (
-    isArrayFilter(filterField)
-    && Array.isArray(normalizedValue)
-    && normalizedValue.length === 0
-  ) {
-    recommendations.value = []
-    recommendationsLoaded.value = true
-    recommendationsFilterKey.value = filterField
-    recommendationsError.value = null
-    return
+const cartCategoryFilters = computed(() => {
+  if (Array.isArray(props.cartCategories) && props.cartCategories.length > 0) {
+    return normalizeCategories(props.cartCategories)
   }
 
-  const hasValue =
-    normalizedValue && (Array.isArray(normalizedValue) ? normalizedValue.length > 0 : true)
+  const categories = cart.items.value.map((item) => item.category || '').filter(Boolean)
+  return normalizeCategories(categories)
+})
 
-  let filterKey = hasValue ? getFilterKey(normalizedValue, filterField) : filterField
-  if (filterField === 'cart_products' && normalizedCategories.length > 0) {
-    filterKey += `|categories:${normalizedCategories.sort().join(',')}`
-  }
-  if (filterField === 'cart_products' && normalizedAddedProductId !== null) {
-    filterKey += `|added:${normalizedAddedProductId}`
-  }
-  if (filterField === 'viewed_items' && typeof normalizedViewingItemId === 'number') {
-    filterKey += `|viewing:${normalizedViewingItemId}`
-  }
-  if (normalizedCartProducts.length > 0) {
-    filterKey += `|cart:${normalizedCartProducts.sort().join(',')}`
-  }
+const activeFilterValue = computed(() =>
+  normalizeFilterValue(props.filterValue ?? 'All', activeFilterField.value)
+)
 
-  if (recommendationsLoaded.value && recommendationsFilterKey.value === filterKey) {
-    logHydratedRecommendations(filterKey, headingState.value || strategyName, strategyId)
-    return
+const addedToCartProductId = computed(() => normalizeNumberParam(props.addedToCartProductId))
+const viewingItemId = computed(() => normalizeNumberParam(props.viewingItemId ?? null))
+
+const recommendationParams = computed<RecommendationParams>(() => {
+  const field = activeFilterField.value
+  const base: RecommendationParams = {
+    filterField: field,
+    filterValue: activeFilterValue.value,
+    cartProductIds: cartProductContextIds.value.length > 0 ? cartProductContextIds.value : undefined
   }
 
-  const requestId = ++recommendationsRequestId
-  recommendationsLoading.value = true
-  recommendationsError.value = null
-  try {
-    const payload = await $fetch<RecommendationPayload>('/api/recommendations', {
-      method: 'POST',
-      body: {
-        filterField,
-        filterValue: normalizedValue ?? null,
-        categoriesInCart: filterField === 'cart_products' ? normalizedCategories : undefined,
-        addedToCartProductId:
-          filterField === 'cart_products' && normalizedAddedProductId !== null
-            ? normalizedAddedProductId
-            : undefined,
-        viewingItemId:
-          filterField === 'viewed_items' && typeof normalizedViewingItemId === 'number'
-            ? normalizedViewingItemId
-            : undefined,
-        cartProductIds: normalizedCartProducts.length > 0 ? normalizedCartProducts : undefined
-      }
-    })
-
-    if (requestId !== recommendationsRequestId) {
-      return
-    }
-
-    headingState.value = payload?.title?.trim() || getStrategyName(filterField)
-    recommendations.value = payload?.items ?? []
-    recommendationsFilterKey.value = filterKey
-    recommendationsLoaded.value = true
-    logClientRecommendationEvent('INFO', 'Recommendations loaded', {
-      Variables: filterKey,
-      count: recommendations.value.length,
-      recommendationName: headingState.value,
-      recommendationId: strategyId
-    })
-    hydratedLogKey.value = filterKey
-  } catch (err) {
-    if (requestId === recommendationsRequestId) {
-      console.error('Failed to load recommendations', err)
-      recommendationsError.value = 'Unable to load recommendations right now.'
-      // Store attempted key to avoid re-trigger loops until filters change
-      recommendationsFilterKey.value = filterKey
-      headingState.value = getStrategyName(filterField)
-      logClientRecommendationEvent('ERROR', 'Failed to load recommendations', {
-        Variables: filterKey,
-        error: err instanceof Error ? err.message : String(err),
-        recommendationName: headingState.value || strategyName,
-        recommendationId: strategyId
-      })
-    }
-  } finally {
-    if (requestId === recommendationsRequestId) {
-      recommendationsLoading.value = false
+  if (field === 'cart_products') {
+    return {
+      ...base,
+      categoriesInCart: cartCategoryFilters.value.length > 0 ? cartCategoryFilters.value : undefined,
+      addedToCartProductId: addedToCartProductId.value ?? undefined
     }
   }
-}
 
-const heading = computed(() => headingState.value)
+  if (field === 'viewed_items') {
+    return {
+      ...base,
+      viewingItemId: viewingItemId.value ?? undefined
+    }
+  }
+
+  return base
+})
+
+const recommendationKey = computed(() => buildKey(recommendationParams.value))
+const recommendationState = computed(() => stateFor(recommendationParams.value).value)
+
+const heading = computed(
+  () => recommendationState.value.data?.title?.trim() || getStrategyName(activeFilterField.value)
+)
+
+const recommendations = computed<RecommendationItem[]>(
+  () => recommendationState.value.data?.items ?? []
+)
+
+const hasRecommendations = computed(() => recommendations.value.length > 0)
+const loading = computed(
+  () => recommendationState.value.pending && recommendationState.value.updatedAt === 0
+)
+const errorMessage = computed(() => recommendationState.value.error)
+const recommendationsLoaded = computed(
+  () => recommendationState.value.updatedAt > 0 || recommendationState.value.error !== null
+)
 
 const carouselRef = ref<HTMLDivElement | null>(null)
 const canScrollPrev = ref(false)
 const canScrollNext = ref(false)
-
-const cart = useCart()
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD'
 })
 
-const hasRecommendations = computed(() => recommendations.value.length > 0)
-const loading = computed(() => recommendationsLoading.value && !recommendationsLoaded.value)
-const errorMessage = computed(() => recommendationsError.value)
+const hydratedLogKey = ref<string | null>(null)
+const logRecommendationsEvent = (key: string, count: number) => {
+  if (!import.meta.client || hydratedLogKey.value === key) return
+  logClientRecommendationEvent('INFO', 'Recommendations loaded', {
+    Variables: key,
+    count,
+    recommendationName: heading.value,
+    recommendationId: getStrategyId(activeFilterField.value)
+  })
+  hydratedLogKey.value = key
+}
+
+if (import.meta.server) {
+  await getRecommendations(recommendationParams.value, {
+    reason: 'init',
+    debounceMs: 0,
+    ssr: true
+  })
+}
 
 const updateScrollState = () => {
   const el = carouselRef.value
@@ -444,7 +374,13 @@ const syncCarousel = async () => {
 }
 
 const dismissItem = (id: string) => {
-  recommendations.value = recommendations.value.filter((item) => item.id !== id)
+  const next = recommendations.value.filter((item) => item.id !== id)
+  if (recommendationState.value.data) {
+    recommendationState.value.data = {
+      ...recommendationState.value.data,
+      items: next
+    }
+  }
   void syncCarousel()
 }
 
@@ -477,40 +413,23 @@ watch(
 )
 
 watch(
-  () => [
-    activeFilterValue.value,
-    activeFilterField.value,
-    cartCategoryFilters.value,
-    addedToCartProductId.value,
-    viewingItemId.value,
-    cartProductContextIds.value
-  ] as const,
-  ([value, field, , addedId, viewingId, cartIds]) => {
-    const normalizedValue = normalizeFilterValue(value, field)
-    const normalizedCategories =
-      field === 'cart_products' ? normalizeCategories(cartCategoryFilters.value) : []
-    let filterKey =
-      normalizedValue && (Array.isArray(normalizedValue) ? normalizedValue.length > 0 : true)
-        ? getFilterKey(normalizedValue, field)
-        : field
+  recommendationKey,
+  (nextKey, prevKey) => {
+    if (nextKey === prevKey) return
+    void getRecommendations(recommendationParams.value, {
+      reason: prevKey ? 'filters' : 'init',
+      background: true,
+      debounceMs: 120
+    })
+  },
+  { immediate: import.meta.client }
+)
 
-    if (field === 'cart_products' && normalizedCategories.length > 0) {
-      filterKey += `|categories:${normalizedCategories.sort().join(',')}`
-    }
-    if (field === 'cart_products' && typeof addedId === 'number') {
-      filterKey += `|added:${addedId}`
-    }
-    if (field === 'viewed_items' && typeof viewingId === 'number') {
-      filterKey += `|viewing:${viewingId}`
-    }
-    if (Array.isArray(cartIds) && cartIds.length > 0) {
-      filterKey += `|cart:${[...cartIds].sort().join(',')}`
-    }
-
-    if (filterKey === recommendationsFilterKey.value) {
-      return
-    }
-    void ensureRecommendations(value, field)
+watch(
+  () => recommendationState.value.updatedAt,
+  (updatedAt) => {
+    if (!updatedAt || !hasRecommendations.value) return
+    logRecommendationsEvent(recommendationKey.value, recommendations.value.length)
   }
 )
 
@@ -519,9 +438,26 @@ onMounted(() => {
     window.addEventListener('resize', handleResize)
   }
 
-  void ensureRecommendations(activeFilterValue.value, activeFilterField.value)
+  void getRecommendations(recommendationParams.value, {
+    reason: 'init',
+    background: true,
+    debounceMs: 0
+  })
   void syncCarousel()
 })
+
+watch(
+  () => cart.items.value.map((item) => `${item.id}:${item.quantity}`),
+  () => {
+    if (!import.meta.client) return
+    void refreshRecommendations(recommendationParams.value, {
+      reason: 'cart',
+      background: true,
+      debounceMs: 220,
+      force: true
+    })
+  }
+)
 
 onBeforeUnmount(() => {
   if (detachScrollListener) {

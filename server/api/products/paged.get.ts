@@ -44,6 +44,8 @@ export default defineEventHandler(async (event) => {
   const brand = normalizeParam(query.brand) || 'All'
   const term = normalizeParam(query.q)
   const cursor = normalizeParam(query.cursor)
+  const includeFacets = normalizeParam(query.includeFacets)
+  const shouldIncludeFacets = includeFacets !== '0' && includeFacets.toLowerCase() !== 'false'
 
   const config = useRuntimeConfig()
   const baseRaw = config.public?.productsApiBase || 'https://api.live-server1.com'
@@ -85,14 +87,16 @@ export default defineEventHandler(async (event) => {
   const totalPages = hasNext ? page + 1 : page
   const total = totalPages * pageSize
 
-  const [categories, brands] = await Promise.all([
-    brand !== 'All'
-      ? Promise.resolve(deriveCategories(products))
-      : $fetch<string[]>(`${base}/products/categories`).catch(() => []),
-    $fetch<{ brands: string[] } | string[]>(`${base}/products/brands`)
-      .then((payload) => (Array.isArray(payload) ? payload : payload.brands ?? []))
-      .catch(() => [])
-  ])
+  const [categories, brands] = shouldIncludeFacets
+    ? await Promise.all([
+      brand !== 'All'
+        ? Promise.resolve(deriveCategories(products))
+        : $fetch<string[]>(`${base}/products/categories`).catch(() => []),
+      $fetch<{ brands: string[] } | string[]>(`${base}/products/brands`)
+        .then((payload) => (Array.isArray(payload) ? payload : payload.brands ?? []))
+        .catch(() => [])
+    ])
+    : [[], []]
 
   return {
     products,

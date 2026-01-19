@@ -34,6 +34,7 @@ export { useCart } from '../composables/useCart';
 export { useCategoryProducts } from '../composables/useCategoryProducts';
 export { useNotifications } from '../composables/useNotifications';
 export { useProducts } from '../composables/useProducts';
+export { useRecommendations, RecommendationParams } from '../composables/useRecommendations';
 export { useViewedProducts } from '../composables/useViewedProducts';
 export { default as asyncStorageShim } from '../utils/asyncStorageShim';
 export { slugifyBrand } from '../utils/brand';
