@@ -7,8 +7,6 @@ import { normalizeRemoteProduct } from '@/server/utils/products'
 
 const DEFAULT_PAGE_SIZE = 12
 const MAX_PAGE_SIZE = 60
-const VENDOR_FILTER = 'karkkainen'
-
 const normalizeParam = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
 
 const parseNumberParam = (value: unknown, fallback: number) => {
@@ -42,6 +40,7 @@ export default defineEventHandler(async (event) => {
   const pageSize = Math.min(parseNumberParam(query.pageSize, DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE)
   const category = normalizeParam(query.category) || 'All'
   const brand = normalizeParam(query.brand) || 'All'
+  const vendor = normalizeParam(query.vendor)
   const term = normalizeParam(query.q)
   const cursor = normalizeParam(query.cursor)
   const includeFacets = normalizeParam(query.includeFacets)
@@ -58,10 +57,10 @@ export default defineEventHandler(async (event) => {
     response = await $fetch<RemotePagedResponse>(`${base}/products`, {
       params: {
         limit: pageSize,
-        vendor: VENDOR_FILTER,
         ...(cursor ? { cursor } : { page }),
         ...(brand !== 'All' ? { brand } : {}),
         ...(category !== 'All' ? { category } : {}),
+        ...(vendor ? { vendor } : {}),
         ...(term ? { q: term } : {})
       }
     })
