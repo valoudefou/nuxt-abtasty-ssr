@@ -192,26 +192,14 @@ const fetchRecommendations = async (
   const startMark = `reco:${key}:start:${Date.now()}`
   markPerformance(startMark)
 
-  const { data, error, execute } = await useFetch<RecommendationPayload>('/api/reco', {
+  const promise = $fetch<RecommendationPayload>('/api/reco', {
     method: 'POST',
     body: payload,
-    key: requestKey,
-    dedupe: 'defer',
-    server: options.ssr ?? true,
-    immediate: false,
     signal: controller.signal,
     onResponse: () => {
       measurePerformance(`reco:${key}:ttfb`, startMark, `${startMark}:end`)
     }
   })
-
-  const promise = (async () => {
-    await execute()
-    if (error.value) {
-      throw error.value
-    }
-    return data.value as RecommendationPayload
-  })()
 
   IN_FLIGHT.set(requestKey, promise)
 

@@ -1,5 +1,8 @@
 <template>
-  <section class="min-h-[360px] rounded-3xl border-slate-200 backdrop-blur">
+  <section
+    class="min-h-[360px] rounded-3xl border-slate-200 backdrop-blur relative"
+    :aria-busy="loading ? 'true' : 'false'"
+  >
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div>
         <h3 class="section-title">{{ heading }}</h3>
@@ -32,9 +35,34 @@
       {{ errorMessage }}
     </p>
 
-    <div v-else-if="loading" class="mt-6 flex gap-6 overflow-hidden">
-      <div v-for="n in 3" :key="n" class="h-64 w-72 flex-shrink-0 rounded-3xl bg-slate-100"></div>
-    </div>
+    <template v-else-if="loading">
+      <Transition name="reco-fade">
+        <div class="mt-6 relative">
+          <p class="sr-only" aria-live="polite">Finding the best recommendations…</p>
+          <div class="flex gap-6 overflow-hidden pb-8 px-6 -mx-6">
+            <div
+              v-for="n in 3"
+              :key="n"
+              class="h-64 w-72 flex-shrink-0 rounded-3xl border border-slate-200 bg-white/60 shadow-sm"
+            >
+              <div class="h-48 w-full rounded-t-3xl bg-slate-200/70"></div>
+              <div class="px-5 py-4 space-y-3">
+                <div class="h-4 w-4/5 rounded-full bg-slate-200/80"></div>
+                <div class="h-4 w-2/3 rounded-full bg-slate-200/70"></div>
+                <div class="h-8 w-full rounded-full bg-slate-200/60"></div>
+              </div>
+            </div>
+          </div>
+          <div
+            class="absolute inset-0 flex flex-col items-center justify-center rounded-3xl bg-white/75 backdrop-blur-sm text-slate-700"
+            aria-live="polite"
+          >
+            <div class="reco-spinner h-10 w-10 rounded-full border-2 border-slate-300 border-t-slate-600"></div>
+            <p class="mt-3 text-sm font-medium">Finding the best recommendations…</p>
+          </div>
+        </div>
+      </Transition>
+    </template>
 
     <div
       v-else-if="hasRecommendations"
@@ -470,3 +498,36 @@ onBeforeUnmount(() => {
   }
 })
 </script>
+
+<style scoped>
+.reco-spinner {
+  animation: reco-spin 0.9s linear infinite;
+}
+
+.reco-fade-enter-active,
+.reco-fade-leave-active {
+  transition: opacity 220ms ease;
+}
+
+.reco-fade-enter-from,
+.reco-fade-leave-to {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reco-spinner {
+    animation: none;
+  }
+
+  .reco-fade-enter-active,
+  .reco-fade-leave-active {
+    transition: none;
+  }
+}
+
+@keyframes reco-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+</style>
