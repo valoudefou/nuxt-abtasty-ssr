@@ -209,6 +209,7 @@ const getStrategyId = (field?: RecommendationField) =>
 const isArrayFilter = (field?: string) => field === 'cart_products' || field === 'viewed_items'
 
 const cart = useCart()
+const cartHydrated = useState<boolean>('cart-storage-hydrated', () => false)
 const { getRecommendations, refreshRecommendations, stateFor, buildKey } = useRecommendations()
 
 const activeFilterField = computed<RecommendationField>(() => props.filterField ?? 'brand')
@@ -461,22 +462,42 @@ watch(
   }
 )
 
-onMounted(() => {
-  if (import.meta.client) {
-    window.addEventListener('resize', handleResize)
-  }
+const hasInitialized = ref(false)
 
+const triggerInitialFetch = () => {
+  if (hasInitialized.value) return
+  hasInitialized.value = true
   void getRecommendations(recommendationParams.value, {
     reason: 'init',
     background: true,
     debounceMs: 0
   })
   void syncCarousel()
+}
+
+onMounted(() => {
+  if (import.meta.client) {
+    window.addEventListener('resize', handleResize)
+  }
+
+  if (!import.meta.client) return
+  if (cartHydrated.value) {
+    triggerInitialFetch()
+  }
 })
+
+watch(
+  () => cartHydrated.value,
+  (hydrated) => {
+    if (!import.meta.client || !hydrated) return
+    triggerInitialFetch()
+  }
+)
 
 watch(
   () => cart.items.value.map((item) => `${item.id}:${item.quantity}`),
   () => {
+    if (!hasInitialized.value) return
     if (!import.meta.client) return
     void refreshRecommendations(recommendationParams.value, {
       reason: 'cart',
