@@ -51,7 +51,7 @@ export default defineEventHandler(async (event) => {
   const base = baseRaw.replace(/\/+$/, '')
 
   type RemotePagedResponse = RemoteResponse & { next_cursor?: string }
-  let response: RemotePagedResponse
+  let response: RemotePagedResponse | null = null
 
   const params = {
     limit: pageSize,
