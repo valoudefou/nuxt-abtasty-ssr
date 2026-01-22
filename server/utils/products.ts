@@ -47,6 +47,7 @@ const PAGE_SIZE = 100
 const PAGE_RETRY_COUNT = 2
 const PAGE_RETRY_DELAY_MS = 300
 const VENDOR_FILTER = 'karkkainen'
+const PRELOAD_MAX_PAGES_PROD = 2
 
 let cachedProducts: Product[] | null = null
 let lastFetch = 0
@@ -274,11 +275,13 @@ export const normalizeRemoteProduct = (raw: RemoteProduct): Product => {
 
 const fetchRemoteProducts = async (
   base: string,
-  params: Record<string, string | number> = {}
+  params: Record<string, string | number> = {},
+  options: { maxPages?: number } = {}
 ): Promise<RemoteProduct[]> => {
   const products: RemoteProduct[] = []
+  const maxPages = options.maxPages ?? Number.POSITIVE_INFINITY
 
-  for (let page = 1; ; page += 1) {
+  for (let page = 1; page <= maxPages; page += 1) {
     let response: RemoteResponse | RemoteProduct[] | null = null
     let attempt = 0
     let pageError: unknown = null
@@ -373,7 +376,11 @@ export const fetchProducts = async (): Promise<Product[]> => {
       return fallbackCatalog
     }
     const requestStart = Date.now()
-    const products = await fetchRemoteProducts(base, { vendor: VENDOR_FILTER })
+    const products = await fetchRemoteProducts(
+      base,
+      { vendor: VENDOR_FILTER },
+      { maxPages: process.dev ? 0 : PRELOAD_MAX_PAGES_PROD }
+    )
     console.info(`${LOG_PREFIX} upstream response`, {
       url: `${base}/products`,
       count: products.length,
