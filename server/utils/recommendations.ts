@@ -3,7 +3,7 @@ import { getQuery, readBody } from 'h3'
 import type { H3Event } from 'h3'
 
 import type { Product } from '@/types/product'
-import { fetchProducts } from '@/server/utils/products'
+import { fetchProducts, findProductById } from '@/server/utils/products'
 import { flagshipLogStore } from '@/utils/flagship/logStore'
 import type { FlagshipLogLevel } from '@/utils/flagship/logStore'
 
@@ -38,6 +38,7 @@ type RecommendationFilter = {
   categoriesInCart?: string[]
   addedToCartProductId?: number | null
   viewingItemId?: string | number | null
+  viewingItemSku?: string | number | null
   cartProductIds?: number[]
 }
 
@@ -101,6 +102,12 @@ const buildRecommendationUrl = (baseEndpoint: string, filter?: RecommendationFil
           variables.viewing_item = normalizedViewing
         }
       }
+      if (filter.field === 'viewed_items' && filter.viewingItemSku !== null && filter.viewingItemSku !== undefined) {
+        const normalizedSku = String(filter.viewingItemSku).trim()
+        if (normalizedSku) {
+          variables.viewing_sku = normalizedSku
+        }
+      }
       const cartContextIds =
         Array.isArray(filter?.cartProductIds)
           ? filter.cartProductIds.filter((id) => Number.isFinite(Number(id))).map((id) => String(id))
@@ -135,6 +142,45 @@ const buildRecommendationUrl = (baseEndpoint: string, filter?: RecommendationFil
     return url.toString()
   } catch {
     return baseEndpoint
+  }
+}
+
+const withViewingSku = async (filter?: RecommendationFilter) => {
+  if (!filter || filter.field !== 'viewed_items') {
+    return filter
+  }
+  if (filter.viewingItemId === undefined || filter.viewingItemId === null) {
+    return filter
+  }
+
+  const viewingIdString = String(filter.viewingItemId).trim()
+  const normalizedSku =
+    filter.viewingItemSku !== null && filter.viewingItemSku !== undefined
+      ? String(filter.viewingItemSku).trim()
+      : ''
+
+  if (normalizedSku && normalizedSku !== viewingIdString) {
+    return filter
+  }
+
+  const targetId = Number(filter.viewingItemId)
+  if (!Number.isFinite(targetId)) {
+    return filter
+  }
+
+  const match = await findProductById(targetId)
+  if (!match?.sku) {
+    return filter
+  }
+
+  const candidate = String(match.sku).trim()
+  if (!candidate || candidate === viewingIdString) {
+    return filter
+  }
+
+  return {
+    ...filter,
+    viewingItemSku: candidate
   }
 }
 
@@ -356,7 +402,8 @@ export const fetchRecommendations = async (
   }
 
   try {
-    return await performFetch(filter)
+    const resolvedFilter = await withViewingSku(filter)
+    return await performFetch(resolvedFilter)
   } catch (error) {
     const statusCode = (error as { statusCode?: number })?.statusCode
     const failedRecommendationName = resolveStrategyTitle(filter?.field, strategyNames)
@@ -427,6 +474,7 @@ const normalizeFilterFromSource = (
   categories?: unknown,
   addedToCartProduct?: unknown,
   viewingItem?: unknown,
+  viewingSku?: unknown,
   cartProducts?: unknown
 ): RecommendationFilter => {
   let field: RecommendationFilter['field'] = 'brand'
@@ -481,6 +529,14 @@ const normalizeFilterFromSource = (
     }
   }
 
+  let viewingItemSku: string | undefined
+  if (field === 'viewed_items' && viewingSku !== undefined && viewingSku !== null) {
+    const trimmed = String(viewingSku).trim()
+    if (trimmed) {
+      viewingItemSku = trimmed
+    }
+  }
+
   let cartProductIds: number[] | undefined
   if (cartProducts !== undefined) {
     if (Array.isArray(cartProducts)) {
@@ -501,6 +557,7 @@ const normalizeFilterFromSource = (
     categoriesInCart,
     addedToCartProductId,
     viewingItemId,
+    viewingItemSku,
     cartProductIds
   }
 }
@@ -515,6 +572,7 @@ export const handleRecommendationsRequest = async (event: H3Event, method: 'GET'
         query.categoriesInCart,
         query.addedToCartProductId,
         query.viewingItemId,
+        query.viewingItemSku,
         query.cartProductIds
       )
     )
@@ -526,6 +584,7 @@ export const handleRecommendationsRequest = async (event: H3Event, method: 'GET'
     categoriesInCart?: string[] | string | null
     addedToCartProductId?: number | string | null
     viewingItemId?: number | string | null
+    viewingItemSku?: string | null
     cartProductIds?: number[] | string | null
   }>(event)
 
@@ -536,6 +595,7 @@ export const handleRecommendationsRequest = async (event: H3Event, method: 'GET'
       body?.categoriesInCart ?? undefined,
       body?.addedToCartProductId ?? undefined,
       body?.viewingItemId ?? undefined,
+      body?.viewingItemSku ?? undefined,
       body?.cartProductIds ?? undefined
     )
   )

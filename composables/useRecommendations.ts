@@ -16,6 +16,7 @@ export type RecommendationParams = {
   categoriesInCart?: string[]
   addedToCartProductId?: number | null
   viewingItemId?: string | number | null
+  viewingItemSku?: string | number | null
   cartProductIds?: number[]
   placementId?: string
   locale?: string
@@ -88,6 +89,7 @@ const stableKey = (params: RecommendationParams) => {
     categoriesInCart: normalizeArray(params.categoriesInCart),
     addedToCartProductId: params.addedToCartProductId ?? null,
     viewingItemId: params.viewingItemId ?? null,
+    viewingItemSku: params.viewingItemSku ?? null,
     cartProductIds: normalizeArray(params.cartProductIds),
     placementId: params.placementId ?? null,
     locale: params.locale ?? null,

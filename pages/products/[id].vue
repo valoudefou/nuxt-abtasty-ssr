@@ -72,6 +72,9 @@
         </NuxtLink>
         <h1 class="mt-6 text-3xl font-semibold text-slate-900">{{ product.name }}</h1>
         <p class="mt-3 text-lg font-semibold text-primary-600">{{ formatCurrency(product.price) }}</p>
+        <p v-if="product.sku" class="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+          SKU: <span class="font-mono text-slate-700">{{ product.sku }}</span>
+        </p>
         <p class="mt-4 text-sm leading-6 text-slate-600">
           Crafted for movement and comfort. All materials sourced from certified sustainable mills.
         </p>
@@ -136,6 +139,7 @@
             filter-field="viewed_items"
             :filter-value="viewedProductIds"
             :viewing-item-id="product.id"
+            :viewing-item-sku="product.sku"
             :cart-product-ids="cartProductIds"
           />
         </div>

@@ -177,6 +177,7 @@ const props = defineProps<{
   cartCategories?: string[]
   addedToCartProductId?: number | null
   viewingItemId?: string | number | null
+  viewingItemSku?: string | number | null
   cartProductIds?: number[]
 }>()
 
@@ -278,6 +279,13 @@ const activeFilterValue = computed(() =>
 
 const addedToCartProductId = computed(() => normalizeNumberParam(props.addedToCartProductId))
 const viewingItemId = computed(() => normalizeNumberParam(props.viewingItemId ?? null))
+const viewingItemSku = computed(() => {
+  if (props.viewingItemSku === null || props.viewingItemSku === undefined) {
+    return null
+  }
+  const normalized = String(props.viewingItemSku).trim()
+  return normalized.length > 0 ? normalized : null
+})
 
 const recommendationParams = computed<RecommendationParams>(() => {
   const field = activeFilterField.value
@@ -298,7 +306,8 @@ const recommendationParams = computed<RecommendationParams>(() => {
   if (field === 'viewed_items') {
     return {
       ...base,
-      viewingItemId: viewingItemId.value ?? undefined
+      viewingItemId: viewingItemId.value ?? undefined,
+      viewingItemSku: viewingItemSku.value ?? undefined
     }
   }
 
