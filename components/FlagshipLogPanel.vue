@@ -64,6 +64,29 @@
                   class="w-56 rounded-full border border-emerald-400 bg-slate-800/80 px-10 py-2 text-sm tracking-wide text-emerald-100 placeholder:text-emerald-300/70 focus:border-emerald-300 focus:outline-none focus:ring-1 focus:ring-emerald-300/40 sm:w-80"
                 />
               </label>
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  class="rounded-full border border-emerald-500/30 bg-transparent px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300 transition hover:border-emerald-400 hover:text-emerald-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
+                  @click="zoomOut"
+                >
+                  A-
+                </button>
+                <button
+                  type="button"
+                  class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200 transition hover:border-emerald-400 hover:text-emerald-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
+                  @click="resetZoom"
+                >
+                  {{ zoomLabel }}
+                </button>
+                <button
+                  type="button"
+                  class="rounded-full border border-emerald-500/30 bg-transparent px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300 transition hover:border-emerald-400 hover:text-emerald-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
+                  @click="zoomIn"
+                >
+                  A+
+                </button>
+              </div>
               <button
                 type="button"
                 class="rounded-full border border-emerald-500/30 bg-transparent px-3 py-1.5 text-sm font-medium uppercase tracking-[0.2em] text-emerald-300 transition hover:border-emerald-400 hover:text-emerald-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
@@ -75,7 +98,10 @@
           </header>
 
           <div class="flex-1 overflow-hidden rounded-xl border border-emerald-500/15 bg-black/40 shadow-inner">
-            <div class="h-full overflow-y-auto p-3 text-[12px] text-emerald-200">
+            <div
+              class="log-content h-full overflow-y-auto p-3 text-emerald-200"
+              :style="{ '--log-font-size': `${baseFontSize * zoomLevel}px` }"
+            >
               <div
                 v-if="filteredLogs.length === 0"
                 class="flex h-full items-center justify-center rounded-lg border border-dashed border-emerald-500/30 bg-emerald-500/5 py-6 text-sm text-emerald-300/70"
@@ -89,23 +115,23 @@
                   :key="`${log.timestamp}-${index}`"
                   class="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 shadow-sm shadow-emerald-900/20 transition hover:border-emerald-400/50"
                 >
-                  <div class="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.25em] text-emerald-300/80">
+                  <div class="log-entry-meta flex flex-wrap items-center gap-2 font-semibold uppercase tracking-[0.25em] text-emerald-300/80">
                     <span>{{ formatTimestamp(log.timestamp) }}</span>
                     <span class="text-emerald-500/40">•</span>
                     <span
                       :class="levelTone(log.level)"
-                      class="rounded-full border border-current bg-transparent px-2 py-[2px] text-[10px] font-bold"
+                      class="rounded-full border border-current bg-transparent px-2 py-[2px] font-bold"
                     >
                       {{ log.level }}
                     </span>
-                    <span v-if="log.tag" class="rounded-full border border-emerald-500/20 px-2 py-[2px] text-[10px] font-medium text-emerald-200/80">
+                    <span v-if="log.tag" class="rounded-full border border-emerald-500/20 px-2 py-[2px] font-medium text-emerald-200/80">
                       {{ log.tag }}
                     </span>
                   </div>
-                  <pre class="mt-2 whitespace-pre-wrap break-words font-mono text-[12px] leading-6 text-emerald-200/90">
+                  <pre class="log-entry-message mt-2 whitespace-pre-wrap break-words font-mono text-emerald-200/90">
 {{ stringify(log.message) }}
                   </pre>
-                  <div v-if="supplementalKeys(log).length" class="mt-3 space-y-1 text-[11px] text-emerald-300/70">
+                  <div v-if="supplementalKeys(log).length" class="log-entry-extra mt-3 space-y-1 text-emerald-300/70">
                     <div v-for="key in supplementalKeys(log)" :key="key">
                       <span class="font-semibold text-emerald-200">{{ key }}:</span>
                       <span class="ml-1 font-mono text-emerald-300/90">{{ stringify(log[key]) }}</span>
@@ -151,15 +177,28 @@ const searchTerm = useState('flagship-log-search', () => '')
 const panelHeight = useState('flagship-log-panel-height', () => 320)
 const isResizing = ref(false)
 const ghostHeight = ref(panelHeight.value)
+const zoomLevel = useState('flagship-log-zoom', () => 1)
 
 const MIN_HEIGHT = 200
-const MAX_HEIGHT = 640
+const MAX_HEIGHT_FALLBACK = 900
+const MAX_HEIGHT_PADDING = 120
+const maxHeight = ref(MAX_HEIGHT_FALLBACK)
+const updateMaxHeight = () => {
+  if (typeof window === 'undefined') return
+  maxHeight.value = Math.max(MIN_HEIGHT, window.innerHeight - MAX_HEIGHT_PADDING)
+}
 let resizeStartY = 0
 let resizeStartHeight = panelHeight.value
 const STORAGE_KEY = 'flagship-log-panel-open'
+const ZOOM_STORAGE_KEY = 'flagship-log-panel-zoom'
+const MIN_ZOOM = 0.8
+const MAX_ZOOM = 2.2
+const ZOOM_STEP = 0.1
+const baseFontSize = 12
 let unsubscribeLogs: (() => void) | null = null
 
-const clampHeight = (value: number) => Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, value))
+const clampHeight = (value: number) => Math.min(maxHeight.value, Math.max(MIN_HEIGHT, value))
+const clampZoom = (value: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value))
 
 const updateHeight = (clientY: number) => {
   const newHeight = clampHeight(resizeStartHeight + (resizeStartY - clientY))
@@ -211,16 +250,48 @@ const startResize = (event: MouseEvent | TouchEvent) => {
   window.addEventListener('touchcancel', stopResize)
 }
 
+const zoomIn = () => {
+  zoomLevel.value = clampZoom(Number((zoomLevel.value + ZOOM_STEP).toFixed(2)))
+}
+
+const zoomOut = () => {
+  zoomLevel.value = clampZoom(Number((zoomLevel.value - ZOOM_STEP).toFixed(2)))
+}
+
+const resetZoom = () => {
+  zoomLevel.value = 1
+}
+
+const zoomLabel = computed(() => `${Math.round(zoomLevel.value * 100)}%`)
+
 const handleKeyboardToggle = (event: KeyboardEvent) => {
-  if (event.metaKey || event.ctrlKey || event.altKey || event.key.toLowerCase() !== 'l') {
+  if (event.metaKey || event.ctrlKey || event.altKey) {
     return
   }
+
   const target = event.target as HTMLElement | null
   const tag = target?.tagName?.toLowerCase()
   if (tag && (tag === 'input' || tag === 'textarea' || target?.isContentEditable)) {
     return
   }
-  isOpen.value = !isOpen.value
+
+  const key = event.key.toLowerCase()
+  if (key === 'l') {
+    isOpen.value = !isOpen.value
+    return
+  }
+
+  if (!isOpen.value) {
+    return
+  }
+
+  if (key === '=' || key === '+') {
+    zoomIn()
+  } else if (key === '-') {
+    zoomOut()
+  } else if (key === '0') {
+    resetZoom()
+  }
 }
 
 const stringify = (value: unknown) => {
@@ -317,6 +388,16 @@ watch(isOpen, (open) => {
   }
 })
 
+watch(zoomLevel, (value) => {
+  if (import.meta.client) {
+    try {
+      window.localStorage.setItem(ZOOM_STORAGE_KEY, String(value))
+    } catch {
+      // ignore storage errors
+    }
+  }
+})
+
 onMounted(() => {
   if (import.meta.client) {
     try {
@@ -324,9 +405,21 @@ onMounted(() => {
       if (stored !== null) {
         isOpen.value = stored === 'true'
       }
+      const storedZoom = window.localStorage.getItem(ZOOM_STORAGE_KEY)
+      if (storedZoom) {
+        const parsed = Number.parseFloat(storedZoom)
+        if (Number.isFinite(parsed)) {
+          zoomLevel.value = clampZoom(parsed)
+        }
+      }
     } catch {
       // ignore storage read errors
     }
+  }
+
+  if (typeof window !== 'undefined') {
+    updateMaxHeight()
+    window.addEventListener('resize', updateMaxHeight)
   }
 
   unsubscribeLogs = flagshipLogStore.subscribe((entries) => {
@@ -344,6 +437,7 @@ onBeforeUnmount(() => {
   stopResize()
 
   if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', updateMaxHeight)
     window.removeEventListener('keydown', handleKeyboardToggle)
   }
 })
@@ -386,5 +480,23 @@ onBeforeUnmount(() => {
 
 .animate-pulse-slow {
   animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.log-content {
+  font-size: var(--log-font-size, 12px);
+  line-height: 1.6;
+}
+
+.log-entry-meta {
+  font-size: calc(var(--log-font-size, 12px) * 0.85);
+}
+
+.log-entry-message {
+  font-size: var(--log-font-size, 12px);
+  line-height: 1.6;
+}
+
+.log-entry-extra {
+  font-size: calc(var(--log-font-size, 12px) * 0.85);
 }
 </style>
