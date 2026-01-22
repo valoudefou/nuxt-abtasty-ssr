@@ -3,7 +3,7 @@ import { useRuntimeConfig } from '#imports'
 
 import type { Product } from '@/types/product'
 import type { RemoteResponse } from '@/server/utils/products'
-import { normalizeRemoteProduct } from '@/server/utils/products'
+import { fetchProducts, normalizeRemoteProduct } from '@/server/utils/products'
 
 const DEFAULT_PAGE_SIZE = 12
 const MAX_PAGE_SIZE = 60
@@ -33,6 +33,67 @@ const deriveCategories = (collection: Product[]) => {
   return Array.from(unique.values()).sort((a, b) => a.localeCompare(b))
 }
 
+const deriveBrands = (collection: Product[]) => {
+  const unique = new Map<string, string>()
+  for (const item of collection) {
+    const brand = item.brand?.trim()
+    if (!brand) continue
+    const key = brand.toLowerCase()
+    if (!unique.has(key)) {
+      unique.set(key, brand)
+    }
+  }
+  return Array.from(unique.values()).sort((a, b) => a.localeCompare(b))
+}
+
+const buildFallbackResponse = async (
+  options: {
+    page: number
+    pageSize: number
+    brand: string
+    category: string
+    vendor: string
+    term: string
+    includeFacets: boolean
+  }
+) => {
+  const allProducts = await fetchProducts()
+  const brandFilter = options.brand !== 'All' ? options.brand.toLowerCase() : null
+  const categoryFilter = options.category !== 'All' ? options.category.toLowerCase() : null
+  const vendorFilter = options.vendor ? options.vendor.toLowerCase() : null
+  const termFilter = options.term ? options.term.toLowerCase() : null
+
+  const filtered = allProducts.filter((product) => {
+    if (brandFilter && product.brand?.toLowerCase() !== brandFilter) return false
+    if (categoryFilter && product.category?.toLowerCase() !== categoryFilter) return false
+    if (vendorFilter && product.vendor?.toLowerCase() !== vendorFilter) return false
+    if (termFilter) {
+      const haystack = `${product.title ?? ''} ${product.description ?? ''}`.toLowerCase()
+      if (!haystack.includes(termFilter)) return false
+    }
+    return true
+  })
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / options.pageSize))
+  const startIndex = Math.max(0, (options.page - 1) * options.pageSize)
+  const paged = filtered.slice(startIndex, startIndex + options.pageSize)
+  const hasNext = startIndex + options.pageSize < filtered.length
+  const nextCursor = hasNext ? `page:${options.page + 1}` : null
+
+  const categories = options.includeFacets ? deriveCategories(filtered) : []
+  const brands = options.includeFacets ? deriveBrands(filtered) : []
+
+  return {
+    products: paged,
+    page: options.page,
+    pageSize: options.pageSize,
+    totalPages,
+    nextCursor,
+    next_cursor: nextCursor,
+    categories,
+    brands
+  }
+}
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
@@ -43,8 +104,12 @@ export default defineEventHandler(async (event) => {
   const vendor = normalizeParam(query.vendor)
   const term = normalizeParam(query.q)
   const cursor = normalizeParam(query.cursor)
+  const cursorIsFallback = cursor.startsWith('page:')
   const includeFacets = normalizeParam(query.includeFacets)
   const shouldIncludeFacets = includeFacets !== '0' && includeFacets.toLowerCase() !== 'false'
+  const fallbackPage = cursorIsFallback
+    ? Number.parseInt(cursor.replace('page:', ''), 10)
+    : page
 
   const config = useRuntimeConfig()
   const baseRaw = config.public?.apiBase || config.public?.productsApiBase || 'https://api.live-server1.com'
@@ -52,6 +117,18 @@ export default defineEventHandler(async (event) => {
 
   type RemotePagedResponse = RemoteResponse & { next_cursor?: string }
   let response: RemotePagedResponse | null = null
+
+  if (cursorIsFallback) {
+    return await buildFallbackResponse({
+      page: Number.isFinite(fallbackPage) && fallbackPage > 0 ? fallbackPage : page,
+      pageSize,
+      brand,
+      category,
+      vendor,
+      term,
+      includeFacets: shouldIncludeFacets
+    })
+  }
 
   const params = {
     limit: pageSize,
@@ -91,16 +168,15 @@ export default defineEventHandler(async (event) => {
 
   if (!response) {
     console.error('Failed to load upstream products for paged request', lastError)
-    return {
-      products: [],
+    return await buildFallbackResponse({
       page,
       pageSize,
-      totalPages: 1,
-      nextCursor: null,
-      next_cursor: null,
-      categories: [],
-      brands: []
-    }
+      brand,
+      category,
+      vendor,
+      term,
+      includeFacets: shouldIncludeFacets
+    })
   }
 
   const products = (response?.products ?? []).map(normalizeRemoteProduct)
