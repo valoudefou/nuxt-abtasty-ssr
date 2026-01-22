@@ -39,7 +39,9 @@ export type RemoteResponse = {
 const DEFAULT_API_BASE = 'https://api.live-server1.com'
 const CACHE_TTL = 1000 * 60 * 5 // 5 minutes
 const CACHE_VERSION = 1
-const CACHE_FILE = path.resolve(process.cwd(), 'data', 'products-cache.json')
+const CACHE_FILE = process.env.VERCEL
+  ? path.resolve('/tmp', 'products-cache.json')
+  : path.resolve(process.cwd(), 'data', 'products-cache.json')
 const REMOTE_FETCH_TIMEOUT_MS = 0
 const LOG_PREFIX = '[ProductsAPI]'
 const REMOTE_BACKOFF_MS = 0

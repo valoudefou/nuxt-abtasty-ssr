@@ -53,32 +53,54 @@ export default defineEventHandler(async (event) => {
   type RemotePagedResponse = RemoteResponse & { next_cursor?: string }
   let response: RemotePagedResponse
 
-  try {
-    response = await $fetch<RemotePagedResponse>(`${base}/products`, {
-      params: {
-        limit: pageSize,
-        ...(cursor ? { cursor } : { page }),
-        ...(brand !== 'All' ? { brand } : {}),
-        ...(category !== 'All' ? { category } : {}),
-        ...(vendor ? { vendor } : {}),
-        ...(term ? { q: term } : {})
-      }
-    })
-  } catch (error) {
-    const status = (error as { statusCode?: number; response?: { status?: number } })?.statusCode
-      ?? (error as { response?: { status?: number } })?.response?.status
-    if (status === 429) {
-      const retryAfterHeader = (error as { response?: { headers?: { get?: (key: string) => string | null } } })
-        ?.response?.headers?.get?.('retry-after')
-      if (retryAfterHeader) {
-        const retryAfterSeconds = Number.parseInt(retryAfterHeader, 10)
+  const params = {
+    limit: pageSize,
+    ...(cursor ? { cursor } : { page }),
+    ...(brand !== 'All' ? { brand } : {}),
+    ...(category !== 'All' ? { category } : {}),
+    ...(vendor ? { vendor } : {}),
+    ...(term ? { q: term } : {})
+  }
+
+  let attempt = 0
+  let lastError: unknown = null
+
+  while (attempt < 2) {
+    try {
+      response = await $fetch<RemotePagedResponse>(`${base}/products`, { params })
+      lastError = null
+      break
+    } catch (error) {
+      lastError = error
+      const status = (error as { statusCode?: number; response?: { status?: number } })?.statusCode
+        ?? (error as { response?: { status?: number } })?.response?.status
+      if (status === 429 && attempt === 0) {
+        const retryAfterHeader = (error as { response?: { headers?: { get?: (key: string) => string | null } } })
+          ?.response?.headers?.get?.('retry-after')
+        const retryAfterSeconds = retryAfterHeader ? Number.parseInt(retryAfterHeader, 10) : Number.NaN
         if (Number.isFinite(retryAfterSeconds)) {
           setResponseHeader(event, 'retry-after', retryAfterSeconds)
+          await new Promise((resolve) => setTimeout(resolve, retryAfterSeconds * 1000))
         }
+        attempt += 1
+        continue
       }
-      throw createError({ statusCode: 429, statusMessage: 'Rate limited' })
+      break
     }
-    throw error
+  }
+
+  if (!response) {
+    console.error('Failed to load upstream products for paged request', lastError)
+    return {
+      products: [],
+      page,
+      pageSize,
+      totalPages: 1,
+      nextCursor: null,
+      next_cursor: null,
+      categories: [],
+      brands: []
+    }
   }
 
   const products = (response?.products ?? []).map(normalizeRemoteProduct)
