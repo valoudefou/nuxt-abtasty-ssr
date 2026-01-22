@@ -47,7 +47,7 @@ export default defineEventHandler(async (event) => {
   const shouldIncludeFacets = includeFacets !== '0' && includeFacets.toLowerCase() !== 'false'
 
   const config = useRuntimeConfig()
-  const baseRaw = config.public?.productsApiBase || 'https://api.live-server1.com'
+  const baseRaw = config.public?.apiBase || config.public?.productsApiBase || 'https://api.live-server1.com'
   const base = baseRaw.replace(/\/+$/, '')
 
   type RemotePagedResponse = RemoteResponse & { next_cursor?: string }
@@ -82,9 +82,8 @@ export default defineEventHandler(async (event) => {
   }
 
   const products = (response?.products ?? []).map(normalizeRemoteProduct)
-  const hasNext = Boolean(response?.next_cursor) || products.length === pageSize
+  const hasNext = Boolean(response?.next_cursor)
   const totalPages = hasNext ? page + 1 : page
-  const total = totalPages * pageSize
 
   const [categories, brands] = shouldIncludeFacets
     ? await Promise.all([
@@ -101,9 +100,9 @@ export default defineEventHandler(async (event) => {
     products,
     page,
     pageSize,
-    total,
     totalPages,
     nextCursor: response?.next_cursor ?? null,
+    next_cursor: response?.next_cursor ?? null,
     categories: categories ?? [],
     brands: brands ?? []
   }

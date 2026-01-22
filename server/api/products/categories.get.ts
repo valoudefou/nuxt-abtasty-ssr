@@ -2,7 +2,7 @@ import { useRuntimeConfig } from '#imports'
 
 export default defineEventHandler(async () => {
   const config = useRuntimeConfig()
-  const baseRaw = config.public?.productsApiBase || 'https://api.live-server1.com'
+  const baseRaw = config.public?.apiBase || config.public?.productsApiBase || 'https://api.live-server1.com'
   const base = baseRaw.replace(/\/+$/, '')
 
   try {

@@ -148,6 +148,8 @@ declare module 'nuxt/schema' {
 
    supportEmail: string,
 
+   apiBase: string,
+
    productsApiBase: string,
 
    productsDisableRemote: boolean,

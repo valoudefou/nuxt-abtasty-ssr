@@ -92,7 +92,7 @@ const normalizeProductsResponse = (response: RemoteResponse | RemoteProduct[]): 
 
 const getApiConfig = () => {
   const config = useRuntimeConfig()
-  const baseRaw = config.public?.productsApiBase || DEFAULT_API_BASE
+  const baseRaw = config.public?.apiBase || config.public?.productsApiBase || DEFAULT_API_BASE
   const base = baseRaw.replace(/\/+$/, '')
   const disableRemote = Boolean(config.public?.productsDisableRemote)
   return { base, disableRemote }
@@ -118,6 +118,16 @@ const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number): Promise<T
       clearTimeout(timeoutId)
     }
   }
+}
+
+const getRetryAfterMs = (error: unknown) => {
+  const headerValue = (error as { response?: { headers?: { get?: (key: string) => string | null } } })
+    ?.response?.headers?.get?.('retry-after')
+  if (!headerValue) {
+    return null
+  }
+  const seconds = Number.parseInt(headerValue, 10)
+  return Number.isFinite(seconds) ? seconds * 1000 : null
 }
 
 const parseNumber = (value: string | number | null | undefined) => {
@@ -285,9 +295,13 @@ const fetchRemoteProducts = async (
         break
       } catch (error) {
         pageError = error
+        const status = (error as { statusCode?: number; response?: { status?: number } })?.statusCode
+          ?? (error as { response?: { status?: number } })?.response?.status
         attempt += 1
         if (attempt <= PAGE_RETRY_COUNT) {
-          await new Promise((resolve) => setTimeout(resolve, PAGE_RETRY_DELAY_MS))
+          const retryAfterMs = status === 429 ? getRetryAfterMs(error) : null
+          const delayMs = retryAfterMs ?? PAGE_RETRY_DELAY_MS * attempt
+          await new Promise((resolve) => setTimeout(resolve, delayMs))
         }
       }
     }
@@ -346,6 +360,13 @@ export const fetchProducts = async (): Promise<Product[]> => {
     const { base, disableRemote } = getApiConfig()
     if (disableRemote) {
       console.warn(`${LOG_PREFIX} remote fetch disabled; using cache/fallback only.`)
+      if (cachedProducts && cachedVersion === CACHE_VERSION) {
+        return cachedProducts
+      }
+      return fallbackCatalog
+    }
+    if (process.dev) {
+      console.warn(`${LOG_PREFIX} skipping remote preload in dev; using cache/fallback only.`)
       if (cachedProducts && cachedVersion === CACHE_VERSION) {
         return cachedProducts
       }

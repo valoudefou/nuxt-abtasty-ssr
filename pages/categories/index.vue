@@ -38,20 +38,19 @@
       :selected-brand="selectedCategory"
       :search-query="searchQuery"
       :enable-search="false"
-      :current-page="page"
-      :total-pages="totalPages"
-      :enable-pagination="true"
+      :enable-pagination="false"
+      :enable-load-more="true"
+      :can-load-more="canLoadMore"
       recommendation-filter-field="category"
       @select-brand="onSelectCategory"
       @search="onSearch"
-      @page-change="onPageChange"
+      @load-more="onLoadMore"
     />
     <NewsletterBanner />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
 import ProductGrid from '@/components/ProductGrid.vue'
 
@@ -68,21 +67,17 @@ const {
   selectCategory,
   selectBrand,
   searchProducts,
-  page,
-  totalPages,
-  goToPage
+  canLoadMore,
+  loadMore
 } = useCategoryProducts()
 
 await fetchProducts()
-
-const brandQuery = ref('')
 
 const onSelectCategory = (category: string) => {
   selectCategory(category)
 }
 
 const onSelectBrand = (brand: string) => {
-  brandQuery.value = ''
   selectBrand(brand)
 }
 
@@ -90,7 +85,7 @@ const onSearch = async (query: string) => {
   await searchProducts(query)
 }
 
-const onPageChange = async (nextPage: number) => {
-  await goToPage(nextPage)
+const onLoadMore = async () => {
+  await loadMore()
 }
 </script>

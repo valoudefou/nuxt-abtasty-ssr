@@ -90,6 +90,22 @@
         </button>
       </div>
     </div>
+
+    <div
+      v-if="enableLoadMore"
+      class="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-white px-6 py-4 text-sm text-slate-600 shadow-sm"
+    >
+      <p v-if="!canLoadMore && !loading" class="font-medium text-slate-500">You're all caught up.</p>
+      <button
+        v-else
+        type="button"
+        class="rounded-full border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-primary-400 hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+        :disabled="loading || !canLoadMore"
+        @click="emit('load-more')"
+      >
+        {{ loading ? 'Loading...' : 'Load more products' }}
+      </button>
+    </div>
   </section>
 </template>
 
@@ -110,11 +126,15 @@ const props = withDefaults(defineProps<{
   recommendationFilterField?: 'brand' | 'homepage' | 'category'
   enableSearch?: boolean
   enablePagination?: boolean
+  enableLoadMore?: boolean
+  canLoadMore?: boolean
   currentPage?: number
   totalPages?: number
 }>(), {
   enableSearch: true,
   enablePagination: false,
+  enableLoadMore: false,
+  canLoadMore: false,
   currentPage: 1,
   totalPages: 1
 })
@@ -123,6 +143,7 @@ const emit = defineEmits<{
   (event: 'select-brand', brand: string): void
   (event: 'search', query: string): void
   (event: 'page-change', page: number): void
+  (event: 'load-more'): void
 }>()
 
 const filteredFilters = computed(() => {
