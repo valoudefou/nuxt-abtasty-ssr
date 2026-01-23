@@ -8,8 +8,19 @@
           </span>
           Commerce Demo
         </NuxtLink>
-        <div class="hidden flex-1 items-center justify-center gap-8 text-sm font-medium text-slate-600 md:flex">
-          <NuxtLink v-for="item in navigation" :key="item.href" :to="item.href" class="hover:text-primary-600">
+        <div class="hidden flex-1 items-center justify-center gap-8 text-sm font-medium md:flex">
+          <NuxtLink
+            v-for="item in navigation"
+            :key="item.href"
+            :to="item.href"
+            :class="['inline-flex items-center gap-2', desktopLinkClass(item.href)]"
+          >
+            <component
+              :is="item.icon"
+              v-if="item.icon"
+              class="h-4 w-4 text-rose-500"
+              aria-hidden="true"
+            />
             {{ item.label }}
           </NuxtLink>
         </div>
@@ -76,10 +87,18 @@
               v-for="item in navigation"
               :key="item.href"
               :to="item.href"
-              class="flex items-center justify-between rounded-xl px-4 py-3 text-base font-semibold text-slate-700 transition hover:bg-primary-50 hover:text-primary-700"
+              :class="mobileLinkClass(item.href)"
               @click="closeMobileMenu"
             >
-              <span>{{ item.label }}</span>
+              <span class="flex items-center gap-2">
+                <component
+                  :is="item.icon"
+                  v-if="item.icon"
+                  class="h-4 w-4 text-rose-500"
+                  aria-hidden="true"
+                />
+                {{ item.label }}
+              </span>
               <span aria-hidden="true" class="text-sm text-slate-400">&gt;</span>
             </NuxtLink>
           </nav>
@@ -329,10 +348,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue'
 import {
   AdjustmentsHorizontalIcon,
   Bars3Icon,
+  HeartIcon,
   MagnifyingGlassIcon,
   ShoppingBagIcon,
   ShoppingCartIcon,
@@ -380,14 +400,37 @@ const PRICE_SLIDER_STEP = 5
 
 const { totalItems } = useCart()
 
-const navigation = [
+type NavigationItem = {
+  label: string
+  href: string
+  icon?: Component
+}
+
+const navigation: NavigationItem[] = [
   { label: 'Home', href: '/' },
   { label: 'Categories', href: '/categories' },
+  { label: 'Valentines', href: '/valentines-day', icon: HeartIcon },
   { label: 'About', href: '/about' },
   { label: 'Journal', href: '/journal' }
 ]
 
 const route = useRoute()
+
+const isActiveLink = (href: string) => route.path === href
+
+const desktopLinkClass = (href: string) =>
+  [
+    'transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2',
+    isActiveLink(href) ? 'text-primary-600' : 'text-slate-600 hover:text-primary-600'
+  ].join(' ')
+
+const mobileLinkClass = (href: string) =>
+  [
+    'flex items-center justify-between rounded-xl px-4 py-3 text-base font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
+    isActiveLink(href)
+      ? 'bg-primary-50 text-primary-700'
+      : 'text-slate-700 hover:bg-primary-50 hover:text-primary-700'
+  ].join(' ')
 
 const headerRef = ref<HTMLElement | null>(null)
 const overlaySectionRef = ref<HTMLElement | null>(null)

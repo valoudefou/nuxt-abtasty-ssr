@@ -25,6 +25,7 @@ export const RecommendationsCarousel: typeof import("../components/Recommendatio
 export const SiteFooter: typeof import("../components/SiteFooter.vue")['default']
 export const StoryHighlights: typeof import("../components/StoryHighlights.vue")['default']
 export const UINotifications: typeof import("../components/UINotifications.vue")['default']
+export const ValentinesProductCard: typeof import("../components/ValentinesProductCard.vue")['default']
 export const NuxtWelcome: typeof import("../node_modules/nuxt/dist/app/components/welcome.vue")['default']
 export const NuxtLayout: typeof import("../node_modules/nuxt/dist/app/components/nuxt-layout")['default']
 export const NuxtErrorBoundary: typeof import("../node_modules/nuxt/dist/app/components/nuxt-error-boundary.vue")['default']
@@ -59,6 +60,7 @@ export const LazyRecommendationsCarousel: LazyComponent<typeof import("../compon
 export const LazySiteFooter: LazyComponent<typeof import("../components/SiteFooter.vue")['default']>
 export const LazyStoryHighlights: LazyComponent<typeof import("../components/StoryHighlights.vue")['default']>
 export const LazyUINotifications: LazyComponent<typeof import("../components/UINotifications.vue")['default']>
+export const LazyValentinesProductCard: LazyComponent<typeof import("../components/ValentinesProductCard.vue")['default']>
 export const LazyNuxtWelcome: LazyComponent<typeof import("../node_modules/nuxt/dist/app/components/welcome.vue")['default']>
 export const LazyNuxtLayout: LazyComponent<typeof import("../node_modules/nuxt/dist/app/components/nuxt-layout")['default']>
 export const LazyNuxtErrorBoundary: LazyComponent<typeof import("../node_modules/nuxt/dist/app/components/nuxt-error-boundary.vue")['default']>

@@ -25,6 +25,7 @@ interface _GlobalComponents {
   'SiteFooter': typeof import("../../components/SiteFooter.vue")['default']
   'StoryHighlights': typeof import("../../components/StoryHighlights.vue")['default']
   'UINotifications': typeof import("../../components/UINotifications.vue")['default']
+  'ValentinesProductCard': typeof import("../../components/ValentinesProductCard.vue")['default']
   'NuxtWelcome': typeof import("../../node_modules/nuxt/dist/app/components/welcome.vue")['default']
   'NuxtLayout': typeof import("../../node_modules/nuxt/dist/app/components/nuxt-layout")['default']
   'NuxtErrorBoundary': typeof import("../../node_modules/nuxt/dist/app/components/nuxt-error-boundary.vue")['default']
@@ -59,6 +60,7 @@ interface _GlobalComponents {
   'LazySiteFooter': LazyComponent<typeof import("../../components/SiteFooter.vue")['default']>
   'LazyStoryHighlights': LazyComponent<typeof import("../../components/StoryHighlights.vue")['default']>
   'LazyUINotifications': LazyComponent<typeof import("../../components/UINotifications.vue")['default']>
+  'LazyValentinesProductCard': LazyComponent<typeof import("../../components/ValentinesProductCard.vue")['default']>
   'LazyNuxtWelcome': LazyComponent<typeof import("../../node_modules/nuxt/dist/app/components/welcome.vue")['default']>
   'LazyNuxtLayout': LazyComponent<typeof import("../../node_modules/nuxt/dist/app/components/nuxt-layout")['default']>
   'LazyNuxtErrorBoundary': LazyComponent<typeof import("../../node_modules/nuxt/dist/app/components/nuxt-error-boundary.vue")['default']>

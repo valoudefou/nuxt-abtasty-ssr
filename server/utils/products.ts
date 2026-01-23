@@ -28,6 +28,7 @@ export type RemoteProduct = {
   tag?: string | null
   recency?: string | number | null
   vendor?: string | null
+  breadcrumbs?: string | string[] | null
 }
 
 export type RemoteResponse = {
