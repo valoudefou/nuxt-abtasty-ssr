@@ -125,7 +125,7 @@ const buildRecommendationUrl = (baseEndpoint: string, filter?: RecommendationFil
       if (filter.field === 'viewed_items' && filter.viewingItemSku !== null && filter.viewingItemSku !== undefined) {
         const normalizedSku = String(filter.viewingItemSku).trim()
         if (normalizedSku) {
-          variables.viewing_sku = normalizedSku
+          variables.sku = normalizedSku
         }
       }
       const cartContextIds =
