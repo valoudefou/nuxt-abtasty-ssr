@@ -40,6 +40,7 @@ type RecommendationFilter = {
   viewingItemId?: string | number | null
   viewingItemSku?: string | number | null
   cartProductIds?: number[]
+  placementId?: string
 }
 
 type StrategyNameMap = Record<RecommendationFilter['field'], string>
@@ -70,6 +71,25 @@ const extractRecommendationId = (endpoint?: string | null) => {
     return segments[segments.length - 1] ?? null
   } catch {
     return null
+  }
+}
+
+const overrideRecommendationId = (endpoint?: string, placementId?: string | null) => {
+  if (!endpoint) return endpoint
+  if (!placementId) return endpoint
+  const normalized = placementId.trim()
+  if (!normalized) return endpoint
+  try {
+    const url = new URL(endpoint)
+    const segments = url.pathname.split('/').filter(Boolean)
+    if (segments.length === 0) {
+      return endpoint
+    }
+    segments[segments.length - 1] = normalized
+    url.pathname = `/${segments.join('/')}`
+    return url.toString()
+  } catch {
+    return endpoint
   }
 }
 
@@ -321,7 +341,7 @@ export const fetchRecommendations = async (
     | Partial<StrategyNameMap>
     | undefined
 
-  let baseEndpoint = endpoint
+  let baseEndpoint: string | undefined = endpoint
   if (filter?.field === 'category') {
     baseEndpoint = categoryEndpoint || endpoint
   } else if (filter?.field === 'cart_products') {
@@ -331,6 +351,7 @@ export const fetchRecommendations = async (
   } else if (filter?.field === 'homepage') {
     baseEndpoint = homepageEndpoint || endpoint
   }
+  baseEndpoint = overrideRecommendationId(baseEndpoint, filter?.placementId)
 
   if (!apiKey || !baseEndpoint) {
     throw createError({
@@ -475,7 +496,8 @@ const normalizeFilterFromSource = (
   addedToCartProduct?: unknown,
   viewingItem?: unknown,
   viewingSku?: unknown,
-  cartProducts?: unknown
+  cartProducts?: unknown,
+  placementId?: unknown
 ): RecommendationFilter => {
   let field: RecommendationFilter['field'] = 'brand'
   if (sourceField === 'category') {
@@ -551,6 +573,9 @@ const normalizeFilterFromSource = (
     }
   }
 
+  const normalizedPlacementId =
+    placementId !== undefined && placementId !== null ? String(placementId).trim() : ''
+
   return {
     field,
     value,
@@ -558,7 +583,8 @@ const normalizeFilterFromSource = (
     addedToCartProductId,
     viewingItemId,
     viewingItemSku,
-    cartProductIds
+    cartProductIds,
+    placementId: normalizedPlacementId.length > 0 ? normalizedPlacementId : undefined
   }
 }
 
@@ -573,7 +599,8 @@ export const handleRecommendationsRequest = async (event: H3Event, method: 'GET'
         query.addedToCartProductId,
         query.viewingItemId,
         query.viewingItemSku,
-        query.cartProductIds
+        query.cartProductIds,
+        query.placementId
       )
     )
   }
@@ -586,6 +613,7 @@ export const handleRecommendationsRequest = async (event: H3Event, method: 'GET'
     viewingItemId?: number | string | null
     viewingItemSku?: string | null
     cartProductIds?: number[] | string | null
+    placementId?: string | null
   }>(event)
 
   return await fetchRecommendations(
@@ -596,7 +624,8 @@ export const handleRecommendationsRequest = async (event: H3Event, method: 'GET'
       body?.addedToCartProductId ?? undefined,
       body?.viewingItemId ?? undefined,
       body?.viewingItemSku ?? undefined,
-      body?.cartProductIds ?? undefined
+      body?.cartProductIds ?? undefined,
+      body?.placementId ?? undefined
     )
   )
 }

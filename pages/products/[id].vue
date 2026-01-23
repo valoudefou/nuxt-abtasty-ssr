@@ -144,6 +144,20 @@
           />
         </div>
       </section>
+      <section v-if="viewedProductIds.length" class="lg:col-span-2">
+        <h2 class="text-xl font-semibold text-slate-900">More recommendations</h2>
+        <p class="mt-2 text-sm text-slate-600">AB Tasty picks tailored to this product.</p>
+        <div class="mt-8">
+          <RecommendationsCarousel
+            filter-field="viewed_items"
+            :filter-value="viewedProductIds"
+            :viewing-item-id="product.id"
+            :viewing-item-sku="product.sku"
+            :cart-product-ids="cartProductIds"
+            placement-id="abf290e8-2b6e-447e-865e-17e39dfdea6e"
+          />
+        </div>
+      </section>
     </ClientOnly>
     </div>
   </div>

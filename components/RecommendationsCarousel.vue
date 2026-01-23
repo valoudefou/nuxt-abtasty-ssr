@@ -179,6 +179,7 @@ const props = defineProps<{
   viewingItemId?: string | number | null
   viewingItemSku?: string | number | null
   cartProductIds?: number[]
+  placementId?: string
 }>()
 
 const logClientRecommendationEvent = (
@@ -286,13 +287,21 @@ const viewingItemSku = computed(() => {
   const normalized = String(props.viewingItemSku).trim()
   return normalized.length > 0 ? normalized : null
 })
+const placementId = computed(() => {
+  if (!props.placementId) {
+    return undefined
+  }
+  const normalized = props.placementId.trim()
+  return normalized.length > 0 ? normalized : undefined
+})
 
 const recommendationParams = computed<RecommendationParams>(() => {
   const field = activeFilterField.value
   const base: RecommendationParams = {
     filterField: field,
     filterValue: activeFilterValue.value,
-    cartProductIds: cartProductContextIds.value.length > 0 ? cartProductContextIds.value : undefined
+    cartProductIds: cartProductContextIds.value.length > 0 ? cartProductContextIds.value : undefined,
+    placementId: placementId.value
   }
 
   if (field === 'cart_products') {
@@ -350,7 +359,7 @@ const logRecommendationsEvent = (key: string, count: number) => {
     Variables: key,
     count,
     recommendationName: heading.value,
-    recommendationId: getStrategyId(activeFilterField.value)
+    recommendationId: placementId.value || getStrategyId(activeFilterField.value)
   })
   hydratedLogKey.value = key
 }

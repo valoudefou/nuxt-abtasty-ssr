@@ -22,6 +22,7 @@ type RecommendationBody = {
   viewingItemId?: number | string | null
   viewingItemSku?: string | number | null
   cartProductIds?: number[] | string | null
+  placementId?: string | null
   clientId?: string | null
 }
 
@@ -69,6 +70,11 @@ export default defineEventHandler(async (event) => {
     body?.viewingItemSku !== undefined && body?.viewingItemSku !== null
       ? String(body.viewingItemSku).trim()
       : undefined
+  const placementId =
+    body?.placementId !== undefined && body?.placementId !== null
+      ? String(body.placementId).trim()
+      : undefined
+  const normalizedPlacementId = placementId && placementId.length > 0 ? placementId : undefined
 
   if (!filterField) {
     throw createError({ statusCode: 400, statusMessage: 'Missing filterField' })
@@ -82,6 +88,7 @@ export default defineEventHandler(async (event) => {
     addedToCartProductId,
     viewingItemId,
     viewingItemSku,
+    placementId: normalizedPlacementId ?? null,
     clientId: body?.clientId ?? null
   })
 
@@ -111,7 +118,8 @@ export default defineEventHandler(async (event) => {
     addedToCartProductId: Number.isFinite(addedToCartProductId) ? addedToCartProductId : undefined,
     viewingItemId: Number.isFinite(viewingItemId) ? viewingItemId : undefined,
     viewingItemSku: viewingItemSku || undefined,
-    cartProductIds: cartProductIds?.length ? cartProductIds.map((id) => Number(id)).filter(Number.isFinite) : undefined
+    cartProductIds: cartProductIds?.length ? cartProductIds.map((id) => Number(id)).filter(Number.isFinite) : undefined,
+    placementId: normalizedPlacementId
   })
 
   await storage.setItem(cacheKey, {
