@@ -11,9 +11,14 @@
         <NuxtLink :to="product.link || `/products/${product.id}`" class="text-lg font-semibold text-slate-900">
           {{ product.name }}
         </NuxtLink>
-        <p class="text-lg font-semibold text-primary-600">
-          {{ formatCurrency(product.price) }}
-        </p>
+        <div class="text-right">
+          <p class="text-lg font-semibold text-primary-600">
+            {{ formatCurrency(product.price) }}
+          </p>
+          <p v-if="product.sku" class="mt-1 text-xs font-medium text-slate-500">
+            SKU {{ product.sku }}
+          </p>
+        </div>
       </div>
       <NuxtLink
         :to="product.link || `/products/${product.id}`"
