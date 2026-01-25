@@ -240,7 +240,7 @@
         <p class="sr-only" aria-live="polite">{{ filteredProducts.length }} products shown.</p>
 
         <section id="valentines-products">
-          <div v-if="pending" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div v-if="pending && !visibleProducts.length" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <div v-for="index in 8" :key="index" class="h-80 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
               <div class="h-48 rounded-2xl bg-slate-100"></div>
               <div class="mt-5 space-y-3">
@@ -262,19 +262,11 @@
             </button>
           </div>
 
-          <div v-else-if="!visibleProducts.length" class="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-            <h2 class="text-lg font-semibold text-slate-900">No gifts match your filters.</h2>
-            <p class="mt-2 text-sm text-slate-500">Try widening your filters or reset to see all curated items.</p>
-            <button
-              type="button"
-              class="mt-4 rounded-full bg-primary-600 px-6 py-2 text-sm font-semibold text-white shadow-md transition hover:bg-primary-500"
-              @click="clearAll"
-            >
-              Clear filters
-            </button>
-          </div>
-
           <div v-else class="space-y-8">
+            <div v-if="pending" class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-600 shadow-sm">
+              <span class="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-primary-500"></span>
+              Updating results…
+            </div>
             <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               <ValentinesProductCard
                 v-for="product in visibleProducts"
@@ -292,10 +284,6 @@
               >
                 {{ pending ? 'Loading…' : (canLoadMore ? 'Load more gifts' : 'All gifts loaded') }}
               </button>
-              <p class="ml-auto">
-                Showing <span class="font-semibold text-slate-900">{{ visibleProducts.length }}</span> of
-                <span class="font-semibold text-slate-900">{{ totalHits || filteredProducts.length }}</span>
-              </p>
             </div>
           </div>
         </section>
@@ -859,8 +847,8 @@ const updateBrandOptions = (data: ApiSearchResponse) => {
 }
 
 const updateCategoryOptions = (data: ApiSearchResponse) => {
-  const facetKeys = ['categories_ids', 'category', 'category_level2', 'category_level3', 'category_level4']
-  let detectedKey = 'category'
+  const facetKeys = ['categories_ids', 'category_id']
+  let detectedKey = 'categories_ids'
   let categoriesFromFacets: string[] = []
 
   for (const key of facetKeys) {
@@ -880,14 +868,6 @@ const updateCategoryOptions = (data: ApiSearchResponse) => {
     const ids = hit.categories_ids?.map((entry) => entry.trim()).filter(Boolean) ?? []
     for (const entry of ids) {
       categoriesFromHits.add(entry)
-    }
-    const fallback =
-      hit.category?.trim()
-      || hit.category_level2?.trim()
-      || hit.category_level3?.trim()
-      || hit.category_level4?.trim()
-    if (fallback) {
-      categoriesFromHits.add(fallback)
     }
   }
 
@@ -911,7 +891,6 @@ const fetchSearchResults = async () => {
         text: SEARCH_QUERY,
         page: currentPage.value,
         hitsPerPage: ITEMS_PER_BATCH,
-        categoryField: categoryFacetKey.value,
         category: selectedCategories.value,
         brand: selectedBrands.value,
         priceMin: priceMin.value ?? undefined,
