@@ -32,8 +32,8 @@
     </section>
 
     <div class="lg:grid lg:grid-cols-[280px,1fr] lg:items-start lg:gap-8">
-      <aside class="hidden lg:block">
-        <div class="sticky top-32 rounded-2xl border border-slate-200 bg-white/70 p-4 shadow-sm">
+      <aside class="hidden lg:sticky lg:top-24 lg:block lg:self-start">
+        <div class="rounded-2xl border border-slate-200 bg-white/70 p-4 shadow-sm">
           <div class="flex items-center justify-between">
             <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Filters</p>
             <button
@@ -48,6 +48,46 @@
           <p class="mt-1 text-xs text-slate-500">Showing {{ filteredProducts.length }} gifts</p>
 
           <div class="mt-5 space-y-6">
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Categories</p>
+                <button
+                  v-if="selectedCategories.length"
+                  type="button"
+                  class="text-xs font-semibold text-primary-600 hover:text-primary-500"
+                  @click="clearCategories"
+                >
+                  Reset
+                </button>
+              </div>
+              <div v-if="showCategorySearch" class="relative">
+                <input
+                  v-model="categorySearch"
+                  type="search"
+                  name="category-search"
+                  class="w-full rounded-full border border-slate-200 px-4 py-2 text-xs shadow-sm outline-none transition focus:border-primary-400 focus:ring-primary-200"
+                  placeholder="Search categories"
+                  aria-label="Search categories"
+                />
+              </div>
+              <div class="max-h-56 space-y-2 overflow-y-auto pr-2">
+                <label
+                  v-for="category in filteredCategoryOptions"
+                  :key="category"
+                  class="flex items-center gap-2 text-sm text-slate-600"
+                >
+                  <input
+                    type="checkbox"
+                    class="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-300"
+                    :checked="selectedCategories.includes(category)"
+                    @change="toggleCategory(category)"
+                  />
+                  <span>{{ category }}</span>
+                </label>
+                <p v-if="!filteredCategoryOptions.length" class="text-xs text-slate-400">No categories match.</p>
+              </div>
+            </div>
+
             <div class="space-y-3">
               <div class="flex items-center justify-between">
                 <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Brands</p>
@@ -173,7 +213,7 @@
       </aside>
 
       <div class="space-y-6">
-        <div class="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm backdrop-blur lg:hidden">
+        <div class="sticky top-24 z-20 rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm backdrop-blur lg:hidden">
           <div class="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p class="text-sm font-semibold text-slate-900">Filter the collection</p>
@@ -247,14 +287,14 @@
               <button
                 type="button"
                 class="rounded-full border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-primary-400 hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
-                :disabled="!canLoadMore"
+                :disabled="!canLoadMore || pending"
                 @click="loadMore"
               >
-                {{ canLoadMore ? 'Load more gifts' : 'All gifts loaded' }}
+                {{ pending ? 'Loading…' : (canLoadMore ? 'Load more gifts' : 'All gifts loaded') }}
               </button>
               <p class="ml-auto">
                 Showing <span class="font-semibold text-slate-900">{{ visibleProducts.length }}</span> of
-                <span class="font-semibold text-slate-900">{{ filteredProducts.length }}</span>
+                <span class="font-semibold text-slate-900">{{ totalHits || filteredProducts.length }}</span>
               </p>
             </div>
           </div>
@@ -287,6 +327,46 @@
             </button>
           </div>
           <div class="mt-6 space-y-6 overflow-y-auto pb-8">
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Categories</p>
+                <button
+                  v-if="selectedCategories.length"
+                  type="button"
+                  class="text-xs font-semibold text-primary-600 hover:text-primary-500"
+                  @click="clearCategories"
+                >
+                  Reset
+                </button>
+              </div>
+              <div v-if="showCategorySearch" class="relative">
+                <input
+                  v-model="categorySearch"
+                  type="search"
+                  name="category-search-mobile"
+                  class="w-full rounded-full border border-slate-200 px-4 py-2 text-xs shadow-sm outline-none transition focus:border-primary-400 focus:ring-primary-200"
+                  placeholder="Search categories"
+                  aria-label="Search categories"
+                />
+              </div>
+              <div class="max-h-52 space-y-2 overflow-y-auto pr-2">
+                <label
+                  v-for="category in filteredCategoryOptions"
+                  :key="category"
+                  class="flex items-center gap-2 text-sm text-slate-600"
+                >
+                  <input
+                    type="checkbox"
+                    class="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-300"
+                    :checked="selectedCategories.includes(category)"
+                    @change="toggleCategory(category)"
+                  />
+                  <span>{{ category }}</span>
+                </label>
+                <p v-if="!filteredCategoryOptions.length" class="text-xs text-slate-400">No categories match.</p>
+              </div>
+            </div>
+
             <div class="space-y-3">
               <div class="flex items-center justify-between">
                 <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Brands</p>
@@ -432,7 +512,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from '#imports'
 
 import type { Product } from '@/types/product'
@@ -440,42 +520,85 @@ import ValentinesProductCard from '@/components/ValentinesProductCard.vue'
 
 type SortOption = 'featured' | 'price-asc' | 'price-desc'
 
+const SEARCH_ENDPOINT = 'https://search-api.abtasty.com/search'
+const SEARCH_INDEX = '47c5c9b4ee0a19c9859f47734c1e8200_Catalog'
+const SEARCH_QUERY = 'gift'
+const FALLBACK_IMAGE = 'https://assets-manager.abtasty.com/placeholder.png'
 const PRICE_SLIDER_STEP = 1
-const ITEMS_PER_BATCH = 12
+const PRICE_FALLBACK_MIN = 0
+const PRICE_FALLBACK_MAX = 500
+const ITEMS_PER_BATCH = 24
 
 const route = useRoute()
 const router = useRouter()
 
-const { data, pending, error, refresh } = await useAsyncData<{ products: Product[]; fetchedAt: number }>(
-  'valentines-products',
-  () => $fetch('/api/valentines-products'),
-  { server: true }
-)
+type ApiSearchHit = {
+  id: number | string
+  name: string
+  img_link?: string
+  link?: string
+  price?: number | string | null
+  brand?: string | null
+  vendor?: string | null
+  category?: string | null
+  category_level2?: string | null
+  category_level3?: string | null
+  category_level4?: string | null
+  categories_ids?: string[] | null
+}
 
-const products = computed(() => data.value?.products ?? [])
+type ApiFacetResponse = {
+  brand?: {
+    values?: [string, number][]
+  }
+  categories_ids?: {
+    values?: [string, number][]
+  }
+  category?: {
+    values?: [string, number][]
+  }
+}
 
+type ApiSearchResponse = {
+  hits?: ApiSearchHit[]
+  facets?: ApiFacetResponse
+  totalPages?: number
+  totalHits?: number
+  hitsPerPage?: number
+  page?: number
+}
+
+const pending = ref(true)
+const error = ref<string | null>(null)
+const searchResults = ref<Product[]>([])
+const brandOptions = ref<string[]>([])
+const categoryOptions = ref<string[]>([])
+const categoryFacetKey = ref('categories_ids')
+const currentPage = ref(0)
+const totalPages = ref(0)
+const totalHits = ref(0)
+
+const products = computed(() => searchResults.value)
+
+const selectedCategories = ref<string[]>([])
 const selectedBrands = ref<string[]>([])
 const priceMin = ref<number | null>(null)
 const priceMax = ref<number | null>(null)
 const sortOption = ref<SortOption>('featured')
+const categorySearch = ref('')
 const brandSearch = ref('')
-const visibleCount = ref(ITEMS_PER_BATCH)
 const isFilterDrawerOpen = ref(false)
 
-const brandOptions = computed(() => {
-  const unique = new Map<string, string>()
-  for (const product of products.value) {
-    const brand = product.brand?.trim()
-    if (!brand) continue
-    const key = brand.toLowerCase()
-    if (!unique.has(key)) {
-      unique.set(key, brand)
-    }
-  }
-  return Array.from(unique.values()).sort((a, b) => a.localeCompare(b))
-})
-
 const showBrandSearch = computed(() => brandOptions.value.length > 10)
+const showCategorySearch = computed(() => categoryOptions.value.length > 10)
+
+const filteredCategoryOptions = computed(() => {
+  if (!showCategorySearch.value || !categorySearch.value.trim()) {
+    return categoryOptions.value
+  }
+  const query = categorySearch.value.toLowerCase()
+  return categoryOptions.value.filter((category) => category.toLowerCase().includes(query))
+})
 
 const filteredBrandOptions = computed(() => {
   if (!showBrandSearch.value || !brandSearch.value.trim()) {
@@ -488,7 +611,7 @@ const filteredBrandOptions = computed(() => {
 const priceBounds = computed(() => {
   const prices = products.value.map((product) => product.price).filter(Number.isFinite)
   if (!prices.length) {
-    return { min: 0, max: 0 }
+    return { min: PRICE_FALLBACK_MIN, max: PRICE_FALLBACK_MAX }
   }
   return {
     min: Math.floor(Math.min(...prices)),
@@ -551,18 +674,7 @@ const priceFillStyle = computed(() => {
   }
 })
 
-const filteredProducts = computed(() => {
-  const brands = selectedBrands.value.map((brand) => brand.toLowerCase())
-  return products.value.filter((product) => {
-    if (brands.length > 0) {
-      const brand = product.brand?.toLowerCase() || ''
-      if (!brands.includes(brand)) return false
-    }
-    if (priceMin.value !== null && product.price < priceMin.value) return false
-    if (priceMax.value !== null && product.price > priceMax.value) return false
-    return true
-  })
-})
+const filteredProducts = computed(() => products.value)
 
 const sortedProducts = computed(() => {
   const items = [...filteredProducts.value]
@@ -575,16 +687,27 @@ const sortedProducts = computed(() => {
   return items
 })
 
-const visibleProducts = computed(() => sortedProducts.value.slice(0, visibleCount.value))
-const canLoadMore = computed(() => visibleCount.value < sortedProducts.value.length)
+const visibleProducts = computed(() => sortedProducts.value)
+const canLoadMore = computed(() => currentPage.value + 1 < totalPages.value)
 
 const hasActiveFilters = computed(
   () =>
-    selectedBrands.value.length > 0
+    selectedCategories.value.length > 0
+    || selectedBrands.value.length > 0
     || priceMin.value !== null
     || priceMax.value !== null
     || sortOption.value !== 'featured'
 )
+
+const toggleCategory = (category: string) => {
+  const next = new Set(selectedCategories.value)
+  if (next.has(category)) {
+    next.delete(category)
+  } else {
+    next.add(category)
+  }
+  selectedCategories.value = Array.from(next)
+}
 
 const toggleBrand = (brand: string) => {
   const next = new Set(selectedBrands.value)
@@ -600,12 +723,17 @@ const clearBrands = () => {
   selectedBrands.value = []
 }
 
+const clearCategories = () => {
+  selectedCategories.value = []
+}
+
 const clearPrice = () => {
   priceMin.value = null
   priceMax.value = null
 }
 
 const clearAll = () => {
+  clearCategories()
   clearBrands()
   clearPrice()
   sortOption.value = 'featured'
@@ -626,7 +754,7 @@ const openFilterDrawer = () => {
 }
 
 const handleRetry = () => {
-  void refresh()
+  void fetchSearchResults()
 }
 
 const closeFilterDrawer = () => {
@@ -640,10 +768,9 @@ const scrollToProducts = () => {
 }
 
 const loadMore = () => {
-  visibleCount.value = Math.min(
-    visibleCount.value + ITEMS_PER_BATCH,
-    sortedProducts.value.length
-  )
+  if (!canLoadMore.value || pending.value) return
+  currentPage.value += 1
+  void fetchSearchResults()
 }
 
 const parseList = (value: string | Array<string | null | undefined> | null | undefined) => {
@@ -669,9 +796,193 @@ const isSortOption = (value: string | undefined): value is SortOption => {
 }
 
 let syncingFromRoute = false
+let searchTimeout: ReturnType<typeof setTimeout> | null = null
+let lastSearchKey = ''
+
+const normalizePrice = (value: number | string | null | undefined): number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+const normalizeHitToProduct = (hit: ApiSearchHit): Product => {
+  const numericId = Number.parseInt(String(hit.id), 10)
+  const id = Number.isFinite(numericId) ? numericId : 0
+  const category =
+    hit.categories_ids?.[0]
+    || hit.category
+    || hit.category_level2
+    || hit.category_level3
+    || hit.category_level4
+    || ''
+  return {
+    id,
+    slug: String(hit.id ?? ''),
+    name: hit.name?.trim() || 'Untitled',
+    description: '',
+    price: normalizePrice(hit.price) ?? 0,
+    category,
+    image: hit.img_link || FALLBACK_IMAGE,
+    rating: 0,
+    highlights: [],
+    inStock: true,
+    colors: [],
+    sizes: [],
+    brand: hit.brand?.trim() || undefined,
+    vendor: hit.vendor?.trim() || undefined,
+    link: hit.link || undefined
+  }
+}
+
+const updateBrandOptions = (data: ApiSearchResponse) => {
+  const brandsFromHits = Array.from(
+    new Set(
+      (data.hits ?? [])
+        .map((hit) => hit.brand?.trim())
+        .filter((brand): brand is string => Boolean(brand))
+    )
+  )
+
+  const brandsFromFacets =
+    data.facets?.brand?.values
+      ?.map(([label]) => label?.trim())
+      .filter((label): label is string => Boolean(label)) ?? []
+
+  const base = brandsFromHits.length ? brandsFromHits : brandsFromFacets
+  const selected = selectedBrands.value
+  const merged = new Set(base)
+  for (const brand of selected) {
+    merged.add(brand)
+  }
+  brandOptions.value = Array.from(merged).sort((a, b) => a.localeCompare(b))
+}
+
+const updateCategoryOptions = (data: ApiSearchResponse) => {
+  const facetKeys = ['categories_ids', 'category', 'category_level2', 'category_level3', 'category_level4']
+  let detectedKey = 'category'
+  let categoriesFromFacets: string[] = []
+
+  for (const key of facetKeys) {
+    const values = (data.facets as Record<string, { values?: [string, number][] } | undefined>)?.[key]?.values
+    const next = values
+      ?.map(([label]) => label?.trim())
+      .filter((label): label is string => Boolean(label)) ?? []
+    if (next.length) {
+      detectedKey = key
+      categoriesFromFacets = next
+      break
+    }
+  }
+
+  const categoriesFromHits = new Set<string>()
+  for (const hit of data.hits ?? []) {
+    const ids = hit.categories_ids?.map((entry) => entry.trim()).filter(Boolean) ?? []
+    for (const entry of ids) {
+      categoriesFromHits.add(entry)
+    }
+    const fallback =
+      hit.category?.trim()
+      || hit.category_level2?.trim()
+      || hit.category_level3?.trim()
+      || hit.category_level4?.trim()
+    if (fallback) {
+      categoriesFromHits.add(fallback)
+    }
+  }
+
+  const base = categoriesFromFacets.length ? categoriesFromFacets : categoriesFromHits
+  categoryFacetKey.value = detectedKey
+  const selected = selectedCategories.value
+  const merged = new Set(base)
+  for (const category of selected) {
+    merged.add(category)
+  }
+  categoryOptions.value = Array.from(merged).sort((a, b) => a.localeCompare(b))
+}
+
+const fetchSearchResults = async () => {
+  pending.value = true
+  error.value = null
+
+  try {
+    const url = new URL(SEARCH_ENDPOINT)
+    url.searchParams.set('index', SEARCH_INDEX)
+    url.searchParams.set('text', SEARCH_QUERY)
+    url.searchParams.set('hitsPerPage', String(ITEMS_PER_BATCH))
+    url.searchParams.set('page', String(currentPage.value))
+
+    for (const category of selectedCategories.value) {
+      url.searchParams.append(`filters[${categoryFacetKey.value}][]`, category)
+    }
+
+    for (const brand of selectedBrands.value) {
+      url.searchParams.append('filters[brand][]', brand)
+    }
+
+    if (priceMin.value !== null || priceMax.value !== null) {
+      if (priceMin.value !== null) {
+        url.searchParams.append('filters[price][0][operator]', '>')
+        url.searchParams.append('filters[price][0][value]', String(priceMin.value))
+      }
+      if (priceMax.value !== null) {
+        url.searchParams.append('filters[price][1][operator]', '<')
+        url.searchParams.append('filters[price][1][value]', String(priceMax.value))
+      }
+    }
+
+    const response = await fetch(url.toString())
+    if (!response.ok) {
+      throw new Error(`Search failed with status ${response.status}`)
+    }
+
+    const data = (await response.json()) as ApiSearchResponse
+    const nextHits = (data.hits ?? []).map(normalizeHitToProduct)
+    searchResults.value = currentPage.value === 0 ? nextHits : [...searchResults.value, ...nextHits]
+    totalPages.value = data.totalPages ?? 0
+    totalHits.value = data.totalHits ?? searchResults.value.length
+    updateBrandOptions(data)
+    updateCategoryOptions(data)
+  } catch (fetchError) {
+    console.error('Failed to search Valentines products', fetchError)
+    error.value = 'We were unable to search products right now.'
+    searchResults.value = []
+    brandOptions.value = []
+    categoryOptions.value = []
+    totalPages.value = 0
+    totalHits.value = 0
+  } finally {
+    pending.value = false
+  }
+}
+
+const scheduleSearch = () => {
+  if (!import.meta.client) {
+    void fetchSearchResults()
+    return
+  }
+  if (searchTimeout) {
+    clearTimeout(searchTimeout)
+    searchTimeout = null
+  }
+  searchTimeout = setTimeout(() => {
+    void fetchSearchResults()
+  }, 250)
+}
+
+const buildSearchKey = () => {
+  const categories = [...selectedCategories.value].sort().join('|')
+  const brands = [...selectedBrands.value].sort().join('|')
+  const min = priceMin.value !== null ? String(priceMin.value) : ''
+  const max = priceMax.value !== null ? String(priceMax.value) : ''
+  return `${categories}:${brands}:${min}:${max}`
+}
 
 const syncStateFromQuery = async () => {
   syncingFromRoute = true
+  selectedCategories.value = parseList(route.query.category)
   selectedBrands.value = parseList(route.query.brand)
   priceMin.value = parseNumber(route.query.minPrice)
   priceMax.value = parseNumber(route.query.maxPrice)
@@ -680,11 +991,17 @@ const syncStateFromQuery = async () => {
   sortOption.value = isSortOption(sortValue) ? sortValue : 'featured'
   await nextTick()
   syncingFromRoute = false
+  const nextKey = buildSearchKey()
+  if (nextKey !== lastSearchKey) {
+    lastSearchKey = nextKey
+    scheduleSearch()
+  }
 }
 
 void syncStateFromQuery()
 
 const queryState = computed(() => ({
+  category: selectedCategories.value.length ? selectedCategories.value.join(',') : undefined,
   brand: selectedBrands.value.length ? selectedBrands.value.join(',') : undefined,
   minPrice: priceMin.value !== null ? String(priceMin.value) : undefined,
   maxPrice: priceMax.value !== null ? String(priceMax.value) : undefined,
@@ -704,7 +1021,11 @@ watch(queryState, (next) => {
 watch(
   () => JSON.stringify(queryState.value),
   () => {
-    visibleCount.value = ITEMS_PER_BATCH
+    currentPage.value = 0
+    searchResults.value = []
+    totalPages.value = 0
+    totalHits.value = 0
+    lastSearchKey = ''
   }
 )
 
@@ -715,9 +1036,12 @@ watch(priceBounds, (bounds) => {
   if (priceMax.value !== null) {
     setPriceMax(priceMax.value)
   }
-  if (bounds.min === bounds.max) {
-    priceMin.value = null
-    priceMax.value = null
+})
+
+onBeforeUnmount(() => {
+  if (searchTimeout) {
+    clearTimeout(searchTimeout)
+    searchTimeout = null
   }
 })
 </script>
