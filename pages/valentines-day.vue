@@ -50,38 +50,6 @@
           <div class="mt-5 space-y-6">
             <div class="space-y-3">
               <div class="flex items-center justify-between">
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Categories</p>
-                <button
-                  v-if="selectedCategories.length"
-                  type="button"
-                  class="text-xs font-semibold text-primary-600 hover:text-primary-500"
-                  @click="clearCategories"
-                >
-                  Reset
-                </button>
-              </div>
-              <div class="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  :class="categoryChipClass(selectedCategories.length === 0)"
-                  @click="clearCategories"
-                >
-                  All
-                </button>
-                <button
-                  v-for="category in categoryOptions"
-                  :key="category"
-                  type="button"
-                  :class="categoryChipClass(selectedCategories.includes(category))"
-                  @click="toggleCategory(category)"
-                >
-                  {{ category }}
-                </button>
-              </div>
-            </div>
-
-            <div class="space-y-3">
-              <div class="flex items-center justify-between">
                 <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Brands</p>
                 <button
                   v-if="selectedBrands.length"
@@ -321,38 +289,6 @@
           <div class="mt-6 space-y-6 overflow-y-auto pb-8">
             <div class="space-y-3">
               <div class="flex items-center justify-between">
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Categories</p>
-                <button
-                  v-if="selectedCategories.length"
-                  type="button"
-                  class="text-xs font-semibold text-primary-600 hover:text-primary-500"
-                  @click="clearCategories"
-                >
-                  Reset
-                </button>
-              </div>
-              <div class="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  :class="categoryChipClass(selectedCategories.length === 0)"
-                  @click="clearCategories"
-                >
-                  All
-                </button>
-                <button
-                  v-for="category in categoryOptions"
-                  :key="category"
-                  type="button"
-                  :class="categoryChipClass(selectedCategories.includes(category))"
-                  @click="toggleCategory(category)"
-                >
-                  {{ category }}
-                </button>
-              </div>
-            </div>
-
-            <div class="space-y-3">
-              <div class="flex items-center justify-between">
                 <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Brands</p>
                 <button
                   v-if="selectedBrands.length"
@@ -518,7 +454,6 @@ const { data, pending, error, refresh } = await useAsyncData<{ products: Product
 
 const products = computed(() => data.value?.products ?? [])
 
-const selectedCategories = ref<string[]>([])
 const selectedBrands = ref<string[]>([])
 const priceMin = ref<number | null>(null)
 const priceMax = ref<number | null>(null)
@@ -526,19 +461,6 @@ const sortOption = ref<SortOption>('featured')
 const brandSearch = ref('')
 const visibleCount = ref(ITEMS_PER_BATCH)
 const isFilterDrawerOpen = ref(false)
-
-const categoryOptions = computed(() => {
-  const unique = new Map<string, string>()
-  for (const product of products.value) {
-    const category = product.category?.trim()
-    if (!category) continue
-    const key = category.toLowerCase()
-    if (!unique.has(key)) {
-      unique.set(key, category)
-    }
-  }
-  return Array.from(unique.values()).sort((a, b) => a.localeCompare(b))
-})
 
 const brandOptions = computed(() => {
   const unique = new Map<string, string>()
@@ -630,13 +552,8 @@ const priceFillStyle = computed(() => {
 })
 
 const filteredProducts = computed(() => {
-  const categories = selectedCategories.value.map((category) => category.toLowerCase())
   const brands = selectedBrands.value.map((brand) => brand.toLowerCase())
   return products.value.filter((product) => {
-    if (categories.length > 0) {
-      const category = product.category?.toLowerCase() || ''
-      if (!categories.includes(category)) return false
-    }
     if (brands.length > 0) {
       const brand = product.brand?.toLowerCase() || ''
       if (!brands.includes(brand)) return false
@@ -663,28 +580,11 @@ const canLoadMore = computed(() => visibleCount.value < sortedProducts.value.len
 
 const hasActiveFilters = computed(
   () =>
-    selectedCategories.value.length > 0
-    || selectedBrands.value.length > 0
+    selectedBrands.value.length > 0
     || priceMin.value !== null
     || priceMax.value !== null
     || sortOption.value !== 'featured'
 )
-
-const categoryChipClass = (active: boolean) =>
-  [
-    'rounded-full border px-4 py-2 text-xs font-semibold transition',
-    active ? 'border-primary-500 bg-primary-50 text-primary-600' : 'border-slate-200 text-slate-600 hover:border-primary-400 hover:text-primary-600'
-  ].join(' ')
-
-const toggleCategory = (category: string) => {
-  const next = new Set(selectedCategories.value)
-  if (next.has(category)) {
-    next.delete(category)
-  } else {
-    next.add(category)
-  }
-  selectedCategories.value = Array.from(next)
-}
 
 const toggleBrand = (brand: string) => {
   const next = new Set(selectedBrands.value)
@@ -694,10 +594,6 @@ const toggleBrand = (brand: string) => {
     next.add(brand)
   }
   selectedBrands.value = Array.from(next)
-}
-
-const clearCategories = () => {
-  selectedCategories.value = []
 }
 
 const clearBrands = () => {
@@ -710,7 +606,6 @@ const clearPrice = () => {
 }
 
 const clearAll = () => {
-  clearCategories()
   clearBrands()
   clearPrice()
   sortOption.value = 'featured'
@@ -777,7 +672,6 @@ let syncingFromRoute = false
 
 const syncStateFromQuery = async () => {
   syncingFromRoute = true
-  selectedCategories.value = parseList(route.query.category)
   selectedBrands.value = parseList(route.query.brand)
   priceMin.value = parseNumber(route.query.minPrice)
   priceMax.value = parseNumber(route.query.maxPrice)
@@ -791,7 +685,6 @@ const syncStateFromQuery = async () => {
 void syncStateFromQuery()
 
 const queryState = computed(() => ({
-  category: selectedCategories.value.length ? selectedCategories.value.join(',') : undefined,
   brand: selectedBrands.value.length ? selectedBrands.value.join(',') : undefined,
   minPrice: priceMin.value !== null ? String(priceMin.value) : undefined,
   maxPrice: priceMax.value !== null ? String(priceMax.value) : undefined,

@@ -4,7 +4,7 @@ import type { Product } from '@/types/product'
 import type { RemoteProduct, RemoteResponse } from '@/server/utils/products'
 import { normalizeRemoteProduct } from '@/server/utils/products'
 
-const CACHE_TTL_MS = 1000 * 60 * 5
+const CACHE_TTL_MS = 1000 * 60
 const PAGE_SIZE = 100
 const MAX_PAGES = 20
 
@@ -20,31 +20,21 @@ const normalizeResponse = (response: RemoteResponse | RemoteProduct[] | null): R
   return Array.isArray(response) ? response : response.products ?? []
 }
 
-const normalizeBreadcrumbsText = (breadcrumbs?: RemoteProduct['breadcrumbs']) => {
-  if (!breadcrumbs) return ''
-  if (Array.isArray(breadcrumbs)) {
-    return breadcrumbs.filter(Boolean).join(' ')
-  }
-  if (typeof breadcrumbs === 'string') {
-    const trimmed = breadcrumbs.trim()
-    if (!trimmed) return ''
-    if (trimmed.startsWith('[')) {
-      try {
-        const parsed = JSON.parse(trimmed)
-        if (Array.isArray(parsed)) {
-          return parsed.filter(Boolean).join(' ')
-        }
-      } catch {
-        // Fall back to raw string parsing below.
-      }
-    }
-    return trimmed
-  }
-  return ''
-}
+const normalizeCategoryText = (...values: Array<RemoteProduct[keyof RemoteProduct]>) =>
+  values
+    .flat()
+    .filter((value): value is string => typeof value === 'string')
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .join(' ')
 
-const hasGiftBreadcrumb = (product: RemoteProduct) => {
-  const text = normalizeBreadcrumbsText(product.breadcrumbs).toLowerCase()
+const hasGiftCategory = (product: RemoteProduct) => {
+  const text = normalizeCategoryText(
+    product.category,
+    product.category_level2,
+    product.category_level3,
+    product.category_level4
+  ).toLowerCase()
   return text.includes('gift')
 }
 
@@ -73,7 +63,7 @@ export default defineEventHandler(async () => {
         break
       }
 
-      const giftProducts = batch.filter(hasGiftBreadcrumb).map(normalizeRemoteProduct)
+      const giftProducts = batch.filter(hasGiftCategory).map(normalizeRemoteProduct)
       curated.push(...giftProducts)
 
       if (batch.length < PAGE_SIZE) {
