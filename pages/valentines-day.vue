@@ -263,6 +263,36 @@
           </div>
 
           <div v-else class="space-y-8">
+            <div v-if="isAutocompleteLoading" class="flex items-center gap-2 text-xs text-slate-400">
+              <span class="h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-primary-500"></span>
+              Loading gift suggestions…
+            </div>
+            <div
+              v-else-if="giftSuggestionChips.length && !giftSearchNormalized"
+              class="flex flex-wrap gap-2"
+            >
+              <button
+                v-for="suggestion in giftSuggestionChips"
+                :key="suggestion"
+                type="button"
+                class="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-primary-400 hover:text-primary-600"
+                @click="applySuggestion(suggestion)"
+              >
+                {{ suggestion }}
+              </button>
+            </div>
+            <div v-else-if="giftSearchNormalized" class="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+              <span class="rounded-full border border-slate-200 bg-white px-3 py-1 font-semibold text-slate-700">
+                {{ giftSearchNormalized }}
+              </span>
+              <button
+                type="button"
+                class="text-xs font-semibold text-primary-600 hover:text-primary-500"
+                @click="clearGiftSearch"
+              >
+                Clear gift search
+              </button>
+            </div>
             <div v-if="pending" class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-600 shadow-sm">
               <span class="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-primary-500"></span>
               Updating results…
@@ -509,6 +539,8 @@ import ValentinesProductCard from '@/components/ValentinesProductCard.vue'
 type SortOption = 'featured' | 'price-asc' | 'price-desc'
 
 const SEARCH_QUERY = 'gift'
+const AUTOCOMPLETE_ENDPOINT = 'https://search-api.abtasty.com/autocomplete'
+const AUTOCOMPLETE_CLIENT_ID = '47c5c9b4ee0a19c9859f47734c1e8200'
 const FALLBACK_IMAGE = 'https://assets-manager.abtasty.com/placeholder.png'
 const PRICE_SLIDER_STEP = 1
 const PRICE_FALLBACK_MIN = 0
@@ -571,9 +603,12 @@ const selectedBrands = ref<string[]>([])
 const priceMin = ref<number | null>(null)
 const priceMax = ref<number | null>(null)
 const sortOption = ref<SortOption>('featured')
+const giftSearch = ref('')
 const categorySearch = ref('')
 const brandSearch = ref('')
 const isFilterDrawerOpen = ref(false)
+const autocompleteSuggestions = ref<string[]>([])
+const isAutocompleteLoading = ref(false)
 
 const showBrandSearch = computed(() => brandOptions.value.length > 10)
 const showCategorySearch = computed(() => categoryOptions.value.length > 10)
@@ -592,6 +627,23 @@ const filteredBrandOptions = computed(() => {
   }
   const query = brandSearch.value.toLowerCase()
   return brandOptions.value.filter((brand) => brand.toLowerCase().includes(query))
+})
+
+const giftSuggestionChips = computed(() => {
+  if (autocompleteSuggestions.value.length) {
+    return autocompleteSuggestions.value
+  }
+  return categoryOptions.value.slice(0, 8)
+})
+
+const normalizeGiftQuery = (value: string) =>
+  value.replace(/^gift\s+/i, '').trim()
+
+const giftSearchNormalized = computed(() => normalizeGiftQuery(giftSearch.value))
+
+const searchText = computed(() => {
+  const term = giftSearchNormalized.value
+  return term ? `${SEARCH_QUERY} ${term}` : SEARCH_QUERY
 })
 
 const priceBounds = computed(() => {
@@ -678,7 +730,8 @@ const canLoadMore = computed(() => currentPage.value + 1 < totalPages.value)
 
 const hasActiveFilters = computed(
   () =>
-    selectedCategories.value.length > 0
+    Boolean(giftSearchNormalized.value)
+    || selectedCategories.value.length > 0
     || selectedBrands.value.length > 0
     || priceMin.value !== null
     || priceMax.value !== null
@@ -719,6 +772,7 @@ const clearPrice = () => {
 }
 
 const clearAll = () => {
+  clearGiftSearch()
   clearCategories()
   clearBrands()
   clearPrice()
@@ -777,6 +831,11 @@ const parseNumber = (value: string | Array<string | null | undefined> | null | u
   return Number.isFinite(parsed) ? parsed : null
 }
 
+const parseString = (value: string | Array<string | null | undefined> | null | undefined) => {
+  const raw = Array.isArray(value) ? value[0] : value
+  return typeof raw === 'string' ? raw : ''
+}
+
 const isSortOption = (value: string | undefined): value is SortOption => {
   return value === 'featured' || value === 'price-asc' || value === 'price-desc'
 }
@@ -784,6 +843,8 @@ const isSortOption = (value: string | undefined): value is SortOption => {
 let syncingFromRoute = false
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
 let lastSearchKey = ''
+let autocompleteTimeout: ReturnType<typeof setTimeout> | null = null
+let autocompleteRequestId = 0
 
 const normalizePrice = (value: number | string | null | undefined): number | null => {
   if (typeof value === 'number' && Number.isFinite(value)) return value
@@ -888,7 +949,7 @@ const fetchSearchResults = async () => {
   try {
     const data = await $fetch<ApiSearchResponse>('/api/abtasty-search', {
       params: {
-        text: SEARCH_QUERY,
+        text: searchText.value,
         page: currentPage.value,
         hitsPerPage: ITEMS_PER_BATCH,
         category: selectedCategories.value,
@@ -930,16 +991,87 @@ const scheduleSearch = () => {
   }, 250)
 }
 
+const performAutocomplete = async (input: string) => {
+  const trimmed = input.trim()
+  const requestId = ++autocompleteRequestId
+
+  if (!import.meta.client) {
+    autocompleteSuggestions.value = []
+    isAutocompleteLoading.value = false
+    return
+  }
+
+  const queryText = trimmed.length >= 2 ? `${SEARCH_QUERY} ${trimmed}`.trim() : SEARCH_QUERY
+  isAutocompleteLoading.value = true
+
+  try {
+    const url = new URL(AUTOCOMPLETE_ENDPOINT)
+    url.searchParams.set('client_id', AUTOCOMPLETE_CLIENT_ID)
+    url.searchParams.set('query', queryText)
+    url.searchParams.set('hits_per_page', '6')
+
+    const response = await fetch(url.toString())
+    if (!response.ok) {
+      throw new Error(`Autocomplete failed with status ${response.status}`)
+    }
+
+    const data = (await response.json()) as { suggestions?: { text?: string }[] }
+
+    if (requestId !== autocompleteRequestId) {
+      return
+    }
+
+    autocompleteSuggestions.value =
+      data.suggestions?.map((suggestion) => suggestion.text?.trim())
+        .filter((text): text is string => Boolean(text))
+        .slice(0, 6) ?? []
+  } catch (fetchError) {
+    if (requestId !== autocompleteRequestId) {
+      return
+    }
+    console.error('Failed to fetch gift autocomplete', fetchError)
+    autocompleteSuggestions.value = []
+  } finally {
+    if (requestId === autocompleteRequestId) {
+      isAutocompleteLoading.value = false
+    }
+  }
+}
+
+const scheduleAutocomplete = (query: string) => {
+  if (!import.meta.client) return
+  if (autocompleteTimeout) {
+    clearTimeout(autocompleteTimeout)
+    autocompleteTimeout = null
+  }
+  autocompleteTimeout = setTimeout(() => {
+    void performAutocomplete(query)
+  }, 250)
+}
+
+const applySuggestion = (suggestion: string) => {
+  const normalized = normalizeGiftQuery(suggestion)
+  giftSearch.value = normalized
+  autocompleteSuggestions.value = []
+}
+
+const clearGiftSearch = () => {
+  giftSearch.value = ''
+  autocompleteSuggestions.value = []
+}
+
 const buildSearchKey = () => {
   const categories = [...selectedCategories.value].sort().join('|')
   const brands = [...selectedBrands.value].sort().join('|')
+  const term = giftSearchNormalized.value
   const min = priceMin.value !== null ? String(priceMin.value) : ''
   const max = priceMax.value !== null ? String(priceMax.value) : ''
-  return `${categories}:${brands}:${min}:${max}`
+  return `${categories}:${brands}:${term}:${min}:${max}`
 }
 
 const syncStateFromQuery = async () => {
   syncingFromRoute = true
+  giftSearch.value = parseString(route.query.giftQuery)
   selectedCategories.value = parseList(route.query.category)
   selectedBrands.value = parseList(route.query.brand)
   priceMin.value = parseNumber(route.query.minPrice)
@@ -957,8 +1089,21 @@ const syncStateFromQuery = async () => {
 }
 
 void syncStateFromQuery()
+if (import.meta.client) {
+  void performAutocomplete('')
+}
+
+watch(giftSearch, (value) => {
+  const term = normalizeGiftQuery(value)
+  if (!term) {
+    void performAutocomplete('')
+    return
+  }
+  autocompleteSuggestions.value = []
+})
 
 const queryState = computed(() => ({
+  giftQuery: giftSearchNormalized.value ? giftSearchNormalized.value : undefined,
   category: selectedCategories.value.length ? selectedCategories.value.join(',') : undefined,
   brand: selectedBrands.value.length ? selectedBrands.value.join(',') : undefined,
   minPrice: priceMin.value !== null ? String(priceMin.value) : undefined,
@@ -1000,6 +1145,10 @@ onBeforeUnmount(() => {
   if (searchTimeout) {
     clearTimeout(searchTimeout)
     searchTimeout = null
+  }
+  if (autocompleteTimeout) {
+    clearTimeout(autocompleteTimeout)
+    autocompleteTimeout = null
   }
 })
 </script>
