@@ -520,8 +520,6 @@ import ValentinesProductCard from '@/components/ValentinesProductCard.vue'
 
 type SortOption = 'featured' | 'price-asc' | 'price-desc'
 
-const SEARCH_ENDPOINT = 'https://search-api.abtasty.com/search'
-const SEARCH_INDEX = '47c5c9b4ee0a19c9859f47734c1e8200_Catalog'
 const SEARCH_QUERY = 'gift'
 const FALLBACK_IMAGE = 'https://assets-manager.abtasty.com/placeholder.png'
 const PRICE_SLIDER_STEP = 1
@@ -908,37 +906,18 @@ const fetchSearchResults = async () => {
   error.value = null
 
   try {
-    const url = new URL(SEARCH_ENDPOINT)
-    url.searchParams.set('index', SEARCH_INDEX)
-    url.searchParams.set('text', SEARCH_QUERY)
-    url.searchParams.set('hitsPerPage', String(ITEMS_PER_BATCH))
-    url.searchParams.set('page', String(currentPage.value))
-
-    for (const category of selectedCategories.value) {
-      url.searchParams.append(`filters[${categoryFacetKey.value}][]`, category)
-    }
-
-    for (const brand of selectedBrands.value) {
-      url.searchParams.append('filters[brand][]', brand)
-    }
-
-    if (priceMin.value !== null || priceMax.value !== null) {
-      if (priceMin.value !== null) {
-        url.searchParams.append('filters[price][0][operator]', '>')
-        url.searchParams.append('filters[price][0][value]', String(priceMin.value))
+    const data = await $fetch<ApiSearchResponse>('/api/abtasty-search', {
+      params: {
+        text: SEARCH_QUERY,
+        page: currentPage.value,
+        hitsPerPage: ITEMS_PER_BATCH,
+        categoryField: categoryFacetKey.value,
+        category: selectedCategories.value,
+        brand: selectedBrands.value,
+        priceMin: priceMin.value ?? undefined,
+        priceMax: priceMax.value ?? undefined
       }
-      if (priceMax.value !== null) {
-        url.searchParams.append('filters[price][1][operator]', '<')
-        url.searchParams.append('filters[price][1][value]', String(priceMax.value))
-      }
-    }
-
-    const response = await fetch(url.toString())
-    if (!response.ok) {
-      throw new Error(`Search failed with status ${response.status}`)
-    }
-
-    const data = (await response.json()) as ApiSearchResponse
+    })
     const nextHits = (data.hits ?? []).map(normalizeHitToProduct)
     searchResults.value = currentPage.value === 0 ? nextHits : [...searchResults.value, ...nextHits]
     totalPages.value = data.totalPages ?? 0
