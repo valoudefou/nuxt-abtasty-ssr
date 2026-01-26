@@ -1,6 +1,7 @@
 <template>
 <section id="products" class="mt-20 space-y-8">
     <RecommendationsCarousel :filter-field="recommendationFilterField ?? 'brand'" :filter-value="selectedBrand" />
+    <slot name="between-recommendations" />
     <div class="flex flex-row flex-wrap items-start justify-between gap-6 sm:items-center">
       <div>
         <h2 class="section-title">Featured products</h2>

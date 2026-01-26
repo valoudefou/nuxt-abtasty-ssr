@@ -22,27 +22,6 @@
             </select>
           </label>
         </div>
-        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-sm leading-6 text-slate-600">
-          <div
-            v-if="storedAffinities.length"
-            class="text-sm text-slate-600"
-          >
-            <p class="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Affinities</p>
-            <div class="mt-3 flex flex-wrap gap-2">
-              <button
-                v-for="affinity in storedAffinities"
-                :key="`${affinity.category ?? 'all'}-${affinity.brand ?? 'all'}`"
-                type="button"
-                class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-primary-400 hover:text-primary-600"
-                @click="applyStoredAffinity(affinity)"
-              >
-                <span v-if="affinity.category">{{ affinity.category }}</span>
-                <span v-if="affinity.category && affinity.brand"> · </span>
-                <span v-if="affinity.brand">{{ affinity.brand }}</span>
-              </button>
-            </div>
-          </div>
-        </div>
       </div>
     </section>
     <ProductGrid
@@ -60,7 +39,32 @@
       @select-brand="onSelectCategory"
       @search="onSearch"
       @load-more="onLoadMore"
-    />
+    >
+      <template #between-recommendations>
+        <div
+          v-if="storedAffinities.length"
+          class="rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-amber-50/60 p-6 shadow-sm"
+        >
+          <p class="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.35em] text-slate-500">
+            <span class="h-2 w-2 rounded-full bg-amber-400"></span>
+            Affinities
+          </p>
+          <div class="mt-4 flex flex-wrap gap-3 pb-4">
+            <button
+              v-for="affinity in storedAffinities"
+              :key="`${affinity.category ?? 'all'}-${affinity.brand ?? 'all'}`"
+              type="button"
+              class="group inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-primary-300 hover:text-primary-600 hover:shadow-md"
+              @click="applyStoredAffinity(affinity)"
+            >
+              <span v-if="affinity.category">{{ affinity.category }}</span>
+              <span v-if="affinity.category && affinity.brand" class="text-slate-300">/</span>
+              <span v-if="affinity.brand">{{ affinity.brand }}</span>
+            </button>
+          </div>
+        </div>
+      </template>
+    </ProductGrid>
     <NewsletterBanner />
   </div>
 </template>
