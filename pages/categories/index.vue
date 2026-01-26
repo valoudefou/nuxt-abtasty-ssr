@@ -43,9 +43,9 @@
       <template #between-recommendations>
         <div
           v-if="storedAffinities.length"
-          class="rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-amber-50/60 p-6 shadow-sm"
+          class="!mt-0 rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-amber-50/60 p-6 shadow-sm"
         >
-          <p class="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.35em] text-slate-500">
+          <p class="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.35em] text-slate-500 mb-6">
             <span class="h-2 w-2 rounded-full bg-amber-400"></span>
             Affinities
           </p>
