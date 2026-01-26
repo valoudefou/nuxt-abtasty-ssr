@@ -49,7 +49,7 @@
             <span class="h-2 w-2 rounded-full bg-amber-400"></span>
             Affinities
           </p>
-          <div class="mt-4 flex flex-wrap gap-3 pb-4">
+          <div class="flex flex-wrap gap-3 pb-4">
             <button
               v-for="affinity in storedAffinities"
               :key="`${affinity.category ?? 'all'}-${affinity.brand ?? 'all'}`"
