@@ -172,13 +172,13 @@ type RecommendationItem = {
 }
 
 const props = defineProps<{
-  filterValue?: string | number[] | number
+  filterValue?: string | Array<string | number> | number
   filterField?: RecommendationField
   cartCategories?: string[]
-  addedToCartProductId?: number | null
+  addedToCartProductId?: string | number | null
   viewingItemId?: string | number | null
   viewingItemSku?: string | number | null
-  cartProductIds?: number[]
+  cartProductIds?: Array<string | number>
   placementId?: string
 }>()
 
@@ -216,10 +216,12 @@ const { getRecommendations, refreshRecommendations, stateFor, buildKey } = useRe
 
 const activeFilterField = computed<RecommendationField>(() => props.filterField ?? 'brand')
 
-const normalizeFilterValue = (value?: string | number[] | number, field?: string) => {
+const normalizeFilterValue = (value?: string | Array<string | number> | number, field?: string) => {
   if (isArrayFilter(field)) {
-    const arr = Array.isArray(value) ? value : typeof value === 'number' ? [value] : []
-    return arr.filter((item) => Number.isFinite(item)).map((item) => Number(item))
+    const arr = Array.isArray(value) ? value : value !== undefined && value !== null ? [value] : []
+    return arr
+      .map((item) => String(item).trim())
+      .filter((item) => item.length > 0)
   }
 
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -248,10 +250,10 @@ const normalizeCategories = (categories: string[]) => {
   return Array.from(set)
 }
 
-const normalizeNumberParam = (value?: string | number | null) => {
+const normalizeIdParam = (value?: string | number | null) => {
   if (value === null || value === undefined) return null
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : null
+  const trimmed = String(value).trim()
+  return trimmed.length > 0 ? trimmed : null
 }
 
 const cartProductContextIds = computed(() => {
@@ -260,9 +262,9 @@ const cartProductContextIds = computed(() => {
       ? props.cartProductIds
       : cart.items.value.map((item) => item.id)
   return raw
-    .map((id) => Number(id))
-    .filter((id) => Number.isFinite(id))
-    .sort((a, b) => a - b)
+    .map((id) => String(id).trim())
+    .filter((id) => id.length > 0)
+    .sort((a, b) => a.localeCompare(b))
 })
 
 const cartCategoryFilters = computed(() => {
@@ -278,8 +280,8 @@ const activeFilterValue = computed(() =>
   normalizeFilterValue(props.filterValue ?? 'All', activeFilterField.value)
 )
 
-const addedToCartProductId = computed(() => normalizeNumberParam(props.addedToCartProductId))
-const viewingItemId = computed(() => normalizeNumberParam(props.viewingItemId ?? null))
+const addedToCartProductId = computed(() => normalizeIdParam(props.addedToCartProductId))
+const viewingItemId = computed(() => normalizeIdParam(props.viewingItemId ?? null))
 const viewingItemSku = computed(() => {
   if (props.viewingItemSku === null || props.viewingItemSku === undefined) {
     return null

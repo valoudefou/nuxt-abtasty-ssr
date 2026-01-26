@@ -115,6 +115,10 @@ export default defineNuxtConfig({
         || env.NUXT_PUBLIC_API_BASE
         || env.NUXT_API_BASE
         || 'https://api.live-server1.com',
+      productsVendorId:
+        env.NUXT_PUBLIC_PRODUCTS_VENDOR_ID
+        || env.NUXT_PRODUCTS_VENDOR_ID
+        || 'karkkainen',
       productsDisableRemote: env.NUXT_PRODUCTS_DISABLE_REMOTE === 'true',
       flagship: {
         envId: env.NUXT_FLAGSHIP_ENV_ID || '',

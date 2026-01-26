@@ -1,5 +1,5 @@
 export interface Product {
-  id: number
+  id: number | string
   slug: string
   name: string
   description: string
@@ -19,6 +19,10 @@ export interface Product {
   recency?: string | number | null
   brand?: string
   vendor?: string
+  brandId?: string
+  vendorId?: string
+  categoryIds?: string[]
+  priceCurrency?: string
   stock?: number
   discountPercentage?: number
   availabilityStatus?: string

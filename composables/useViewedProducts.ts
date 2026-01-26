@@ -1,7 +1,7 @@
 import { computed, watch } from 'vue'
 
 type ViewedProductsState = {
-  items: number[]
+  items: string[]
 }
 
 export const useViewedProducts = () => {
@@ -16,8 +16,8 @@ export const useViewedProducts = () => {
         const parsed = JSON.parse(raw)
         if (Array.isArray(parsed)) {
           state.value.items = parsed
-            .map((value) => Number(value))
-            .filter((value) => Number.isFinite(value))
+            .map((value) => String(value).trim())
+            .filter((value) => value.length > 0)
         }
       }
     } catch (error) {
@@ -41,11 +41,12 @@ export const useViewedProducts = () => {
     )
   }
 
-  const addViewedProduct = (id: number) => {
-    if (!Number.isFinite(id)) return
+  const addViewedProduct = (id: string | number) => {
+    const normalized = String(id).trim()
+    if (!normalized) return
 
-    const next = state.value.items.filter((item) => item !== id)
-    next.push(id)
+    const next = state.value.items.filter((item) => item !== normalized)
+    next.push(normalized)
 
     const MAX_ITEMS = 20
     state.value.items = next.slice(-MAX_ITEMS)

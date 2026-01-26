@@ -94,12 +94,12 @@ export const useCart = () => {
     logCartItems('added', product)
   }
 
-  const removeItem = (productId: number) => {
+  const removeItem = (productId: string | number) => {
     state.value.items = state.value.items.filter((item) => item.id !== productId)
     logCartIds()
   }
 
-  const updateQuantity = (productId: number, quantity: number) => {
+  const updateQuantity = (productId: string | number, quantity: number) => {
     const item = state.value.items.find((product) => product.id === productId)
     if (!item) return
     if (quantity <= 0) {

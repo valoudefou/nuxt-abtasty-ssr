@@ -183,7 +183,7 @@
 const summaryState = useState<
   {
     orderId: string
-    items: Array<{ id: number; name: string; quantity: number; price: number; image: string }>
+    items: Array<{ id: string | number; name: string; quantity: number; price: number; image: string }>
     total: number
     shipping: {
       firstName: string

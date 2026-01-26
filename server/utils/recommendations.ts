@@ -34,12 +34,12 @@ const PLACEHOLDER_IMAGE = 'https://assets-manager.abtasty.com/placeholder.png'
 
 type RecommendationFilter = {
   field: 'brand' | 'homepage' | 'category' | 'category_level2' | 'category_level3' | 'category_level4' | 'cart_products' | 'viewed_items'
-  value?: string | number[]
+  value?: string | string[]
   categoriesInCart?: string[]
-  addedToCartProductId?: number | null
+  addedToCartProductId?: string | number | null
   viewingItemId?: string | number | null
   viewingItemSku?: string | number | null
-  cartProductIds?: number[]
+  cartProductIds?: string[]
   placementId?: string
 }
 
@@ -130,7 +130,7 @@ const buildRecommendationUrl = (baseEndpoint: string, filter?: RecommendationFil
       }
       const cartContextIds =
         Array.isArray(filter?.cartProductIds)
-          ? filter.cartProductIds.filter((id) => Number.isFinite(Number(id))).map((id) => String(id))
+          ? filter.cartProductIds.map((id) => String(id))
           : []
       if (!variables.cart_products && cartContextIds.length > 0) {
         variables.cart_products = cartContextIds
@@ -152,7 +152,7 @@ const buildRecommendationUrl = (baseEndpoint: string, filter?: RecommendationFil
       && Array.isArray(filter?.cartProductIds)
       && filter.cartProductIds.length > 0
     ) {
-      const ids = filter.cartProductIds.filter((id) => Number.isFinite(Number(id))).map((id) => String(id))
+      const ids = filter.cartProductIds.map((id) => String(id))
       if (ids.length > 0) {
         variables.cart_products = ids
       }
@@ -183,12 +183,7 @@ const withViewingSku = async (filter?: RecommendationFilter) => {
     return filter
   }
 
-  const targetId = Number(filter.viewingItemId)
-  if (!Number.isFinite(targetId)) {
-    return filter
-  }
-
-  const match = await findProductById(targetId)
+  const match = await findProductById(viewingIdString)
   if (!match?.sku) {
     return filter
   }
@@ -221,11 +216,7 @@ const normalizeRecommendationId = (value?: RawRecommendation['id']) => {
 
   if (typeof value === 'string') {
     const trimmed = value.trim()
-    if (!trimmed) {
-      return null
-    }
-    const match = trimmed.match(/(\d+)(?!.*\d)/)
-    return match ? match[1] : trimmed
+    return trimmed.length > 0 ? trimmed : null
   }
 
   return null
@@ -434,7 +425,7 @@ export const fetchRecommendations = async (
     filter?.field === 'cart_products'
     && statusCode
     && statusCode >= 400
-    && ((filter.categoriesInCart?.length ?? 0) > 0 || typeof filter.addedToCartProductId === 'number')
+    && ((filter.categoriesInCart?.length ?? 0) > 0 || Boolean(filter.addedToCartProductId))
 
   if (shouldRetryWithoutCartContext) {
     console.warn('Cart recommendation request failed, retrying without cart context')
@@ -513,15 +504,19 @@ const normalizeFilterFromSource = (
   let value: RecommendationFilter['value']
   if (field === 'cart_products' || field === 'viewed_items') {
     if (Array.isArray(sourceValue)) {
-      value = sourceValue.filter((id) => Number.isFinite(Number(id))).map((id) => Number(id))
+      value = sourceValue
+        .map((id) => String(id).trim())
+        .filter((id) => id.length > 0)
     } else if (typeof sourceValue === 'string') {
       value = sourceValue
         .split(',')
-        .map((id) => Number(id.trim()))
-        .filter((id) => Number.isFinite(id))
+        .map((id) => id.trim())
+        .filter((id) => id.length > 0)
     }
   } else if (typeof sourceValue === 'string') {
     value = sourceValue
+  } else if (typeof sourceValue === 'number') {
+    value = String(sourceValue)
   }
 
   let categoriesInCart: string[] | undefined
@@ -535,19 +530,19 @@ const normalizeFilterFromSource = (
     }
   }
 
-  let addedToCartProductId: number | undefined
+  let addedToCartProductId: string | undefined
   if (field === 'cart_products' && addedToCartProduct !== undefined) {
-    const parsed = Number(addedToCartProduct)
-    if (Number.isFinite(parsed)) {
-      addedToCartProductId = parsed
+    const trimmed = String(addedToCartProduct).trim()
+    if (trimmed) {
+      addedToCartProductId = trimmed
     }
   }
 
-  let viewingItemId: number | undefined
+  let viewingItemId: string | undefined
   if (field === 'viewed_items' && viewingItem !== undefined) {
-    const parsed = Number(viewingItem)
-    if (Number.isFinite(parsed)) {
-      viewingItemId = parsed
+    const trimmed = String(viewingItem).trim()
+    if (trimmed) {
+      viewingItemId = trimmed
     }
   }
 
@@ -559,17 +554,17 @@ const normalizeFilterFromSource = (
     }
   }
 
-  let cartProductIds: number[] | undefined
+  let cartProductIds: string[] | undefined
   if (cartProducts !== undefined) {
     if (Array.isArray(cartProducts)) {
       cartProductIds = cartProducts
-        .map((id) => Number(id))
-        .filter((id) => Number.isFinite(id))
+        .map((id) => String(id).trim())
+        .filter((id) => id.length > 0)
     } else if (typeof cartProducts === 'string') {
       cartProductIds = cartProducts
         .split(',')
-        .map((id) => Number(id.trim()))
-        .filter((id) => Number.isFinite(id))
+        .map((id) => id.trim())
+        .filter((id) => id.length > 0)
     }
   }
 
@@ -607,12 +602,12 @@ export const handleRecommendationsRequest = async (event: H3Event, method: 'GET'
 
   const body = await readBody<{
     filterField?: string
-    filterValue?: string | number[] | number | null
+    filterValue?: string | Array<string | number> | number | null
     categoriesInCart?: string[] | string | null
     addedToCartProductId?: number | string | null
     viewingItemId?: number | string | null
     viewingItemSku?: string | null
-    cartProductIds?: number[] | string | null
+    cartProductIds?: Array<string | number> | string | null
     placementId?: string | null
   }>(event)
 

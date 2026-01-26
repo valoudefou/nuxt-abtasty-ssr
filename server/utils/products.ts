@@ -8,33 +8,42 @@ import { products as fallbackProducts } from '@/data/products'
 
 export type RemoteProduct = {
   id: string | number
-  title: string
-  description: string
+  name?: string | null
+  title?: string | null
+  description?: string | null
   category?: string | null
   category_level2?: string | null
   category_level3?: string | null
   category_level4?: string | null
+  categoryIds?: string[] | null
   link?: string | null
-  price?: string | number | null
+  price?: { amount?: string | number | null; currency?: string | null } | string | number | null
   price_before_discount?: string | number | null
   discountPercentage?: string | number | null
   rating?: string | number | null
   stock?: string | number | null
   brand?: string | null
+  brandId?: string | null
   sku?: string | null
   availabilityStatus?: string | null
+  status?: string | null
   returnPolicy?: string | null
   thumbnail?: string | null
+  images?: Array<{ url?: string | null }> | null
   tag?: string | null
   recency?: string | number | null
   vendor?: string | null
+  vendorId?: string | null
   breadcrumbs?: string | string[] | null
 }
 
 export type RemoteResponse = {
+  data?: RemoteProduct[]
   page?: number
   limit?: number
-  products: RemoteProduct[]
+  products?: RemoteProduct[]
+  nextCursor?: string | null
+  next_cursor?: string | null
 }
 
 const DEFAULT_API_BASE = 'https://api.live-server1.com'
@@ -49,7 +58,6 @@ const REMOTE_BACKOFF_MS = 0
 const PAGE_SIZE = 100
 const PAGE_RETRY_COUNT = 2
 const PAGE_RETRY_DELAY_MS = 300
-const VENDOR_FILTER = 'karkkainen'
 const PRELOAD_MAX_PAGES_PROD = 2
 
 let cachedProducts: Product[] | null = null
@@ -92,14 +100,15 @@ const writeCacheFile = async (payload: ProductCacheFile) => {
 }
 
 const normalizeProductsResponse = (response: RemoteResponse | RemoteProduct[]): RemoteProduct[] =>
-  Array.isArray(response) ? response : response.products ?? []
+  Array.isArray(response) ? response : response.data ?? response.products ?? []
 
 const getApiConfig = () => {
   const config = useRuntimeConfig()
   const baseRaw = config.public?.apiBase || config.public?.productsApiBase || DEFAULT_API_BASE
   const base = baseRaw.replace(/\/+$/, '')
   const disableRemote = Boolean(config.public?.productsDisableRemote)
-  return { base, disableRemote }
+  const vendorId = config.public?.productsVendorId ? String(config.public.productsVendorId).trim() : ''
+  return { base, disableRemote, vendorId }
 }
 
 const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
@@ -153,17 +162,6 @@ const slugify = (value: string, fallback: string) => {
   return normalized.length > 0 ? normalized : fallback
 }
 
-const extractNumericId = (value: string | number) => {
-  if (typeof value === 'number') {
-    return value
-  }
-
-  // Prefer the last numeric segment so slugs like "2016-ford-ranger-1589"
-  // resolve to the catalog ID (1589) instead of the year in the title.
-  const match = String(value).match(/(\d+)(?!.*\d)/)
-  return match ? Number.parseInt(match[1], 10) : Number.NaN
-}
-
 const sanitizeCategory = (value: string | null | undefined) => {
   if (value === null || value === undefined) {
     return undefined
@@ -205,26 +203,51 @@ const normalizeFallbackProduct = (product: Product): Product => ({
 const fallbackCatalog = fallbackProducts.map(normalizeFallbackProduct)
 
 export const normalizeRemoteProduct = (raw: RemoteProduct): Product => {
-  const id = parseNumber(raw.id)
-  const price = Math.max(parseNumber(raw.price ?? raw.price_before_discount), 0)
+  const id = raw.id
+  const name = raw.name ?? raw.title ?? `Product ${String(id)}`
+  const pricePayload = raw.price
+  const priceAmount =
+    pricePayload && typeof pricePayload === 'object'
+      ? parseNumber(pricePayload.amount ?? 0)
+      : parseNumber(pricePayload ?? raw.price_before_discount)
+  const price = Math.max(priceAmount, 0)
+  const priceCurrency =
+    pricePayload && typeof pricePayload === 'object' && typeof pricePayload.currency === 'string'
+      ? pricePayload.currency
+      : undefined
   const rating = Math.min(Math.max(parseNumber(raw.rating), 0), 5)
   const stock = Math.max(parseNumber(raw.stock), 0)
   const discount = parseNumber(raw.discountPercentage)
   const availability = raw.availabilityStatus?.trim() ?? ''
+  const status = raw.status?.trim() ?? ''
   const hasStockSignal = raw.stock !== null && raw.stock !== undefined
   const hasAvailabilitySignal = availability.length > 0
+  const hasStatusSignal = status.length > 0
   const inStock =
-    hasAvailabilitySignal || hasStockSignal ? availability.toLowerCase() === 'in stock' || stock > 0 : true
+    hasAvailabilitySignal || hasStatusSignal || hasStockSignal
+      ? availability.toLowerCase() === 'in stock'
+        || status.toLowerCase() === 'active'
+        || stock > 0
+      : true
 
-  const brand = raw.brand ? String(raw.brand).trim() : ''
-  const vendor = sanitizeVendor(raw.vendor)
+  const brandValue = sanitizeBrand(raw.brandId ?? raw.brand)
+  const vendor = sanitizeVendor(raw.vendorId ?? raw.vendor)
+  const categoryIds = Array.isArray(raw.categoryIds)
+    ? raw.categoryIds.map((value) => String(value).trim()).filter(Boolean)
+    : []
+  const normalizedCategory = sanitizeCategory(raw.category)
+  if (normalizedCategory && !categoryIds.includes(normalizedCategory)) {
+    categoryIds.unshift(normalizedCategory)
+  }
+  const categoryPrimary = normalizedCategory ?? categoryIds[0]
 
   const highlightItems = [
-    brand ? `Brand: ${brand}` : null,
+    brandValue ? `Brand: ${brandValue}` : null,
     vendor ? `Vendor: ${vendor}` : null,
     discount > 0 ? `Save ${discount.toFixed(0)}% today` : null,
     raw.returnPolicy ? `Returns: ${raw.returnPolicy}` : null,
-    availability ? `Availability: ${availability}` : null
+    availability ? `Availability: ${availability}` : null,
+    status ? `Status: ${status}` : null
   ].filter((item): item is string => Boolean(item))
 
   if (highlightItems.length === 0) {
@@ -233,37 +256,41 @@ export const normalizeRemoteProduct = (raw: RemoteProduct): Product => {
 
   const tagSet = new Set<string>()
 
-  if (raw.category) tagSet.add(raw.category)
-  if (brand) tagSet.add(brand)
+  if (categoryPrimary) tagSet.add(categoryPrimary)
+  if (brandValue) tagSet.add(brandValue)
   if (raw.tag) tagSet.add(raw.tag)
 
   const tags = Array.from(tagSet)
 
-  const slugBase = slugify(raw.title ?? `product-${id}`, `product-${id}`)
-  const slug = `${slugBase}-${id}`
+  const slugBase = slugify(name, `product-${String(id)}`)
+  const slug = `${slugBase}-${String(id)}`
 
-  const productLink = `/products/${id}`
+  const productLink = `/products/${encodeURIComponent(String(id))}`
 
   return {
     id,
     slug,
-    name: raw.title ?? `Product ${id}`,
-    title: raw.title ?? `Product ${id}`,
+    name,
+    title: name,
     description: raw.description ?? '',
     price,
-    category: sanitizeCategory(raw.category) ?? 'General',
+    category: categoryPrimary ?? 'General',
     category_level2: sanitizeCategory(raw.category_level2),
     category_level3: sanitizeCategory(raw.category_level3),
     category_level4: sanitizeCategory(raw.category_level4),
-    image: buildImageUrl(raw.thumbnail),
-    thumbnail: raw.thumbnail ?? undefined,
+    image: buildImageUrl(raw.images?.[0]?.url ?? raw.thumbnail),
+    thumbnail: raw.images?.[0]?.url ?? raw.thumbnail ?? undefined,
     rating,
     highlights: highlightItems,
     inStock,
     colors: tags,
     sizes: ['One Size'],
-    brand: brand || undefined,
+    brand: brandValue || undefined,
     vendor: vendor || undefined,
+    brandId: brandValue || undefined,
+    vendorId: vendor || undefined,
+    categoryIds,
+    priceCurrency,
     stock,
     discountPercentage: discount,
     price_before_discount: raw.price_before_discount ?? undefined,
@@ -283,6 +310,7 @@ const fetchRemoteProducts = async (
 ): Promise<RemoteProduct[]> => {
   const products: RemoteProduct[] = []
   const maxPages = options.maxPages ?? Number.POSITIVE_INFINITY
+  let cursor: string | null = null
 
   for (let page = 1; page <= maxPages; page += 1) {
     let response: RemoteResponse | RemoteProduct[] | null = null
@@ -293,7 +321,7 @@ const fetchRemoteProducts = async (
       try {
         response = await withTimeout(
           $fetch<RemoteResponse | RemoteProduct[]>(`${base}/products`, {
-            params: { ...params, page, limit: PAGE_SIZE }
+            params: { ...params, limit: PAGE_SIZE, ...(cursor ? { cursor } : {}) }
           }),
           REMOTE_FETCH_TIMEOUT_MS
         )
@@ -326,10 +354,10 @@ const fetchRemoteProducts = async (
     }
 
     products.push(...batch)
-
-    const pageLimit =
-      Array.isArray(response) ? batch.length : response.limit ?? batch.length
-    if (batch.length < pageLimit) {
+    cursor = Array.isArray(response)
+      ? null
+      : response.nextCursor ?? response.next_cursor ?? null
+    if (!cursor) {
       break
     }
   }
@@ -363,7 +391,7 @@ export const fetchProducts = async (): Promise<Product[]> => {
       }
     }
 
-    const { base, disableRemote } = getApiConfig()
+    const { base, disableRemote, vendorId } = getApiConfig()
     if (disableRemote) {
       console.warn(`${LOG_PREFIX} remote fetch disabled; using cache/fallback only.`)
       if (cachedProducts && cachedVersion === CACHE_VERSION) {
@@ -381,7 +409,7 @@ export const fetchProducts = async (): Promise<Product[]> => {
     const requestStart = Date.now()
     const products = await fetchRemoteProducts(
       base,
-      { vendor: VENDOR_FILTER },
+      vendorId ? { vendorId } : {},
       { maxPages: process.dev ? 0 : PRELOAD_MAX_PAGES_PROD }
     )
     console.info(`${LOG_PREFIX} upstream response`, {
@@ -433,27 +461,22 @@ export const findProductBySlug = async (slug: string): Promise<Product | undefin
 }
 
 export const findProductById = async (id: string | number): Promise<Product | undefined> => {
-  const numericId = extractNumericId(id)
-
-  if (!Number.isFinite(numericId)) {
-    return undefined
-  }
-
+  const targetId = String(id)
   const { base } = getApiConfig()
 
   try {
     if (cachedProducts && cachedVersion === CACHE_VERSION) {
-      const cachedMatch = cachedProducts.find((product) => product.id === numericId)
+      const cachedMatch = cachedProducts.find((product) => String(product.id) === targetId)
       if (cachedMatch) {
         return cachedMatch
       }
     }
 
-    const response = await $fetch<RemoteProduct>(`${base}/products/${encodeURIComponent(String(numericId))}`)
+    const response = await $fetch<RemoteProduct>(`${base}/products/${encodeURIComponent(targetId)}`)
     return normalizeRemoteProduct(response)
   } catch (error) {
     const cached = cachedProducts ?? (await fetchProducts())
-    return cached.find((product) => product.id === numericId)
+    return cached.find((product) => String(product.id) === targetId)
   }
 }
 
@@ -467,11 +490,20 @@ const sanitizeBrand = (value: string | null | undefined) => {
 }
 
 export const fetchProductBrands = async (): Promise<string[]> => {
-  const { base } = getApiConfig()
+  const { base, vendorId } = getApiConfig()
   try {
-    const response = await $fetch<{ brands: string[] } | string[]>(`${base}/products/brands`)
-    const brands = Array.isArray(response) ? response : response.brands ?? []
-    return brands.filter(Boolean).map((brand) => String(brand).trim())
+    const response = vendorId
+      ? await $fetch<{ data?: Array<{ id?: string | null }> }>(
+        `${base}/vendors/${encodeURIComponent(vendorId)}/brands`,
+        { params: { limit: 500 } }
+      )
+      : await $fetch<{ data?: Array<{ id?: string | null }> }>(`${base}/brands`, {
+        params: { limit: 500 }
+      })
+    const brands = response?.data ?? []
+    return brands
+      .map((brand) => (brand?.id ? String(brand.id).trim() : ''))
+      .filter(Boolean)
   } catch (error) {
     const products = await fetchProducts()
     const unique = new Set<string>()
@@ -494,9 +526,12 @@ export const findProductsByBrand = async (brand: string): Promise<Product[]> => 
     return []
   }
 
-  const { base } = getApiConfig()
+  const { base, vendorId } = getApiConfig()
   try {
-    const response = await fetchRemoteProducts(base, { brand: normalizedBrand, vendor: VENDOR_FILTER })
+    const response = await fetchRemoteProducts(base, {
+      brandId: normalizedBrand,
+      ...(vendorId ? { vendorId } : {})
+    })
     const mapped = response.map(normalizeRemoteProduct)
     if (mapped.length > 0) {
       return mapped
@@ -507,7 +542,10 @@ export const findProductsByBrand = async (brand: string): Promise<Product[]> => 
       (entry) => entry.trim().toLowerCase() === normalizedBrand.toLowerCase()
     )
     if (canonical && canonical !== normalizedBrand) {
-      const retry = await fetchRemoteProducts(base, { brand: canonical, vendor: VENDOR_FILTER })
+      const retry = await fetchRemoteProducts(base, {
+        brandId: canonical,
+        ...(vendorId ? { vendorId } : {})
+      })
       const retried = retry.map(normalizeRemoteProduct)
       if (retried.length > 0) {
         return retried

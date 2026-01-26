@@ -1,5 +1,7 @@
 import { computed } from 'vue'
 
+import type { Product } from '@/types/product'
+
 type RecommendationField =
   | 'brand'
   | 'homepage'
@@ -12,12 +14,12 @@ type RecommendationField =
 
 export type RecommendationParams = {
   filterField: RecommendationField
-  filterValue?: string | number[] | number | null
+  filterValue?: string | Array<string | number> | number | null
   categoriesInCart?: string[]
-  addedToCartProductId?: number | null
+  addedToCartProductId?: string | number | null
   viewingItemId?: string | number | null
   viewingItemSku?: string | number | null
-  cartProductIds?: number[]
+  cartProductIds?: Array<string | number>
   placementId?: string
   locale?: string
   currency?: string
@@ -27,23 +29,7 @@ type RecommendationPayload = {
   title: string
   items: {
     id: string
-    product: {
-      id: number
-      slug: string
-      name: string
-      description: string
-      price: number
-      category: string
-      image: string
-      rating: number
-      highlights: string[]
-      inStock: boolean
-      colors: string[]
-      sizes: string[]
-      brand?: string
-      vendor?: string
-      link?: string
-    }
+    product: Product
     detailUrl?: string
     externalUrl?: string
   }[]
@@ -72,7 +58,7 @@ const DEBOUNCE_TIMERS = new Map<string, ReturnType<typeof setTimeout>>()
 const CACHE_TTL_MS = 1000 * 60
 const STALE_TTL_MS = 1000 * 60 * 5
 
-const normalizeArray = (value?: number[] | string[]) => {
+const normalizeArray = (value?: Array<string | number>) => {
   if (!Array.isArray(value)) return []
   return value
     .map((entry) => String(entry))

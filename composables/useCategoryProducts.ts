@@ -110,8 +110,8 @@ export const useCategoryProducts = () => {
         const params: Record<string, string | number | undefined> = {
           page: requestPage,
           pageSize,
-          brand: brandFilter,
-          category: categoryFilter,
+          brandId: brandFilter,
+          categoryId: categoryFilter,
           q: queryValue || undefined,
           includeFacets: includeFacetsNext.value ? '1' : '0'
         }

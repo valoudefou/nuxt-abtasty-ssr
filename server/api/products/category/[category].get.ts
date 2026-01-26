@@ -10,6 +10,11 @@ const getProductCategories = (product: Product) => {
     unique.add(trimmed.toLowerCase())
   }
 
+  if (Array.isArray(product.categoryIds)) {
+    for (const category of product.categoryIds) {
+      addCategory(category)
+    }
+  }
   addCategory(product.category)
   addCategory(product.category_level2)
   addCategory(product.category_level3)

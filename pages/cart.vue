@@ -115,20 +115,20 @@ const addedToCartProductId = computed(() => {
   return ids.length ? ids[ids.length - 1] : null
 })
 
-const increase = (id: number) => {
+const increase = (id: string | number) => {
   const item = items.value.find((product) => product.id === id)
   if (!item) return
   updateQuantity(id, item.quantity + 1)
 }
 
-const decrease = (id: number) => {
+const decrease = (id: string | number) => {
   const item = items.value.find((product) => product.id === id)
   if (!item) return
   const nextQuantity = Math.max(1, item.quantity - 1)
   updateQuantity(id, nextQuantity)
 }
 
-const remove = (id: number) => removeItem(id)
+const remove = (id: string | number) => removeItem(id)
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)

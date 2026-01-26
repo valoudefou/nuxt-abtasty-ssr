@@ -17,7 +17,7 @@ let cached: ValentinesCache | null = null
 
 const normalizeResponse = (response: RemoteResponse | RemoteProduct[] | null): RemoteProduct[] => {
   if (!response) return []
-  return Array.isArray(response) ? response : response.products ?? []
+  return Array.isArray(response) ? response : response.data ?? response.products ?? []
 }
 
 const normalizeCategoryText = (...values: Array<RemoteProduct[keyof RemoteProduct]>) =>
@@ -33,15 +33,18 @@ const hasGiftCategory = (product: RemoteProduct) => {
     product.category,
     product.category_level2,
     product.category_level3,
-    product.category_level4
+    product.category_level4,
+    ...(product.categoryIds ?? [])
   ).toLowerCase()
   return text.includes('gift')
 }
 
-const getApiBase = () => {
+const getApiConfig = () => {
   const config = useRuntimeConfig()
   const baseRaw = config.public?.apiBase || config.public?.productsApiBase || 'https://api.live-server1.com'
-  return baseRaw.replace(/\/+$/, '')
+  const base = baseRaw.replace(/\/+$/, '')
+  const vendorId = config.public?.productsVendorId ? String(config.public.productsVendorId).trim() : ''
+  return { base, vendorId }
 }
 
 export default defineEventHandler(async () => {
@@ -50,23 +53,30 @@ export default defineEventHandler(async () => {
     return cached
   }
 
-  const base = getApiBase()
+  const { base, vendorId } = getApiConfig()
   const curated: Product[] = []
+  let cursor: string | null = null
 
   try {
     for (let page = 1; page <= MAX_PAGES; page += 1) {
-      const response = await $fetch<RemoteResponse | RemoteProduct[]>(`${base}/products`, {
-        params: { page, limit: PAGE_SIZE }
+      const response: RemoteResponse | RemoteProduct[] = await $fetch(`${base}/products`, {
+        params: { limit: PAGE_SIZE, ...(cursor ? { cursor } : {}), ...(vendorId ? { vendorId } : {}) }
       })
       const batch = normalizeResponse(response)
       if (batch.length === 0) {
         break
       }
 
-      const giftProducts = batch.filter(hasGiftCategory).map(normalizeRemoteProduct)
+      const giftProducts = batch
+        .filter(hasGiftCategory)
+        .map(normalizeRemoteProduct)
       curated.push(...giftProducts)
 
-      if (batch.length < PAGE_SIZE) {
+      const nextCursor: string | null = Array.isArray(response)
+        ? null
+        : response.nextCursor ?? response.next_cursor ?? null
+      cursor = nextCursor
+      if (!cursor) {
         break
       }
     }

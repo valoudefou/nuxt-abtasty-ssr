@@ -17,7 +17,7 @@
             >
               <option value="All">All brands</option>
               <option v-for="brand in brands" :key="brand" :value="brand">
-                {{ brand }}
+                {{ formatBrandLabel(brand) }}
               </option>
             </select>
           </label>
@@ -45,10 +45,19 @@
           v-if="storedAffinities.length"
           class="!mt-0 rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-amber-50/60 p-6 shadow-sm"
         >
-          <p class="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.35em] text-slate-500 mb-6">
-            <span class="h-2 w-2 rounded-full bg-amber-400"></span>
-            Affinities
-          </p>
+          <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+            <p class="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.35em] text-slate-500">
+              <span class="h-2 w-2 rounded-full bg-amber-400"></span>
+              Affinities
+            </p>
+            <button
+              type="button"
+              class="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-500 transition hover:border-primary-300 hover:text-primary-600"
+              @click="clearAffinities"
+            >
+              Clear
+            </button>
+          </div>
           <div class="flex flex-wrap gap-3 pb-4">
             <button
               v-for="affinity in storedAffinities"
@@ -166,6 +175,18 @@ const applyStoredAffinity = (affinity: StoredAffinity) => {
   }
   persistSelections()
 }
+
+const clearAffinities = () => {
+  storedAffinities.value = []
+  localStorage.removeItem(STORED_FILTERS_KEY)
+}
+
+const formatBrandLabel = (brand: string) =>
+  brand
+    .split(' ')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
 
 const onSearch = async (query: string) => {
   await searchProducts(query)

@@ -1,6 +1,6 @@
 <template>
 <section id="products" class="mt-20 space-y-8">
-    <RecommendationsCarousel :filter-field="recommendationFilterField ?? 'brand'" :filter-value="selectedBrand" />
+    <RecommendationsCarousel :filter-field="recommendationFilterField ?? 'brand'" :filter-value="recommendationFilterValue" />
     <slot name="between-recommendations" />
     <div class="flex flex-row flex-wrap items-start justify-between gap-6 sm:items-center">
       <div>
@@ -164,6 +164,17 @@ const onSearchInput = (event: Event) => {
   const target = event.target as HTMLInputElement
   emit('search', target.value ?? '')
 }
+
+const recommendationFilterValue = computed(() => {
+  if (props.recommendationFilterField === 'category') {
+    if (props.selectedBrand && props.selectedBrand !== 'All') {
+      return props.selectedBrand
+    }
+    return props.brands?.[0] ?? ''
+  }
+
+  return props.selectedBrand
+})
 
 const currentPage = computed(() => props.currentPage ?? 1)
 const totalPages = computed(() => props.totalPages ?? 1)

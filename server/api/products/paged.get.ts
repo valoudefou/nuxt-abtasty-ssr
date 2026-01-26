@@ -50,17 +50,17 @@ const buildFallbackResponse = async (
   options: {
     page: number
     pageSize: number
-    brand: string
-    category: string
-    vendor: string
+    brandId: string
+    categoryId: string
+    vendorId: string
     term: string
     includeFacets: boolean
   }
 ) => {
   const allProducts = await fetchProducts()
-  const brandFilter = options.brand !== 'All' ? options.brand.toLowerCase() : null
-  const categoryFilter = options.category !== 'All' ? options.category.toLowerCase() : null
-  const vendorFilter = options.vendor ? options.vendor.toLowerCase() : null
+  const brandFilter = options.brandId !== 'All' ? options.brandId.toLowerCase() : null
+  const categoryFilter = options.categoryId !== 'All' ? options.categoryId.toLowerCase() : null
+  const vendorFilter = options.vendorId ? options.vendorId.toLowerCase() : null
   const termFilter = options.term ? options.term.toLowerCase() : null
 
   const filtered = allProducts.filter((product) => {
@@ -99,9 +99,9 @@ export default defineEventHandler(async (event) => {
   const query = getQuery(event)
   const page = parseNumberParam(query.page, 1)
   const pageSize = Math.min(parseNumberParam(query.pageSize, DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE)
-  const category = normalizeParam(query.category) || 'All'
-  const brand = normalizeParam(query.brand) || 'All'
-  const vendor = normalizeParam(query.vendor)
+  const categoryId = normalizeParam(query.categoryId ?? query.category) || 'All'
+  const brandId = normalizeParam(query.brandId ?? query.brand) || 'All'
+  const vendorIdFromQuery = normalizeParam(query.vendorId ?? query.vendor)
   const term = normalizeParam(query.q)
   const cursor = normalizeParam(query.cursor)
   const cursorIsFallback = cursor.startsWith('page:')
@@ -114,17 +114,18 @@ export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const baseRaw = config.public?.apiBase || config.public?.productsApiBase || 'https://api.live-server1.com'
   const base = baseRaw.replace(/\/+$/, '')
+  const vendorId = vendorIdFromQuery || (config.public?.productsVendorId ? String(config.public.productsVendorId).trim() : '')
 
-  type RemotePagedResponse = RemoteResponse & { next_cursor?: string }
+  type RemotePagedResponse = RemoteResponse & { next_cursor?: string; nextCursor?: string }
   let response: RemotePagedResponse | null = null
 
   if (cursorIsFallback) {
     return await buildFallbackResponse({
       page: Number.isFinite(fallbackPage) && fallbackPage > 0 ? fallbackPage : page,
       pageSize,
-      brand,
-      category,
-      vendor,
+      brandId,
+      categoryId,
+      vendorId,
       term,
       includeFacets: shouldIncludeFacets
     })
@@ -132,10 +133,10 @@ export default defineEventHandler(async (event) => {
 
   const params = {
     limit: pageSize,
-    ...(cursor ? { cursor } : { page }),
-    ...(brand !== 'All' ? { brand } : {}),
-    ...(category !== 'All' ? { category } : {}),
-    ...(vendor ? { vendor } : {}),
+    ...(cursor ? { cursor } : {}),
+    ...(brandId !== 'All' ? { brandId } : {}),
+    ...(categoryId !== 'All' ? { categoryId } : {}),
+    ...(vendorId ? { vendorId } : {}),
     ...(term ? { q: term } : {})
   }
 
@@ -171,25 +172,37 @@ export default defineEventHandler(async (event) => {
     return await buildFallbackResponse({
       page,
       pageSize,
-      brand,
-      category,
-      vendor,
+      brandId,
+      categoryId,
+      vendorId,
       term,
       includeFacets: shouldIncludeFacets
     })
   }
 
-  const products = (response?.products ?? []).map(normalizeRemoteProduct)
-  const hasNext = Boolean(response?.next_cursor)
+  const products = (response?.data ?? response?.products ?? []).map(normalizeRemoteProduct)
+  const nextCursor = response?.nextCursor ?? response?.next_cursor ?? null
+  const hasNext = Boolean(nextCursor)
   const totalPages = hasNext ? page + 1 : page
 
   const [categories, brands] = shouldIncludeFacets
     ? await Promise.all([
-      brand !== 'All'
+      brandId !== 'All'
         ? Promise.resolve(deriveCategories(products))
-        : $fetch<string[]>(`${base}/products/categories`).catch(() => []),
-      $fetch<{ brands: string[] } | string[]>(`${base}/products/brands`)
-        .then((payload) => (Array.isArray(payload) ? payload : payload.brands ?? []))
+        : $fetch<{ data?: Array<{ id?: string | null }> }>(`${base}/categories`, {
+          params: vendorId ? { vendorId, limit: 500 } : { limit: 500 }
+        })
+          .then((payload) => (payload?.data ?? []).map((item) => String(item?.id ?? '').trim()).filter(Boolean))
+          .catch(() => []),
+      (vendorId
+        ? $fetch<{ data?: Array<{ id?: string | null }> }>(
+          `${base}/vendors/${encodeURIComponent(vendorId)}/brands`,
+          { params: { limit: 500 } }
+        )
+        : $fetch<{ data?: Array<{ id?: string | null }> }>(`${base}/brands`, {
+          params: { limit: 500 }
+        }))
+        .then((payload) => (payload?.data ?? []).map((item) => String(item?.id ?? '').trim()).filter(Boolean))
         .catch(() => [])
     ])
     : [[], []]
@@ -199,8 +212,8 @@ export default defineEventHandler(async (event) => {
     page,
     pageSize,
     totalPages,
-    nextCursor: response?.next_cursor ?? null,
-    next_cursor: response?.next_cursor ?? null,
+    nextCursor,
+    next_cursor: nextCursor,
     categories: categories ?? [],
     brands: brands ?? []
   }

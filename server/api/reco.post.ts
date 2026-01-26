@@ -16,17 +16,17 @@ type RecommendationField =
 
 type RecommendationBody = {
   filterField?: RecommendationField
-  filterValue?: string | number[] | number | null
+  filterValue?: string | Array<string | number> | number | null
   categoriesInCart?: string[] | string | null
   addedToCartProductId?: number | string | null
   viewingItemId?: number | string | null
   viewingItemSku?: string | number | null
-  cartProductIds?: number[] | string | null
+  cartProductIds?: Array<string | number> | string | null
   placementId?: string | null
   clientId?: string | null
 }
 
-const normalizeArray = (value?: string[] | string | number[] | number | null) => {
+const normalizeArray = (value?: Array<string | number> | string | number | null) => {
   if (value === null || value === undefined) return undefined
   if (Array.isArray(value)) {
     return value.map((entry) => String(entry)).filter((entry) => entry.trim().length > 0)
@@ -60,11 +60,11 @@ export default defineEventHandler(async (event) => {
   const cartProductIds = normalizeArray(body?.cartProductIds)
   const addedToCartProductId =
     body?.addedToCartProductId !== undefined && body?.addedToCartProductId !== null
-      ? Number(body.addedToCartProductId)
+      ? String(body.addedToCartProductId).trim()
       : undefined
   const viewingItemId =
     body?.viewingItemId !== undefined && body?.viewingItemId !== null
-      ? Number(body.viewingItemId)
+      ? String(body.viewingItemId).trim()
       : undefined
   const viewingItemSku =
     body?.viewingItemSku !== undefined && body?.viewingItemSku !== null
@@ -104,7 +104,7 @@ export default defineEventHandler(async (event) => {
 
   const normalizedFilterValue =
     filterField === 'cart_products' || filterField === 'viewed_items'
-      ? normalizeArray(filterValue)?.map((entry) => Number(entry)).filter(Number.isFinite)
+      ? normalizeArray(filterValue)
       : typeof filterValue === 'string'
         ? filterValue
         : typeof filterValue === 'number'
@@ -115,10 +115,10 @@ export default defineEventHandler(async (event) => {
     field: filterField,
     value: normalizedFilterValue,
     categoriesInCart: categoriesInCart?.length ? categoriesInCart : undefined,
-    addedToCartProductId: Number.isFinite(addedToCartProductId) ? addedToCartProductId : undefined,
-    viewingItemId: Number.isFinite(viewingItemId) ? viewingItemId : undefined,
+    addedToCartProductId: addedToCartProductId || undefined,
+    viewingItemId: viewingItemId || undefined,
     viewingItemSku: viewingItemSku || undefined,
-    cartProductIds: cartProductIds?.length ? cartProductIds.map((id) => Number(id)).filter(Number.isFinite) : undefined,
+    cartProductIds: cartProductIds?.length ? cartProductIds : undefined,
     placementId: normalizedPlacementId
   })
 
