@@ -4,6 +4,7 @@ import type { H3Event } from 'h3'
 
 import type { Product } from '@/types/product'
 import { fetchProducts, findProductById } from '@/server/utils/products'
+import { getSelectedVendor } from '@/server/utils/vendors'
 import { flagshipLogStore } from '@/utils/flagship/logStore'
 import type { FlagshipLogLevel } from '@/utils/flagship/logStore'
 
@@ -105,10 +106,18 @@ const resolveStrategyTitle = (
   return names?.[field] || fallback
 }
 
-const buildRecommendationUrl = (baseEndpoint: string, filter?: RecommendationFilter) => {
+const buildRecommendationUrl = (
+  baseEndpoint: string,
+  filter?: RecommendationFilter,
+  vendor?: string | null
+) => {
   try {
     const url = new URL(baseEndpoint)
     const variables: Record<string, string | number | number[] | string[] | undefined> = {}
+    const normalizedVendor = typeof vendor === 'string' ? vendor.trim() : ''
+    if (normalizedVendor) {
+      variables.vendor = normalizedVendor
+    }
     if (filter?.field === 'cart_products' || filter?.field === 'viewed_items') {
       const ids = Array.isArray(filter.value) ? filter.value : []
       if (ids.length > 0) {
@@ -354,9 +363,10 @@ export const fetchRecommendations = async (
   }
 
   let lastRequestUrl: string | null = null
+  const selectedVendor = await getSelectedVendor(event)
 
   const performFetch = async (activeFilter?: RecommendationFilter) => {
-    const requestUrl = buildRecommendationUrl(baseEndpoint, activeFilter)
+    const requestUrl = buildRecommendationUrl(baseEndpoint, activeFilter, selectedVendor)
     lastRequestUrl = requestUrl
     const strategyField = activeFilter?.field ?? filter?.field ?? 'brand'
     const recommendationName = resolveStrategyTitle(strategyField, strategyNames)
