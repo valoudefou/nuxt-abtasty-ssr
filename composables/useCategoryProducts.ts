@@ -16,6 +16,8 @@ type PagedResponse = {
 }
 
 export const useCategoryProducts = () => {
+  const route = useRoute()
+  const activeVendor = useState<string>('active-vendor', () => '')
   const products = useState<Product[]>('category-products', () => [])
   const categories = useState<string[]>('product-categories', () => [])
   const brands = useState<string[]>('category-brands', () => [])
@@ -72,6 +74,9 @@ export const useCategoryProducts = () => {
     const filterKey = buildFilterKey(brandFilter, categoryFilter, queryValue)
     const cursor = append ? nextCursorByFilter.value[filterKey] ?? '' : ''
     const requestPage = append ? page.value + 1 : 1
+    const routeVendor =
+      typeof route.params.companyId === 'string' ? route.params.companyId.trim() : ''
+    const vendorId = routeVendor || activeVendor.value?.trim() || ''
 
     const cacheKey = [
       filterKey,
@@ -113,7 +118,8 @@ export const useCategoryProducts = () => {
           brandId: brandFilter,
           categoryId: categoryFilter,
           q: queryValue || undefined,
-          includeFacets: includeFacetsNext.value ? '1' : '0'
+          includeFacets: includeFacetsNext.value ? '1' : '0',
+          vendorId: vendorId || undefined
         }
 
         if (cursor) {

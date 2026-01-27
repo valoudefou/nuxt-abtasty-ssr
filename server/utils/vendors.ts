@@ -81,8 +81,12 @@ export const fetchVendors = async (options: { fresh?: boolean } = {}): Promise<V
 }
 
 export const getSelectedVendor = async (event?: H3Event): Promise<string> => {
+  const contextVendor =
+    event && (event as { context?: Record<string, unknown> }).context?.vendorId
+      ? String((event as { context?: Record<string, unknown> }).context?.vendorId).trim()
+      : ''
   const cookieValue = event ? getCookie(event, VENDOR_COOKIE) : undefined
-  const candidate = cookieValue ? String(cookieValue).trim() : ''
+  const candidate = contextVendor || (cookieValue ? String(cookieValue).trim() : '')
   if (!candidate) {
     return ''
   }

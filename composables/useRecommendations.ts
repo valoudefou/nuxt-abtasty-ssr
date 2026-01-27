@@ -15,6 +15,7 @@ type RecommendationField =
 export type RecommendationParams = {
   filterField: RecommendationField
   filterValue?: string | Array<string | number> | number | null
+  vendorId?: string | null
   categoriesInCart?: string[]
   addedToCartProductId?: string | number | null
   viewingItemId?: string | number | null
@@ -74,6 +75,7 @@ const stableKey = (params: RecommendationParams) => {
     filterValue: Array.isArray(params.filterValue)
       ? normalizeArray(params.filterValue)
       : params.filterValue ?? null,
+    vendorId: params.vendorId ?? null,
     categoriesInCart: normalizeArray(params.categoriesInCart),
     addedToCartProductId: params.addedToCartProductId ?? null,
     viewingItemId: params.viewingItemId ?? null,
@@ -82,7 +84,7 @@ const stableKey = (params: RecommendationParams) => {
     placementId: params.placementId ?? null,
     locale: params.locale ?? null,
     currency: params.currency ?? null,
-    vendor: activeVendor || null
+    vendor: params.vendorId ?? (activeVendor || null)
   }
 
   return JSON.stringify(normalized)

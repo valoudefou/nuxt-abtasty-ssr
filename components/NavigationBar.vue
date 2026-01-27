@@ -399,6 +399,7 @@ const PRICE_SLIDER_MAX = 500
 const PRICE_SLIDER_STEP = 5
 
 const { totalItems } = useCart()
+const activeVendor = useState<string>('active-vendor', () => '')
 
 type NavigationItem = {
   label: string
@@ -406,11 +407,18 @@ type NavigationItem = {
   icon?: Component
 }
 
-const navigation: NavigationItem[] = [
-  { label: 'Home', href: '/' },
-  { label: 'Categories', href: '/categories' },
-  { label: 'Valentines', href: '/valentines-day', icon: HeartIcon }
-]
+const withVendorPrefix = (href: string) => {
+  const vendor = activeVendor.value?.trim()
+  if (!vendor) return href
+  const suffix = href === '/' ? '' : href
+  return `/c/${encodeURIComponent(vendor)}${suffix}`
+}
+
+const navigation = computed<NavigationItem[]>(() => [
+  { label: 'Home', href: withVendorPrefix('/') },
+  { label: 'Categories', href: withVendorPrefix('/categories') },
+  { label: 'Valentines', href: withVendorPrefix('/valentines-day'), icon: HeartIcon }
+])
 
 const route = useRoute()
 

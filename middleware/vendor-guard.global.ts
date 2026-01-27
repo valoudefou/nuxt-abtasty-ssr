@@ -24,6 +24,24 @@ const resetVendorScopedState = () => {
 }
 
 export default defineNuxtRouteMiddleware((to) => {
+  const paramVendor = typeof to.params.companyId === 'string' ? to.params.companyId.trim() : ''
+  if (paramVendor) {
+    const vendorCookie = useCookie<string | null>('abt_vendor')
+    if (vendorCookie.value !== paramVendor) {
+      vendorCookie.value = paramVendor
+    }
+    const event = useRequestEvent()
+    if (event) {
+      ;(event as { context?: Record<string, unknown> }).context = {
+        ...(event as { context?: Record<string, unknown> }).context,
+        vendorId: paramVendor
+      }
+    }
+    if (import.meta.client) {
+      localStorage.setItem('abt_vendor', paramVendor)
+    }
+  }
+
   if (to.path.startsWith('/trial')) {
     return
   }
@@ -36,9 +54,14 @@ export default defineNuxtRouteMiddleware((to) => {
     localValue = (localStorage.getItem('abt_vendor') || '').trim()
   }
 
-  const currentVendor = cookieValue || localValue
+  const currentVendor = paramVendor || cookieValue || localValue
   if (!currentVendor) {
     return navigateTo('/trial')
+  }
+
+  if (!paramVendor && !to.path.startsWith('/c/')) {
+    const suffix = to.fullPath === '/' ? '' : to.fullPath
+    return navigateTo(`/c/${encodeURIComponent(currentVendor)}${suffix}`)
   }
 
   const activeVendor = useState<string>('active-vendor', () => currentVendor || DEFAULT_VENDOR)

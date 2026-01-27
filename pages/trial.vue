@@ -96,10 +96,6 @@ onMounted(() => {
   }
 })
 
-const getRedirectTarget = () => {
-  return '/categories'
-}
-
 const normalize = (value: string) => value.trim().toLowerCase()
 
 const findVendorMatch = (query: string) => {
@@ -148,7 +144,7 @@ const selectVendor = async (vendorId: string) => {
         localStorage.setItem(VENDOR_STORAGE, vendorId)
       }
       selectedVendorId.value = vendorId
-      await navigateTo(getRedirectTarget())
+      await navigateTo(`/c/${encodeURIComponent(vendorId)}/categories`)
     }
   } catch (error) {
     console.error('Failed to select vendor', error)

@@ -208,6 +208,8 @@ const props = defineProps<{
   placementId?: string
 }>()
 
+const route = useRoute()
+const activeVendor = useState<string>('active-vendor', () => '')
 const logClientRecommendationEvent = (
   level: FlagshipLogLevel,
   message: string,
@@ -325,11 +327,15 @@ const placementId = computed(() => {
 
 const recommendationParams = computed<RecommendationParams>(() => {
   const field = activeFilterField.value
+  const routeVendor =
+    typeof route.params.companyId === 'string' ? route.params.companyId.trim() : ''
+  const vendorId = routeVendor || activeVendor.value?.trim() || null
   const base: RecommendationParams = {
     filterField: field,
     filterValue: activeFilterValue.value,
     cartProductIds: cartProductContextIds.value.length > 0 ? cartProductContextIds.value : undefined,
-    placementId: placementId.value
+    placementId: placementId.value,
+    vendorId
   }
 
   if (field === 'cart_products') {

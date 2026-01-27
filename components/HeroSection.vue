@@ -10,7 +10,7 @@
           Discover performance-crafted apparel and accessories designed to transition seamlessly from morning commutes to weekend escapes.
         </p>
         <div class="mt-8 flex flex-wrap gap-4">
-          <NuxtLink to="/categories" class="inline-flex items-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-primary-600 shadow-sm hover:bg-slate-100">
+          <NuxtLink :to="categoriesHref" class="inline-flex items-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-primary-600 shadow-sm hover:bg-slate-100">
             Explore categories
           </NuxtLink>
         </div>
@@ -43,5 +43,12 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { CheckCircleIcon } from '@heroicons/vue/24/solid'
+
+const activeVendor = useState<string>('active-vendor', () => '')
+const categoriesHref = computed(() => {
+  const vendor = activeVendor.value?.trim()
+  return vendor ? `/c/${encodeURIComponent(vendor)}/categories` : '/categories'
+})
 </script>

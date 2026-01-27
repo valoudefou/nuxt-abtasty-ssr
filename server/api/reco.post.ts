@@ -18,6 +18,7 @@ type RecommendationField =
 type RecommendationBody = {
   filterField?: RecommendationField
   filterValue?: string | Array<string | number> | number | null
+  vendorId?: string | null
   categoriesInCart?: string[] | string | null
   addedToCartProductId?: number | string | null
   viewingItemId?: number | string | null
@@ -54,6 +55,14 @@ const cacheKeyFor = (payload: Record<string, unknown>) =>
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<RecommendationBody>(event)
+  const vendorFromBody =
+    body?.vendorId !== undefined && body?.vendorId !== null ? String(body.vendorId).trim() : ''
+  if (vendorFromBody) {
+    ;(event as { context?: Record<string, unknown> }).context = {
+      ...(event as { context?: Record<string, unknown> }).context,
+      vendorId: vendorFromBody
+    }
+  }
   const vendorId = await getSelectedVendor(event)
 
   const filterField = normalizeFilterField(body?.filterField ?? 'brand')
