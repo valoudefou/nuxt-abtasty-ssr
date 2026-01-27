@@ -67,6 +67,7 @@ const normalizeArray = (value?: Array<string | number>) => {
 }
 
 const stableKey = (params: RecommendationParams) => {
+  const activeVendor = useState<string>('active-vendor', () => '').value.trim()
   const normalized = {
     filterField: params.filterField,
     filterValue: Array.isArray(params.filterValue)
@@ -79,7 +80,8 @@ const stableKey = (params: RecommendationParams) => {
     cartProductIds: normalizeArray(params.cartProductIds),
     placementId: params.placementId ?? null,
     locale: params.locale ?? null,
-    currency: params.currency ?? null
+    currency: params.currency ?? null,
+    vendor: activeVendor || null
   }
 
   return JSON.stringify(normalized)

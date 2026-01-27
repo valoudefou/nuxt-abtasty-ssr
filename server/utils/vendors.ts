@@ -89,7 +89,8 @@ export const getSelectedVendor = async (event?: H3Event): Promise<string> => {
 
   const vendors = await fetchVendors()
   if (vendors.length === 0) {
-    return ''
+    // In dev or when the upstream vendor list is unavailable, trust the cookie value.
+    return candidate
   }
   const isValid = vendors.some((vendor) => vendor.id === candidate)
   return isValid ? candidate : ''

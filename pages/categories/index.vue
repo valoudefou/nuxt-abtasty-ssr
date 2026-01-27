@@ -181,12 +181,7 @@ const clearAffinities = () => {
   localStorage.removeItem(STORED_FILTERS_KEY)
 }
 
-const formatBrandLabel = (brand: string) =>
-  brand
-    .split(' ')
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ')
+const formatBrandLabel = (brand: string) => brand.trim().toUpperCase()
 
 const onSearch = async (query: string) => {
   await searchProducts(query)

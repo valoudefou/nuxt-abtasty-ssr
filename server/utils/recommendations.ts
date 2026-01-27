@@ -14,6 +14,7 @@ type RawRecommendation = {
   name?: string
   price?: string | number
   img_link?: string
+  link?: string
   absolute_link?: string
   description?: string
   brand?: string
@@ -273,7 +274,7 @@ const normalizeItem = (
 ): RecommendationProduct => {
   const name = item.name?.trim() || `Recommended product ${index + 1}`
   const normalizedName = name.toLowerCase()
-  const absoluteLink = ensureAbsoluteLink(item.absolute_link, siteUrl)
+  const absoluteLink = ensureAbsoluteLink(item.link ?? item.absolute_link, siteUrl)
   const recommendationId = normalizeRecommendationId(item.id)
   const matchingProduct =
     catalog.find((product) => product.name.toLowerCase() === normalizedName) ?? null
@@ -321,7 +322,7 @@ const normalizeItem = (
   return {
     id: String(recommendationId ?? fallbackProduct.slug),
     product: fallbackProduct,
-    detailUrl: detailId ? `/products/${detailId}` : undefined,
+    detailUrl: `/products/${detailId ?? fallbackProduct.slug}`,
     externalUrl: absoluteLink
   }
 }

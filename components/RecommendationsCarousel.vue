@@ -96,8 +96,18 @@
           <span class="text-base font-semibold text-primary-600">{{ formatCurrency(item.product.price) }}</span>
         </div>
 
+        <a
+          v-if="item.externalUrl"
+          :href="item.externalUrl"
+          class="mt-2 block text-sm text-slate-600"
+          @click="logExternalLink(item.externalUrl)"
+        >
+          <span class="line-clamp-3">
+            {{ item.product.description }}
+          </span>
+        </a>
         <NuxtLink
-          v-if="item.detailUrl"
+          v-else-if="item.detailUrl"
           :to="item.detailUrl"
           class="mt-2 block text-sm text-slate-600"
         >
@@ -128,21 +138,22 @@
             </svg>
           </button>
 
+          <a
+            v-if="item.externalUrl"
+            :href="item.externalUrl"
+            class="inline-flex flex-1 items-center justify-center rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+            @click="logExternalLink(item.externalUrl)"
+          >
+            View detail
+          </a>
+
           <NuxtLink
-            v-if="item.detailUrl"
+            v-else-if="item.detailUrl"
             :to="item.detailUrl"
             class="inline-flex flex-1 items-center justify-center rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
           >
             View detail
           </NuxtLink>
-
-          <a
-            v-else-if="item.externalUrl"
-            :href="item.externalUrl"
-            class="inline-flex flex-1 items-center justify-center rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
-          >
-            View detail
-          </a>
         </div>
       </article>
     </div>
@@ -437,6 +448,11 @@ const formatCurrency = (value: number) => currencyFormatter.format(value)
 
 const addRecommendationToCart = (item: RecommendationItem) => {
   cart.addItem(item.product)
+}
+
+const logExternalLink = (url?: string) => {
+  if (!url) return
+  console.log('[Recommendations] link click', { link: url })
 }
 
 const scrollCarousel = (direction: 'prev' | 'next') => {

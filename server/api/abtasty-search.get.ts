@@ -50,6 +50,8 @@ export default defineEventHandler(async (event) => {
   const priceMin = typeof query.priceMin === 'string' ? query.priceMin : null
   const priceMax = typeof query.priceMax === 'string' ? query.priceMax : null
   const vendorId = await getSelectedVendor(event)
+  const normalizedVendor = vendorId.trim()
+  const brandFilters = brands.length ? brands : normalizedVendor ? [normalizedVendor] : []
 
   const url = new URL(SEARCH_ENDPOINT)
   url.searchParams.set('index', SEARCH_INDEX)
@@ -60,8 +62,10 @@ export default defineEventHandler(async (event) => {
   if (categoryField && categories.length) {
     appendListFilter(url, categoryField, categories)
   }
-  appendListFilter(url, 'brand', brands)
-  appendListFilter(url, 'vendor', [vendorId])
+  appendListFilter(url, 'brand', brandFilters)
+  if (normalizedVendor) {
+    appendListFilter(url, 'vendor', [normalizedVendor])
+  }
 
   if (priceMin !== null || priceMax !== null) {
     if (priceMin !== null) {

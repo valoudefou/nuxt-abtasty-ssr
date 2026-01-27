@@ -41,10 +41,11 @@ export default defineNuxtRouteMiddleware((to) => {
     return navigateTo('/trial')
   }
 
-  if (import.meta.client) {
-    const activeVendor = useState<string>('active-vendor', () => currentVendor || DEFAULT_VENDOR)
-    if (activeVendor.value !== currentVendor) {
-      activeVendor.value = currentVendor
+  const activeVendor = useState<string>('active-vendor', () => currentVendor || DEFAULT_VENDOR)
+  const previousVendor = activeVendor.value
+  if (previousVendor !== currentVendor) {
+    activeVendor.value = currentVendor
+    if (import.meta.client) {
       resetVendorScopedState()
     }
   }

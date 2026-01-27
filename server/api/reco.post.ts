@@ -3,6 +3,7 @@ import { useStorage } from 'nitropack/runtime'
 import { getRequestHeader, readBody, setResponseHeader } from 'h3'
 
 import { fetchRecommendations, type RecommendationResponse } from '@/server/utils/recommendations'
+import { getSelectedVendor } from '@/server/utils/vendors'
 
 type RecommendationField =
   | 'brand'
@@ -53,6 +54,7 @@ const cacheKeyFor = (payload: Record<string, unknown>) =>
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<RecommendationBody>(event)
+  const vendorId = await getSelectedVendor(event)
 
   const filterField = normalizeFilterField(body?.filterField ?? 'brand')
   const filterValue = body?.filterValue ?? null
@@ -89,17 +91,24 @@ export default defineEventHandler(async (event) => {
     viewingItemId,
     viewingItemSku,
     placementId: normalizedPlacementId ?? null,
-    clientId: body?.clientId ?? null
+    clientId: body?.clientId ?? null,
+    vendorId: vendorId || null
   })
 
   const storage = useStorage('reco')
-  const cached = await storage.getItem<{ payload: RecommendationResponse; expiresAt: number }>(cacheKey)
   const now = Date.now()
+  const shouldCache = !process.dev
 
-  if (cached && cached.expiresAt > now) {
-    setResponseHeader(event, 'Cache-Control', 'private, max-age=0, stale-while-revalidate=60')
-    setResponseHeader(event, 'X-Reco-Cache', 'HIT')
-    return cached.payload
+  if (shouldCache) {
+    const cached = await storage.getItem<{ payload: RecommendationResponse; expiresAt: number }>(
+      cacheKey
+    )
+
+    if (cached && cached.expiresAt > now) {
+      setResponseHeader(event, 'Cache-Control', 'private, max-age=0, stale-while-revalidate=60')
+      setResponseHeader(event, 'X-Reco-Cache', 'HIT')
+      return cached.payload
+    }
   }
 
   const normalizedFilterValue =
@@ -125,16 +134,18 @@ export default defineEventHandler(async (event) => {
     event
   )
 
-  await storage.setItem(cacheKey, {
-    payload,
-    expiresAt: now + 1000 * 60
-  })
+  if (shouldCache) {
+    await storage.setItem(cacheKey, {
+      payload,
+      expiresAt: now + 1000 * 60
+    })
+  }
 
   const origin = getRequestHeader(event, 'origin')
   if (origin) {
     setResponseHeader(event, 'Vary', 'Origin')
   }
   setResponseHeader(event, 'Cache-Control', 'private, max-age=0, stale-while-revalidate=60')
-  setResponseHeader(event, 'X-Reco-Cache', 'MISS')
+  setResponseHeader(event, 'X-Reco-Cache', shouldCache ? 'MISS' : 'SKIP')
   return payload
 })
