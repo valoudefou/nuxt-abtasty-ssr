@@ -411,7 +411,7 @@ const withVendorPrefix = (href: string) => {
   const vendor = activeVendor.value?.trim()
   if (!vendor) return href
   const suffix = href === '/' ? '' : href
-  return `/c/${encodeURIComponent(vendor)}${suffix}`
+  return `/v/${encodeURIComponent(vendor)}${suffix}`
 }
 
 const navigation = computed<NavigationItem[]>(() => [

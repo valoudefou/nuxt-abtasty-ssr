@@ -59,9 +59,9 @@ export default defineNuxtRouteMiddleware((to) => {
     return navigateTo('/trial')
   }
 
-  if (!paramVendor && !to.path.startsWith('/c/')) {
+  if (!paramVendor && !to.path.startsWith('/v/')) {
     const suffix = to.fullPath === '/' ? '' : to.fullPath
-    return navigateTo(`/c/${encodeURIComponent(currentVendor)}${suffix}`)
+    return navigateTo(`/v/${encodeURIComponent(currentVendor)}${suffix}`)
   }
 
   const activeVendor = useState<string>('active-vendor', () => currentVendor || DEFAULT_VENDOR)

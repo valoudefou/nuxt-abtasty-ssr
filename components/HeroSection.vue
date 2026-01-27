@@ -49,6 +49,6 @@ import { CheckCircleIcon } from '@heroicons/vue/24/solid'
 const activeVendor = useState<string>('active-vendor', () => '')
 const categoriesHref = computed(() => {
   const vendor = activeVendor.value?.trim()
-  return vendor ? `/c/${encodeURIComponent(vendor)}/categories` : '/categories'
+  return vendor ? `/v/${encodeURIComponent(vendor)}/categories` : '/categories'
 })
 </script>
