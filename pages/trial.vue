@@ -16,32 +16,35 @@
           <label class="text-sm font-semibold uppercase tracking-[0.3em] text-slate-500">
             Vendor
           </label>
-          <div class="mt-2 relative">
-            <select
-              class="w-full appearance-none rounded-2xl border border-slate-200 bg-white px-6 py-5 pr-14 text-lg font-medium text-slate-800 shadow-sm outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
-              :value="selectedVendorId"
+          <form class="mt-3" @submit.prevent="onVendorSubmit">
+            <input
+              v-model.trim="vendorQuery"
+              list="vendor-options"
+              type="text"
+              placeholder="Start typing a vendor name"
+              class="w-full rounded-2xl border border-slate-200 bg-white px-6 py-5 text-lg font-medium text-slate-800 shadow-sm outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
               :disabled="Boolean(pendingVendorId)"
-              @change="onSelectChange"
-            >
-              <option v-for="vendor in vendors" :key="vendor.id" :value="vendor.id">
-                {{ vendor.name }}
-              </option>
-            </select>
-            <span class="pointer-events-none absolute inset-y-0 right-5 flex items-center text-lg text-slate-400">
-              ▾
-            </span>
-          </div>
-          <p class="mt-4 text-base font-medium" :class="pendingVendorId ? 'text-primary-600' : 'text-slate-500'">
-            {{ pendingVendorId ? 'Saving your selection...' : `Current catalog on site: ${selectedVendorId}` }}
+              @input="onVendorInput"
+            />
+            <div class="mt-4 flex justify-center">
+              <button
+                type="submit"
+                class="text-base font-semibold text-primary-600 transition hover:text-primary-500 hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                :disabled="Boolean(pendingVendorId) || !vendorQuery"
+              >
+                Use catalog
+              </button>
+            </div>
+            <datalist id="vendor-options">
+              <option v-for="vendor in vendors" :key="vendor.id" :value="vendor.name" />
+            </datalist>
+          </form>
+          <p
+            class="mt-4 text-base font-medium"
+            :class="pendingVendorId ? 'text-primary-600' : vendorError ? 'text-red-600' : 'text-slate-500'"
+          >
+            {{ pendingVendorId ? 'Saving your selection...' : vendorError }}
           </p>
-          <div class="mt-6 flex justify-end">
-            <NuxtLink
-              to="/"
-              class="text-sm font-semibold text-primary-600 transition hover:text-primary-500 hover:underline"
-            >
-              Browse
-            </NuxtLink>
-          </div>
         </div>
       </section>
     </div>
@@ -77,23 +80,62 @@ const vendors = computed<Vendor[]>(() => {
 
 const selectedVendorId = ref<string>(DEFAULT_VENDOR_CLIENT)
 const pendingVendorId = ref<string>('')
+const vendorQuery = ref<string>('')
+const vendorError = ref<string>('')
+
+const vendorNameById = computed<Record<string, string>>(() => {
+  return vendors.value.reduce<Record<string, string>>((acc, vendor) => {
+    acc[vendor.id] = vendor.name
+    return acc
+  }, {})
+})
+
+const selectedVendorName = computed(() => {
+  return vendorNameById.value[selectedVendorId.value] || selectedVendorId.value
+})
 
 onMounted(() => {
-  selectedVendorId.value = getSelectedVendorClient()
+  const currentVendorId = getSelectedVendorClient()
+  selectedVendorId.value = currentVendorId
+  vendorQuery.value = vendorNameById.value[currentVendorId] || currentVendorId
 })
 
 const getRedirectTarget = () => {
   const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ''
-  return redirect.trim() || '/'
+  return redirect.trim() || '/categories'
 }
 
-const onSelectChange = (event: Event) => {
-  const target = event.target as HTMLSelectElement | null
-  const vendorId = target?.value ? String(target.value).trim() : ''
-  if (!vendorId) {
+const normalize = (value: string) => value.trim().toLowerCase()
+
+const findVendorMatch = (query: string) => {
+  const normalizedQuery = normalize(query)
+  if (!normalizedQuery) return null
+
+  return (
+    vendors.value.find((vendor) => {
+      return normalize(vendor.id) === normalizedQuery || normalize(vendor.name) === normalizedQuery
+    }) || null
+  )
+}
+
+const onVendorInput = () => {
+  if (vendorError.value) {
+    vendorError.value = ''
+  }
+}
+
+const onVendorSubmit = () => {
+  if (!vendorQuery.value || pendingVendorId.value) return
+
+  const match = findVendorMatch(vendorQuery.value)
+  if (!match) {
+    vendorError.value = 'No catalog found'
     return
   }
-  void selectVendor(vendorId)
+
+  vendorError.value = ''
+  vendorQuery.value = match.name
+  void selectVendor(match.id)
 }
 
 const selectVendor = async (vendorId: string) => {
