@@ -51,7 +51,7 @@
               "
               @click="emit('select-brand', filter)"
             >
-              {{ filter }}
+              {{ formatFilterLabel(filter) }}
             </button>
           </div>
         </div>
@@ -164,6 +164,13 @@ const onSearchInput = (event: Event) => {
   const target = event.target as HTMLInputElement
   emit('search', target.value ?? '')
 }
+
+const formatFilterLabel = (value: string) =>
+  value
+    .split(' ')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
 
 const recommendationFilterValue = computed(() => {
   if (props.recommendationFilterField === 'category') {
