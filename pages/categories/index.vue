@@ -25,6 +25,7 @@
       </div>
     </section>
     <ProductGrid
+      v-if="vendorCookieReady"
       :products="products"
       :loading="loading"
       :error="error"
@@ -74,6 +75,9 @@
         </div>
       </template>
     </ProductGrid>
+    <div v-else class="rounded-3xl border border-slate-200 bg-white p-10 text-center text-sm font-semibold text-slate-500 shadow-sm">
+      Loading your catalog…
+    </div>
     <NewsletterBanner />
   </div>
 </template>
@@ -94,6 +98,21 @@ type StoredFilters = {
 
 const STORED_FILTERS_KEY = 'category-filter-history'
 const storedAffinities = ref<StoredAffinity[]>([])
+const VENDOR_COOKIE_NAME = 'abt_vendor'
+const vendorCookieReady = ref(false)
+
+const readCookie = (name: string) => {
+  if (!import.meta.client || !document?.cookie) return ''
+  const prefix = `${name}=`
+  const parts = document.cookie.split(';')
+  for (const part of parts) {
+    const trimmed = part.trim()
+    if (trimmed.startsWith(prefix)) {
+      return decodeURIComponent(trimmed.slice(prefix.length)).trim()
+    }
+  }
+  return ''
+}
 
 const persistSelections = () => {
   const category =
@@ -134,6 +153,21 @@ const {
 await fetchProducts()
 
 onMounted(() => {
+  const existingVendor = readCookie(VENDOR_COOKIE_NAME)
+  if (existingVendor) {
+    vendorCookieReady.value = true
+  } else {
+    const startedAt = Date.now()
+    const timer = window.setInterval(() => {
+      const value = readCookie(VENDOR_COOKIE_NAME)
+      const timedOut = Date.now() - startedAt > 1500
+      if (value || timedOut) {
+        vendorCookieReady.value = true
+        window.clearInterval(timer)
+      }
+    }, 50)
+  }
+
   const raw = localStorage.getItem(STORED_FILTERS_KEY)
   if (!raw) return
   try {

@@ -370,14 +370,20 @@ const fetchRemoteProducts = async (
 
 export const fetchProducts = async (event?: H3Event): Promise<Product[]> => {
   const now = Date.now()
+  const { base, disableRemote, vendorId } = await getApiConfig(event)
+  const vendorFilter = vendorId.trim().toLowerCase()
+  const filterByVendor = (items: Product[]) => {
+    if (!vendorFilter) return items
+    return items.filter((product) => product.vendor?.trim().toLowerCase() === vendorFilter)
+  }
 
   if (cachedProducts && cachedVersion === CACHE_VERSION && now - lastFetch < CACHE_TTL) {
-    return cachedProducts
+    return filterByVendor(cachedProducts)
   }
 
   if (now < remoteBackoffUntil) {
     if (cachedProducts && cachedVersion === CACHE_VERSION) {
-      return cachedProducts
+      return filterByVendor(cachedProducts)
     }
   }
 
@@ -389,25 +395,24 @@ export const fetchProducts = async (event?: H3Event): Promise<Product[]> => {
         cachedVersion = cached.version
         lastFetch = cached.fetchedAt
         if (now - cached.fetchedAt < CACHE_TTL) {
-          return cached.products
+          return filterByVendor(cached.products)
         }
       }
     }
 
-    const { base, disableRemote, vendorId } = await getApiConfig(event)
     if (disableRemote) {
       console.warn(`${LOG_PREFIX} remote fetch disabled; using cache/fallback only.`)
       if (cachedProducts && cachedVersion === CACHE_VERSION) {
-        return cachedProducts
+        return filterByVendor(cachedProducts)
       }
-      return fallbackCatalog
+      return filterByVendor(fallbackCatalog)
     }
     if (process.dev) {
       console.warn(`${LOG_PREFIX} skipping remote preload in dev; using cache/fallback only.`)
       if (cachedProducts && cachedVersion === CACHE_VERSION) {
-        return cachedProducts
+        return filterByVendor(cachedProducts)
       }
-      return fallbackCatalog
+      return filterByVendor(fallbackCatalog)
     }
     const requestStart = Date.now()
     const products = await fetchRemoteProducts(
@@ -427,9 +432,9 @@ export const fetchProducts = async (event?: H3Event): Promise<Product[]> => {
         upstreamCount: products.length
       })
       if (cachedProducts && cachedVersion === CACHE_VERSION) {
-        return cachedProducts
+        return filterByVendor(cachedProducts)
       }
-      return fallbackCatalog
+      return filterByVendor(fallbackCatalog)
     }
 
     cachedProducts = mapped
@@ -438,7 +443,7 @@ export const fetchProducts = async (event?: H3Event): Promise<Product[]> => {
     remoteBackoffUntil = 0
     await writeCacheFile({ version: CACHE_VERSION, fetchedAt: now, products: mapped })
 
-    return mapped
+    return filterByVendor(mapped)
   } catch (error) {
     console.error('Failed to load products from remote source', error)
     remoteBackoffUntil = Date.now() + REMOTE_BACKOFF_MS
@@ -447,14 +452,14 @@ export const fetchProducts = async (event?: H3Event): Promise<Product[]> => {
         source: 'memory',
         count: cachedProducts.length
       })
-      return cachedProducts
+      return filterByVendor(cachedProducts)
     }
 
     console.warn(`${LOG_PREFIX} using cached/fallback catalog because remote feed is unavailable.`)
     if (cachedProducts && cachedVersion === CACHE_VERSION) {
-      return cachedProducts
+      return filterByVendor(cachedProducts)
     }
-    return fallbackCatalog
+    return filterByVendor(fallbackCatalog)
   }
 }
 

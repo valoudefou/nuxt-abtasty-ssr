@@ -65,9 +65,9 @@
     </template>
 
     <div
-      v-else-if="hasRecommendations"
+      v-else-if="hasRecommendations && vendorCookieReady"
       ref="carouselRef"
-      class="mt-6 flex mb-10 gap-6 overflow-x-auto overflow-y-visible scroll-smooth pb-8 -mb-8 px-6 -mx-6"
+      class="mt-6 flex mb-10 gap-6 overflow-x-auto overflow-y-visible scroll-smooth pb-8 -mb-8 px-6 -mx-6 transition"
     >
       <article
         v-for="item in recommendations"
@@ -172,6 +172,21 @@ import type { Product } from '@/types/product'
 import { type RecommendationParams, useRecommendations } from '@/composables/useRecommendations'
 
 const placeholderImage = 'https://assets-manager.abtasty.com/placeholder.png'
+const VENDOR_COOKIE_NAME = 'abt_vendor'
+const vendorCookieReady = ref(false)
+
+const readCookie = (name: string) => {
+  if (!import.meta.client || !document?.cookie) return ''
+  const prefix = `${name}=`
+  const parts = document.cookie.split(';')
+  for (const part of parts) {
+    const trimmed = part.trim()
+    if (trimmed.startsWith(prefix)) {
+      return decodeURIComponent(trimmed.slice(prefix.length)).trim()
+    }
+  }
+  return ''
+}
 
 type RecommendationField = 'brand' | 'homepage' | 'category' | 'cart_products' | 'viewed_items'
 
@@ -514,6 +529,20 @@ const triggerInitialFetch = () => {
 onMounted(() => {
   if (import.meta.client) {
     window.addEventListener('resize', handleResize)
+    const existingVendor = readCookie(VENDOR_COOKIE_NAME)
+    if (existingVendor) {
+      vendorCookieReady.value = true
+    } else {
+      const startedAt = Date.now()
+      const timer = window.setInterval(() => {
+        const value = readCookie(VENDOR_COOKIE_NAME)
+        const timedOut = Date.now() - startedAt > 1500
+        if (value || timedOut) {
+          vendorCookieReady.value = true
+          window.clearInterval(timer)
+        }
+      }, 50)
+    }
   }
 
   if (!import.meta.client) return

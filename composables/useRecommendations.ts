@@ -57,6 +57,7 @@ const DEBOUNCE_TIMERS = new Map<string, ReturnType<typeof setTimeout>>()
 
 const CACHE_TTL_MS = 1000 * 60
 const STALE_TTL_MS = 1000 * 60 * 5
+const VENDOR_COOKIE_NAME = 'abt_vendor'
 
 const normalizeArray = (value?: Array<string | number>) => {
   if (!Array.isArray(value)) return []
@@ -126,6 +127,27 @@ const getClientId = () => {
   return idState.value
 }
 
+const readCookie = (name: string) => {
+  if (!import.meta.client || !document?.cookie) return ''
+  const prefix = `${name}=`
+  const parts = document.cookie.split(';')
+  for (const part of parts) {
+    const trimmed = part.trim()
+    if (trimmed.startsWith(prefix)) {
+      return decodeURIComponent(trimmed.slice(prefix.length)).trim()
+    }
+  }
+  return ''
+}
+
+const waitForVendorCookie = async (timeoutMs = 1500) => {
+  if (!import.meta.client) return
+  const startedAt = Date.now()
+  while (!readCookie(VENDOR_COOKIE_NAME) && Date.now() - startedAt < timeoutMs) {
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  }
+}
+
 const getStateBucket = () =>
   useState<Record<string, RecommendationState>>('recommendations-state', () => ({}))
 
@@ -181,6 +203,10 @@ const fetchRecommendations = async (
 
   const startMark = `reco:${key}:start:${Date.now()}`
   markPerformance(startMark)
+
+  if (import.meta.client) {
+    await waitForVendorCookie()
+  }
 
   const promise = $fetch<RecommendationPayload>('/api/reco', {
     method: 'POST',
