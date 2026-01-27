@@ -43,8 +43,14 @@ declare module "nitropack/types" {
       'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/recommendations.get').default>>>>
       'post': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/recommendations.post').default>>>>
     }
+    '/api/trial/select': {
+      'post': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/trial/select.post').default>>>>
+    }
     '/api/valentines-products': {
       'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/valentines-products.get').default>>>>
+    }
+    '/api/vendors': {
+      'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/vendors.get').default>>>>
     }
     '/__nuxt_error': {
       'default': Simplify<Serialize<Awaited<ReturnType<typeof import('../../node_modules/@nuxt/nitro-server/dist/runtime/handlers/renderer').default>>>>

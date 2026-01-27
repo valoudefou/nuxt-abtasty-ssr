@@ -641,10 +641,7 @@ const normalizeGiftQuery = (value: string) =>
 
 const giftSearchNormalized = computed(() => normalizeGiftQuery(giftSearch.value))
 
-const searchText = computed(() => {
-  const term = giftSearchNormalized.value
-  return term ? `${SEARCH_QUERY} ${term}` : SEARCH_QUERY
-})
+const searchText = computed(() => SEARCH_QUERY)
 
 const priceBounds = computed(() => {
   const prices = products.value.map((product) => product.price).filter(Number.isFinite)

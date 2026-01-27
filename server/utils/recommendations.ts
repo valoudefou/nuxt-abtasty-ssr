@@ -165,7 +165,7 @@ const buildRecommendationUrl = (baseEndpoint: string, filter?: RecommendationFil
   }
 }
 
-const withViewingSku = async (filter?: RecommendationFilter) => {
+const withViewingSku = async (filter?: RecommendationFilter, event?: H3Event) => {
   if (!filter || filter.field !== 'viewed_items') {
     return filter
   }
@@ -183,7 +183,7 @@ const withViewingSku = async (filter?: RecommendationFilter) => {
     return filter
   }
 
-  const match = await findProductById(viewingIdString)
+  const match = await findProductById(viewingIdString, event)
   if (!match?.sku) {
     return filter
   }
@@ -318,7 +318,8 @@ const normalizeItem = (
 }
 
 export const fetchRecommendations = async (
-  filter?: RecommendationFilter
+  filter?: RecommendationFilter,
+  event?: H3Event
 ): Promise<RecommendationResponse> => {
   const config = useRuntimeConfig()
   const apiKey = config.recommendations?.apiKey
@@ -387,7 +388,7 @@ export const fetchRecommendations = async (
       })
     }
 
-    const catalog = await fetchProducts()
+    const catalog = await fetchProducts(event)
     let fallbackSeed = 900000
     const fallbackIdSeed = () => fallbackSeed++
 
@@ -414,7 +415,7 @@ export const fetchRecommendations = async (
   }
 
   try {
-    const resolvedFilter = await withViewingSku(filter)
+    const resolvedFilter = await withViewingSku(filter, event)
     return await performFetch(resolvedFilter)
   } catch (error) {
     const statusCode = (error as { statusCode?: number })?.statusCode
@@ -596,7 +597,8 @@ export const handleRecommendationsRequest = async (event: H3Event, method: 'GET'
         query.viewingItemSku,
         query.cartProductIds,
         query.placementId
-      )
+      ),
+      event
     )
   }
 
@@ -621,6 +623,7 @@ export const handleRecommendationsRequest = async (event: H3Event, method: 'GET'
       body?.viewingItemSku ?? undefined,
       body?.cartProductIds ?? undefined,
       body?.placementId ?? undefined
-    )
+    ),
+    event
   )
 }

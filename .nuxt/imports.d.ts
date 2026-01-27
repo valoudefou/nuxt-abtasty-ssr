@@ -38,4 +38,5 @@ export { useRecommendations, RecommendationParams } from '../composables/useReco
 export { useViewedProducts } from '../composables/useViewedProducts';
 export { default as asyncStorageShim } from '../utils/asyncStorageShim';
 export { slugifyBrand } from '../utils/brand';
+export { getSelectedVendorClient, VENDOR_STORAGE, DEFAULT_VENDOR_CLIENT } from '../utils/vendorsClient';
 export { useNuxtDevTools } from '../node_modules/@nuxt/devtools/dist/runtime/use-nuxt-devtools';

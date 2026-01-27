@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const products = await fetchProducts()
+  const products = await fetchProducts(event)
   const target = term.toLowerCase()
   const matches = products.filter((product) => {
     const title = product.title ?? product.name

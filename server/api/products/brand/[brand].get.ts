@@ -11,7 +11,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const decodedBrand = decodeURIComponent(brand)
-  const products = await findProductsByBrand(decodedBrand)
+  const products = await findProductsByBrand(decodedBrand, event)
 
   return {
     products

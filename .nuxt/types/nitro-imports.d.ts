@@ -1,4 +1,6 @@
 declare global {
+  const DEFAULT_VENDOR: typeof import('../../server/utils/vendors').DEFAULT_VENDOR
+  const VENDOR_COOKIE_NAME: typeof import('../../server/utils/vendors').VENDOR_COOKIE_NAME
   const __buildAssetsURL: typeof import('../../node_modules/@nuxt/nitro-server/dist/runtime/utils/paths').buildAssetsURL
   const __publicAssetsURL: typeof import('../../node_modules/@nuxt/nitro-server/dist/runtime/utils/paths').publicAssetsURL
   const appendCorsHeaders: typeof import('../../node_modules/h3').appendCorsHeaders
@@ -42,6 +44,7 @@ declare global {
   const fetchProductBrands: typeof import('../../server/utils/products').fetchProductBrands
   const fetchProducts: typeof import('../../server/utils/products').fetchProducts
   const fetchRecommendations: typeof import('../../server/utils/recommendations').fetchRecommendations
+  const fetchVendors: typeof import('../../server/utils/vendors').fetchVendors
   const fetchWithEvent: typeof import('../../node_modules/h3').fetchWithEvent
   const findProductById: typeof import('../../server/utils/products').findProductById
   const findProductBySlug: typeof import('../../server/utils/products').findProductBySlug
@@ -72,6 +75,7 @@ declare global {
   const getRouteRules: typeof import('../../node_modules/nitropack/dist/runtime/internal/route-rules').getRouteRules
   const getRouterParam: typeof import('../../node_modules/h3').getRouterParam
   const getRouterParams: typeof import('../../node_modules/h3').getRouterParams
+  const getSelectedVendor: typeof import('../../server/utils/vendors').getSelectedVendor
   const getSession: typeof import('../../node_modules/h3').getSession
   const getValidatedQuery: typeof import('../../node_modules/h3').getValidatedQuery
   const getValidatedRouterParams: typeof import('../../node_modules/h3').getValidatedRouterParams
@@ -146,6 +150,9 @@ declare global {
   // @ts-ignore
   export type { RecommendationProduct, RecommendationResponse } from '../../server/utils/recommendations'
   import('../../server/utils/recommendations')
+  // @ts-ignore
+  export type { Vendor } from '../../server/utils/vendors'
+  import('../../server/utils/vendors')
 }
 export { useNitroApp } from 'nitropack/runtime/internal/app';
 export { useRuntimeConfig, useAppConfig } from 'nitropack/runtime/internal/config';
@@ -165,3 +172,4 @@ export { initializeFlagship } from '/Users/valerian.karsenty/Documents/App/val-c
 export { flagshipLogStore } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/flagship/logStore';
 export { normalizeRemoteProduct, fetchProducts, findProductBySlug, findProductById, fetchProductBrands, findProductsByBrand } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/products';
 export { fetchRecommendations, handleRecommendationsRequest } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/recommendations';
+export { fetchVendors, getSelectedVendor, DEFAULT_VENDOR, VENDOR_COOKIE_NAME } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/vendors';

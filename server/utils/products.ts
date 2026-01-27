@@ -2,9 +2,11 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
 
 import { useRuntimeConfig } from '#imports'
+import type { H3Event } from 'h3'
 
 import type { Product } from '@/types/product'
 import { products as fallbackProducts } from '@/data/products'
+import { getSelectedVendor } from '@/server/utils/vendors'
 
 export type RemoteProduct = {
   id: string | number
@@ -102,12 +104,13 @@ const writeCacheFile = async (payload: ProductCacheFile) => {
 const normalizeProductsResponse = (response: RemoteResponse | RemoteProduct[]): RemoteProduct[] =>
   Array.isArray(response) ? response : response.data ?? response.products ?? []
 
-const getApiConfig = () => {
+const getApiConfig = async (event?: H3Event) => {
   const config = useRuntimeConfig()
   const baseRaw = config.public?.apiBase || config.public?.productsApiBase || DEFAULT_API_BASE
   const base = baseRaw.replace(/\/+$/, '')
   const disableRemote = Boolean(config.public?.productsDisableRemote)
-  const vendorId = config.public?.productsVendorId ? String(config.public.productsVendorId).trim() : ''
+  const configuredVendorId = config.public?.productsVendorId ? String(config.public.productsVendorId).trim() : ''
+  const vendorId = event ? await getSelectedVendor(event) : configuredVendorId
   return { base, disableRemote, vendorId }
 }
 
@@ -365,7 +368,7 @@ const fetchRemoteProducts = async (
   return products
 }
 
-export const fetchProducts = async (): Promise<Product[]> => {
+export const fetchProducts = async (event?: H3Event): Promise<Product[]> => {
   const now = Date.now()
 
   if (cachedProducts && cachedVersion === CACHE_VERSION && now - lastFetch < CACHE_TTL) {
@@ -391,7 +394,7 @@ export const fetchProducts = async (): Promise<Product[]> => {
       }
     }
 
-    const { base, disableRemote, vendorId } = getApiConfig()
+    const { base, disableRemote, vendorId } = await getApiConfig(event)
     if (disableRemote) {
       console.warn(`${LOG_PREFIX} remote fetch disabled; using cache/fallback only.`)
       if (cachedProducts && cachedVersion === CACHE_VERSION) {
@@ -455,14 +458,14 @@ export const fetchProducts = async (): Promise<Product[]> => {
   }
 }
 
-export const findProductBySlug = async (slug: string): Promise<Product | undefined> => {
-  const products = await fetchProducts()
+export const findProductBySlug = async (slug: string, event?: H3Event): Promise<Product | undefined> => {
+  const products = await fetchProducts(event)
   return products.find((product) => product.slug === slug)
 }
 
-export const findProductById = async (id: string | number): Promise<Product | undefined> => {
+export const findProductById = async (id: string | number, event?: H3Event): Promise<Product | undefined> => {
   const targetId = String(id)
-  const { base } = getApiConfig()
+  const { base } = await getApiConfig(event)
 
   try {
     if (cachedProducts && cachedVersion === CACHE_VERSION) {
@@ -475,7 +478,7 @@ export const findProductById = async (id: string | number): Promise<Product | un
     const response = await $fetch<RemoteProduct>(`${base}/products/${encodeURIComponent(targetId)}`)
     return normalizeRemoteProduct(response)
   } catch (error) {
-    const cached = cachedProducts ?? (await fetchProducts())
+    const cached = cachedProducts ?? (await fetchProducts(event))
     return cached.find((product) => String(product.id) === targetId)
   }
 }
@@ -489,8 +492,8 @@ const sanitizeBrand = (value: string | null | undefined) => {
   return trimmed.length > 0 ? trimmed : null
 }
 
-export const fetchProductBrands = async (): Promise<string[]> => {
-  const { base, vendorId } = getApiConfig()
+export const fetchProductBrands = async (event?: H3Event): Promise<string[]> => {
+  const { base, vendorId } = await getApiConfig(event)
   try {
     const response = vendorId
       ? await $fetch<{ data?: Array<{ id?: string | null }> }>(
@@ -505,7 +508,7 @@ export const fetchProductBrands = async (): Promise<string[]> => {
       .map((brand) => (brand?.id ? String(brand.id).trim() : ''))
       .filter(Boolean)
   } catch (error) {
-    const products = await fetchProducts()
+    const products = await fetchProducts(event)
     const unique = new Set<string>()
 
     for (const product of products) {
@@ -519,14 +522,14 @@ export const fetchProductBrands = async (): Promise<string[]> => {
   }
 }
 
-export const findProductsByBrand = async (brand: string): Promise<Product[]> => {
+export const findProductsByBrand = async (brand: string, event?: H3Event): Promise<Product[]> => {
   const normalizedBrand = sanitizeBrand(brand)
 
   if (!normalizedBrand) {
     return []
   }
 
-  const { base, vendorId } = getApiConfig()
+  const { base, vendorId } = await getApiConfig(event)
   try {
     const response = await fetchRemoteProducts(base, {
       brandId: normalizedBrand,
@@ -537,7 +540,7 @@ export const findProductsByBrand = async (brand: string): Promise<Product[]> => 
       return mapped
     }
 
-    const brands = await fetchProductBrands()
+    const brands = await fetchProductBrands(event)
     const canonical = brands.find(
       (entry) => entry.trim().toLowerCase() === normalizedBrand.toLowerCase()
     )
@@ -555,7 +558,7 @@ export const findProductsByBrand = async (brand: string): Promise<Product[]> => 
     console.error('Failed to load products by brand from upstream', error)
   }
 
-  const products = await fetchProducts()
+  const products = await fetchProducts(event)
   const target = normalizedBrand.toLowerCase()
   return products.filter((product) => product.brand?.toLowerCase() === target)
 }

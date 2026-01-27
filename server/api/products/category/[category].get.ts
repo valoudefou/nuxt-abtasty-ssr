@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
 
   const decodedCategory = decodeURIComponent(category)
   const target = decodedCategory.toLowerCase()
-  const products = await fetchProducts()
+  const products = await fetchProducts(event)
   const matches = products.filter((product) => getProductCategories(product).has(target))
 
   if (matches.length === 0) {

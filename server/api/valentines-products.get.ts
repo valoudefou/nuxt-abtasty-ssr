@@ -1,8 +1,10 @@
 import { createError, useRuntimeConfig } from '#imports'
+import type { H3Event } from 'h3'
 
 import type { Product } from '@/types/product'
 import type { RemoteProduct, RemoteResponse } from '@/server/utils/products'
 import { normalizeRemoteProduct } from '@/server/utils/products'
+import { getSelectedVendor } from '@/server/utils/vendors'
 
 const CACHE_TTL_MS = 1000 * 60
 const PAGE_SIZE = 100
@@ -13,7 +15,7 @@ type ValentinesCache = {
   fetchedAt: number
 }
 
-let cached: ValentinesCache | null = null
+const cachedByVendor = new Map<string, ValentinesCache>()
 
 const normalizeResponse = (response: RemoteResponse | RemoteProduct[] | null): RemoteProduct[] => {
   if (!response) return []
@@ -39,21 +41,21 @@ const hasGiftCategory = (product: RemoteProduct) => {
   return text.includes('gift')
 }
 
-const getApiConfig = () => {
+const getApiConfig = async (event: H3Event) => {
   const config = useRuntimeConfig()
   const baseRaw = config.public?.apiBase || config.public?.productsApiBase || 'https://api.live-server1.com'
   const base = baseRaw.replace(/\/+$/, '')
-  const vendorId = config.public?.productsVendorId ? String(config.public.productsVendorId).trim() : ''
+  const vendorId = await getSelectedVendor(event)
   return { base, vendorId }
 }
 
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (event) => {
   const now = Date.now()
+  const { base, vendorId } = await getApiConfig(event)
+  const cached = cachedByVendor.get(vendorId)
   if (cached && now - cached.fetchedAt < CACHE_TTL_MS) {
     return cached
   }
-
-  const { base, vendorId } = getApiConfig()
   const curated: Product[] = []
   let cursor: string | null = null
 
@@ -90,6 +92,7 @@ export default defineEventHandler(async () => {
     })
   }
 
-  cached = { products: curated, fetchedAt: now }
-  return cached
+  const nextCache = { products: curated, fetchedAt: now }
+  cachedByVendor.set(vendorId, nextCache)
+  return nextCache
 })

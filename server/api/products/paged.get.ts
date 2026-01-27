@@ -1,9 +1,11 @@
 import { setResponseHeader } from 'h3'
+import type { H3Event } from 'h3'
 import { useRuntimeConfig } from '#imports'
 
 import type { Product } from '@/types/product'
 import type { RemoteResponse } from '@/server/utils/products'
 import { fetchProducts, normalizeRemoteProduct } from '@/server/utils/products'
+import { getSelectedVendor } from '@/server/utils/vendors'
 
 const DEFAULT_PAGE_SIZE = 12
 const MAX_PAGE_SIZE = 60
@@ -47,6 +49,7 @@ const deriveBrands = (collection: Product[]) => {
 }
 
 const buildFallbackResponse = async (
+  event: H3Event,
   options: {
     page: number
     pageSize: number
@@ -57,7 +60,7 @@ const buildFallbackResponse = async (
     includeFacets: boolean
   }
 ) => {
-  const allProducts = await fetchProducts()
+  const allProducts = await fetchProducts(event)
   const brandFilter = options.brandId !== 'All' ? options.brandId.toLowerCase() : null
   const categoryFilter = options.categoryId !== 'All' ? options.categoryId.toLowerCase() : null
   const vendorFilter = options.vendorId ? options.vendorId.toLowerCase() : null
@@ -114,13 +117,13 @@ export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const baseRaw = config.public?.apiBase || config.public?.productsApiBase || 'https://api.live-server1.com'
   const base = baseRaw.replace(/\/+$/, '')
-  const vendorId = vendorIdFromQuery || (config.public?.productsVendorId ? String(config.public.productsVendorId).trim() : '')
+  const vendorId = vendorIdFromQuery || (await getSelectedVendor(event))
 
   type RemotePagedResponse = RemoteResponse & { next_cursor?: string; nextCursor?: string }
   let response: RemotePagedResponse | null = null
 
   if (cursorIsFallback) {
-    return await buildFallbackResponse({
+    return await buildFallbackResponse(event, {
       page: Number.isFinite(fallbackPage) && fallbackPage > 0 ? fallbackPage : page,
       pageSize,
       brandId,
@@ -169,7 +172,7 @@ export default defineEventHandler(async (event) => {
 
   if (!response) {
     console.error('Failed to load upstream products for paged request', lastError)
-    return await buildFallbackResponse({
+    return await buildFallbackResponse(event, {
       page,
       pageSize,
       brandId,

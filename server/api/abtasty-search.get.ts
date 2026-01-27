@@ -1,5 +1,6 @@
 import { createError } from '#imports'
 import { getQuery, setResponseStatus } from 'h3'
+import { getSelectedVendor } from '@/server/utils/vendors'
 
 const SEARCH_ENDPOINT = 'https://search-api.abtasty.com/search'
 const SEARCH_INDEX = '47c5c9b4ee0a19c9859f47734c1e8200_Catalog'
@@ -48,6 +49,7 @@ export default defineEventHandler(async (event) => {
   const categoryField = categories.length ? 'categories_ids' : ''
   const priceMin = typeof query.priceMin === 'string' ? query.priceMin : null
   const priceMax = typeof query.priceMax === 'string' ? query.priceMax : null
+  const vendorId = await getSelectedVendor(event)
 
   const url = new URL(SEARCH_ENDPOINT)
   url.searchParams.set('index', SEARCH_INDEX)
@@ -59,6 +61,7 @@ export default defineEventHandler(async (event) => {
     appendListFilter(url, categoryField, categories)
   }
   appendListFilter(url, 'brand', brands)
+  appendListFilter(url, 'vendor', [vendorId])
 
   if (priceMin !== null || priceMax !== null) {
     if (priceMin !== null) {

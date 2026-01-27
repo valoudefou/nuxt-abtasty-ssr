@@ -111,16 +111,19 @@ export default defineEventHandler(async (event) => {
           ? String(filterValue)
           : undefined
 
-  const payload = await fetchRecommendations({
-    field: filterField,
-    value: normalizedFilterValue,
-    categoriesInCart: categoriesInCart?.length ? categoriesInCart : undefined,
-    addedToCartProductId: addedToCartProductId || undefined,
-    viewingItemId: viewingItemId || undefined,
-    viewingItemSku: viewingItemSku || undefined,
-    cartProductIds: cartProductIds?.length ? cartProductIds : undefined,
-    placementId: normalizedPlacementId
-  })
+  const payload = await fetchRecommendations(
+    {
+      field: filterField,
+      value: normalizedFilterValue,
+      categoriesInCart: categoriesInCart?.length ? categoriesInCart : undefined,
+      addedToCartProductId: addedToCartProductId || undefined,
+      viewingItemId: viewingItemId || undefined,
+      viewingItemSku: viewingItemSku || undefined,
+      cartProductIds: cartProductIds?.length ? cartProductIds : undefined,
+      placementId: normalizedPlacementId
+    },
+    event
+  )
 
   await storage.setItem(cacheKey, {
     payload,
