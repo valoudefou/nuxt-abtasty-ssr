@@ -2,7 +2,7 @@ import { useRuntimeConfig } from '#imports'
 import { getCookie } from 'h3'
 import type { H3Event } from 'h3'
 
-const DEFAULT_VENDOR_ID = 'karkkainen'
+const DEFAULT_VENDOR_ID = ''
 const VENDOR_COOKIE = 'abt_vendor'
 const CACHE_TTL_MS = 1000 * 60 * 5
 
@@ -75,7 +75,7 @@ export const fetchVendors = async (options: { fresh?: boolean } = {}): Promise<V
     console.error('Failed to fetch vendors from upstream', error)
   }
 
-  const fallback = [{ id: DEFAULT_VENDOR_ID, name: 'Karkkainen' }]
+  const fallback: Vendor[] = []
   cached = { vendors: fallback, fetchedAt: now }
   return fallback
 }
@@ -84,14 +84,16 @@ export const getSelectedVendor = async (event?: H3Event): Promise<string> => {
   const cookieValue = event ? getCookie(event, VENDOR_COOKIE) : undefined
   const candidate = cookieValue ? String(cookieValue).trim() : ''
   if (!candidate) {
-    return DEFAULT_VENDOR_ID
+    return ''
   }
 
   const vendors = await fetchVendors()
+  if (vendors.length === 0) {
+    return ''
+  }
   const isValid = vendors.some((vendor) => vendor.id === candidate)
-  return isValid ? candidate : DEFAULT_VENDOR_ID
+  return isValid ? candidate : ''
 }
 
 export const DEFAULT_VENDOR = DEFAULT_VENDOR_ID
 export const VENDOR_COOKIE_NAME = VENDOR_COOKIE
-

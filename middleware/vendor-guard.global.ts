@@ -1,4 +1,4 @@
-const DEFAULT_VENDOR = 'karkkainen'
+const DEFAULT_VENDOR = ''
 
 const resetVendorScopedState = () => {
   // Category page state

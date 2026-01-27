@@ -1,4 +1,4 @@
-const DEFAULT_VENDOR_ID = 'karkkainen'
+const DEFAULT_VENDOR_ID = ''
 const VENDOR_COOKIE = 'abt_vendor'
 const VENDOR_STORAGE_KEY = 'abt_vendor'
 
@@ -31,9 +31,8 @@ export const getSelectedVendorClient = () => {
     }
   }
 
-  return DEFAULT_VENDOR_ID
+  return ''
 }
 
 export const VENDOR_STORAGE = VENDOR_STORAGE_KEY
 export const DEFAULT_VENDOR_CLIENT = DEFAULT_VENDOR_ID
-

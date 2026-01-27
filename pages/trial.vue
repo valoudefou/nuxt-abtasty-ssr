@@ -20,7 +20,7 @@
             <input
               v-model.trim="vendorQuery"
               type="text"
-              placeholder="Start typing a vendor name"
+              placeholder="Company name"
               autocomplete="off"
               class="w-full rounded-2xl border border-slate-200 bg-white px-6 py-5 text-lg font-medium text-slate-800 shadow-sm outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
               :disabled="Boolean(pendingVendorId)"
@@ -51,7 +51,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 
-import { DEFAULT_VENDOR_CLIENT, getSelectedVendorClient, VENDOR_STORAGE } from '@/utils/vendorsClient'
+import { getSelectedVendorClient, VENDOR_STORAGE } from '@/utils/vendorsClient'
 
 definePageMeta({
   layout: 'blank'
@@ -69,11 +69,10 @@ const { data } = await useAsyncData<{ data: Vendor[] }>(
 )
 
 const vendors = computed<Vendor[]>(() => {
-  const list = data.value?.data ?? []
-  return list.length > 0 ? list : [{ id: DEFAULT_VENDOR_CLIENT, name: 'Karkkainen' }]
+  return data.value?.data ?? []
 })
 
-const selectedVendorId = ref<string>(DEFAULT_VENDOR_CLIENT)
+const selectedVendorId = ref<string>('')
 const pendingVendorId = ref<string>('')
 const vendorQuery = ref<string>('')
 const vendorError = ref<string>('')
@@ -92,7 +91,9 @@ const selectedVendorName = computed(() => {
 onMounted(() => {
   const currentVendorId = getSelectedVendorClient()
   selectedVendorId.value = currentVendorId
-  vendorQuery.value = vendorNameById.value[currentVendorId] || currentVendorId
+  if (currentVendorId) {
+    vendorQuery.value = vendorNameById.value[currentVendorId] || currentVendorId
+  }
 })
 
 const getRedirectTarget = () => {
