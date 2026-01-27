@@ -297,6 +297,12 @@
               <span class="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-primary-500"></span>
               Updating results…
             </div>
+            <div
+              v-if="!pending && !visibleProducts.length"
+              class="rounded-3xl border border-slate-200 bg-white px-6 py-10 text-center text-base font-semibold text-slate-600 shadow-sm"
+            >
+              Merchandising coming soon
+            </div>
             <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               <ValentinesProductCard
                 v-for="product in visibleProducts"
