@@ -408,10 +408,8 @@ type NavigationItem = {
 
 const navigation: NavigationItem[] = [
   { label: 'Home', href: '/' },
-  { label: 'Categories', href: '/categories' },
   { label: 'Valentines', href: '/valentines-day', icon: HeartIcon },
-  { label: 'About', href: '/about' },
-  { label: 'Journal', href: '/journal' }
+  { label: 'Categories', href: '/categories' }
 ]
 
 const route = useRoute()
