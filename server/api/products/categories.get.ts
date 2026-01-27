@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
   try {
     const response = await $fetch<{ data?: Array<{ id?: string | null }> }>(
       `${base}/vendors/${encodeURIComponent(vendorId)}/categories`,
-      { params: { limit: 500 } }
+      { params: { limit: 100000 } }
     )
     return (response?.data ?? [])
       .map((item) => String(item?.id ?? '').trim())

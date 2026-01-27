@@ -193,17 +193,17 @@ export default defineEventHandler(async (event) => {
       brandId !== 'All'
         ? Promise.resolve(deriveCategories(products))
         : $fetch<{ data?: Array<{ id?: string | null }> }>(`${base}/categories`, {
-          params: vendorId ? { vendorId, limit: 500 } : { limit: 500 }
+          params: vendorId ? { vendorId, limit: 100000 } : { limit: 100000 }
         })
           .then((payload) => (payload?.data ?? []).map((item) => String(item?.id ?? '').trim()).filter(Boolean))
           .catch(() => []),
       (vendorId
         ? $fetch<{ data?: Array<{ id?: string | null }> }>(
           `${base}/vendors/${encodeURIComponent(vendorId)}/brands`,
-          { params: { limit: 500 } }
+          { params: { limit: 100000 } }
         )
         : $fetch<{ data?: Array<{ id?: string | null }> }>(`${base}/brands`, {
-          params: { limit: 500 }
+          params: { limit: 100000 }
         }))
         .then((payload) => (payload?.data ?? []).map((item) => String(item?.id ?? '').trim()).filter(Boolean))
         .catch(() => [])
