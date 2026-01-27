@@ -19,9 +19,9 @@
           <form class="mt-3" @submit.prevent="onVendorSubmit">
             <input
               v-model.trim="vendorQuery"
-              list="vendor-options"
               type="text"
               placeholder="Start typing a vendor name"
+              autocomplete="off"
               class="w-full rounded-2xl border border-slate-200 bg-white px-6 py-5 text-lg font-medium text-slate-800 shadow-sm outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
               :disabled="Boolean(pendingVendorId)"
               @input="onVendorInput"
@@ -35,9 +35,6 @@
                 Use catalog
               </button>
             </div>
-            <datalist id="vendor-options">
-              <option v-for="vendor in vendors" :key="vendor.id" :value="vendor.name" />
-            </datalist>
           </form>
           <p
             class="mt-4 text-base font-medium"
@@ -64,8 +61,6 @@ type Vendor = {
   id: string
   name: string
 }
-
-const route = useRoute()
 
 const { data } = await useAsyncData<{ data: Vendor[] }>(
   'trial-vendors',
@@ -101,8 +96,7 @@ onMounted(() => {
 })
 
 const getRedirectTarget = () => {
-  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ''
-  return redirect.trim() || '/categories'
+  return '/categories'
 }
 
 const normalize = (value: string) => value.trim().toLowerCase()

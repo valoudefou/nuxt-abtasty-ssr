@@ -38,10 +38,7 @@ export default defineNuxtRouteMiddleware((to) => {
 
   const currentVendor = cookieValue || localValue
   if (!currentVendor) {
-    return navigateTo({
-      path: '/trial',
-      query: { redirect: to.fullPath }
-    })
+    return navigateTo('/trial')
   }
 
   if (import.meta.client) {
