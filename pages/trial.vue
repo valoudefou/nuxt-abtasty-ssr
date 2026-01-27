@@ -37,7 +37,7 @@
           <div class="mt-6 flex justify-end">
             <NuxtLink
               to="/"
-              class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-primary-300 hover:text-primary-600"
+              class="text-sm font-semibold text-primary-600 transition hover:text-primary-500 hover:underline"
             >
               Browse
             </NuxtLink>
