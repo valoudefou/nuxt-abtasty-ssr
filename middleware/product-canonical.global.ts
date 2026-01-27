@@ -1,6 +1,6 @@
 export default defineNuxtRouteMiddleware((to) => {
   // Only apply to product detail routes.
-  if (to.path.startsWith('/products/')) {
+  if (to.path.startsWith('/products/') || to.path.includes('/products/')) {
     const param = Array.isArray(to.params.id) ? to.params.id.join('-') : String(to.params.id ?? '')
     const match = param.match(/(\d+)(?!.*\d)/)
 

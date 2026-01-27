@@ -173,10 +173,6 @@ import { initializeFlagship, logFlagExposureToLooker } from '@/utils/flagship'
 import { flagshipLogStore } from '@/utils/flagship/logStore'
 import type { Product } from '@/types/product'
 
-definePageMeta({
-  middleware: 'product-canonical'
-})
-
 const route = useRoute()
 const cart = useCart()
 const notifications = useNotifications()
