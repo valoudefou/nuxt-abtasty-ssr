@@ -498,10 +498,10 @@ export const fetchProductBrands = async (event?: H3Event): Promise<string[]> => 
     const response = vendorId
       ? await $fetch<{ data?: Array<{ id?: string | null }> }>(
         `${base}/vendors/${encodeURIComponent(vendorId)}/brands`,
-        { params: { limit: 500 } }
+        { params: { limit: 100000 } }
       )
       : await $fetch<{ data?: Array<{ id?: string | null }> }>(`${base}/brands`, {
-        params: { limit: 500 }
+        params: { limit: 100000 }
       })
     const brands = response?.data ?? []
     return brands
