@@ -77,7 +77,7 @@ export default defineNuxtConfig({
         {
           id: 'vwoCode',
           type: 'text/javascript',
-          children: `window._vwo_code ||
+          innerHTML: `window._vwo_code ||
 (function () {
 var w=window,
 d=document;
@@ -91,7 +91,7 @@ if(f=!1,v=d.querySelector('#vwoCode'),cc={},-1<d.URL.indexOf('__vwo_disable__')|
         }
       ],
       __dangerouslyDisableSanitizersByTagID: {
-        vwoCode: ['children']
+        vwoCode: ['innerHTML']
       }
     }
   },
