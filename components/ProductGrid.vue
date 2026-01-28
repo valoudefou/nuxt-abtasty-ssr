@@ -59,7 +59,12 @@
     </div>
 
     <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      <ProductCard v-for="product in products" :key="product.id" :product="product" />
+      <ProductCard
+        v-for="product in products"
+        :key="product.id"
+        :product="product"
+        @view-details="emit('view-details', $event)"
+      />
     </div>
 
     <p v-if="error" class="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-600">{{ error }}</p>
@@ -145,6 +150,7 @@ const emit = defineEmits<{
   (event: 'search', query: string): void
   (event: 'page-change', page: number): void
   (event: 'load-more'): void
+  (event: 'view-details', product: Product): void
 }>()
 
 const filteredFilters = computed(() => {

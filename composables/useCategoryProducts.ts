@@ -215,6 +215,17 @@ export const useCategoryProducts = () => {
     await fetchProducts()
   }
 
+  const applyAffinity = async (category: string | null, brand: string | null) => {
+    selectedCategory.value = category?.trim() || 'All'
+    selectedBrand.value = brand?.trim() || 'All'
+    error.value = null
+    page.value = 1
+    pageCache.value = {}
+    includeFacetsNext.value = true
+
+    await fetchProducts()
+  }
+
   const searchProducts = async (query: string) => {
     const trimmed = query.trim()
     searchQuery.value = trimmed
@@ -257,6 +268,7 @@ export const useCategoryProducts = () => {
     fetchProducts,
     selectCategory,
     selectBrand,
+    applyAffinity,
     searchProducts,
     loadMore
   }

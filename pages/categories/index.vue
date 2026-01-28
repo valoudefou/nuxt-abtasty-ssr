@@ -40,6 +40,7 @@
       @select-brand="onSelectCategory"
       @search="onSearch"
       @load-more="onLoadMore"
+      @view-details="onViewDetails"
     >
       <template #between-recommendations>
         <div
@@ -67,9 +68,7 @@
               class="group inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-primary-300 hover:text-primary-600 hover:shadow-md"
               @click="applyStoredAffinity(affinity)"
             >
-              <span v-if="affinity.category">{{ affinity.category }}</span>
-              <span v-if="affinity.category && affinity.brand" class="text-slate-300">/</span>
-              <span v-if="affinity.brand">{{ affinity.brand }}</span>
+              <span>{{ affinity.category || affinity.brand }}</span>
             </button>
           </div>
         </div>
@@ -84,6 +83,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import type { Product } from '@/types/product'
 import NewsletterBanner from '@/components/NewsletterBanner.vue'
 import ProductGrid from '@/components/ProductGrid.vue'
 
@@ -114,10 +114,15 @@ const readCookie = (name: string) => {
   return ''
 }
 
-const persistSelections = () => {
+const persistSelections = (product?: Product) => {
   const category =
-    selectedCategory.value && selectedCategory.value !== 'All' ? selectedCategory.value : null
-  const brand = selectedBrand.value && selectedBrand.value !== 'All' ? selectedBrand.value : null
+    selectedCategory.value && selectedCategory.value !== 'All'
+      ? selectedCategory.value
+      : product?.category?.trim() || null
+  const brand =
+    selectedBrand.value && selectedBrand.value !== 'All'
+      ? selectedBrand.value
+      : product?.brand?.trim() || null
 
   if (!category && !brand) {
     return
@@ -145,6 +150,7 @@ const {
   fetchProducts,
   selectCategory,
   selectBrand,
+  applyAffinity,
   searchProducts,
   canLoadMore,
   loadMore
@@ -192,22 +198,18 @@ onMounted(() => {
 
 const onSelectCategory = (category: string) => {
   selectCategory(category)
-  persistSelections()
 }
 
 const onSelectBrand = (brand: string) => {
   selectBrand(brand)
-  persistSelections()
 }
 
 const applyStoredAffinity = (affinity: StoredAffinity) => {
-  if (affinity.category) {
-    selectCategory(affinity.category)
-  }
-  if (affinity.brand) {
-    selectBrand(affinity.brand)
-  }
-  persistSelections()
+  void applyAffinity(affinity.category, affinity.brand)
+}
+
+const onViewDetails = (product: Product) => {
+  persistSelections(product)
 }
 
 const clearAffinities = () => {

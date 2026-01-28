@@ -54,6 +54,7 @@
         <NuxtLink
           :to="product.link || `/products/${product.id}`"
           class="inline-flex flex-1 items-center justify-center rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+          @click="emit('view-details', product)"
         >
           View details
         </NuxtLink>
@@ -67,6 +68,9 @@ import { ShoppingCartIcon, StarIcon } from '@heroicons/vue/24/solid'
 import type { Product } from '@/types/product'
 
 const props = defineProps<{ product: Product }>()
+const emit = defineEmits<{
+  (event: 'view-details', product: Product): void
+}>()
 
 const cart = useCart()
 
