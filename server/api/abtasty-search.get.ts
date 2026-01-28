@@ -55,11 +55,7 @@ export default defineEventHandler(async (event) => {
 
   const url = new URL(SEARCH_ENDPOINT)
   url.searchParams.set('index', SEARCH_INDEX)
-  if (normalizedVendor) {
-    url.searchParams.append(`filters[vendor][${normalizedVendor}]`, text)
-  } else {
-    url.searchParams.set('text', text)
-  }
+  url.searchParams.set('text', text)
   url.searchParams.set('page', page)
   url.searchParams.set('hitsPerPage', hitsPerPage)
 
@@ -72,6 +68,9 @@ export default defineEventHandler(async (event) => {
     }
   } else {
     appendListFilter(url, 'brand', brandFilters)
+  }
+  if (normalizedVendor) {
+    appendListFilter(url, 'vendor', [normalizedVendor])
   }
 
   if (priceMin !== null || priceMax !== null) {
