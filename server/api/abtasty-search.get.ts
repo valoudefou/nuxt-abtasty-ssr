@@ -55,14 +55,24 @@ export default defineEventHandler(async (event) => {
 
   const url = new URL(SEARCH_ENDPOINT)
   url.searchParams.set('index', SEARCH_INDEX)
-  url.searchParams.set('text', text)
+  if (normalizedVendor) {
+    url.searchParams.append(`filters[brand][${normalizedVendor}]`, text)
+  } else {
+    url.searchParams.set('text', text)
+  }
   url.searchParams.set('page', page)
   url.searchParams.set('hitsPerPage', hitsPerPage)
 
   if (categoryField && categories.length) {
     appendListFilter(url, categoryField, categories)
   }
-  appendListFilter(url, 'brand', brandFilters)
+  if (brands.length && normalizedVendor) {
+    for (const brand of brands) {
+      url.searchParams.append(`filters[brand][${normalizedVendor}]`, brand)
+    }
+  } else {
+    appendListFilter(url, 'brand', brandFilters)
+  }
   if (normalizedVendor) {
     appendListFilter(url, 'vendor', [normalizedVendor])
   }
@@ -79,6 +89,15 @@ export default defineEventHandler(async (event) => {
   }
 
   const upstreamUrl = url.toString()
+  console.log('[Search] Fetching AB Tasty search', {
+    endpoint: upstreamUrl,
+    text,
+    vendor: normalizedVendor || null,
+    brands,
+    categories,
+    priceMin: priceMin ?? null,
+    priceMax: priceMax ?? null
+  })
 
   try {
     const response = await fetch(upstreamUrl)
@@ -115,7 +134,13 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    return await response.json()
+    const payload = await response.json()
+    const hitCount = Array.isArray(payload?.hits) ? payload.hits.length : 0
+    console.log('[Search] AB Tasty search response', {
+      endpoint: upstreamUrl,
+      hits: hitCount
+    })
+    return payload
   } catch (error) {
     console.error('[ABTastySearch] request failed', error)
     setResponseStatus(event, 502, 'Failed to load AB Tasty search results')

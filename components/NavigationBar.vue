@@ -389,8 +389,7 @@ interface SearchHit {
   brand: string | null
 }
 
-const SEARCH_ENDPOINT = 'https://search-api.abtasty.com/search'
-const SEARCH_INDEX = '47c5c9b4ee0a19c9859f47734c1e8200_Catalog'
+const SEARCH_ENDPOINT = '/api/abtasty-search'
 const AUTOCOMPLETE_ENDPOINT = 'https://search-api.abtasty.com/autocomplete'
 const AUTOCOMPLETE_CLIENT_ID = '47c5c9b4ee0a19c9859f47734c1e8200'
 const FALLBACK_IMAGE = 'https://assets-manager.abtasty.com/placeholder.png'
@@ -510,8 +509,10 @@ let suppressAutocomplete = false
 const performSearch = async (query: string) => {
   const trimmed = query.trim()
   const requestId = ++latestRequestId
+  const normalizedVendor = activeVendor.value?.trim() || ''
 
   if (trimmed.length < 2) {
+    console.debug('[Search] skip: query too short', { query: trimmed })
     searchResults.value = []
     searchError.value = ''
     isSearching.value = false
@@ -520,36 +521,61 @@ const performSearch = async (query: string) => {
 
   isSearching.value = true
   searchError.value = ''
+  console.debug('[Search] start', {
+    query: trimmed,
+    vendor: normalizedVendor || null,
+    brand: selectedBrand.value,
+    price: {
+      min: selectedPriceMin.value,
+      max: selectedPriceMax.value,
+      custom: hasCustomPriceRange.value
+    }
+  })
 
   try {
-    const url = new URL(SEARCH_ENDPOINT)
-    url.searchParams.set('index', SEARCH_INDEX)
+    const url = new URL(SEARCH_ENDPOINT, window.location.origin)
     url.searchParams.set('text', trimmed)
 
     if (selectedBrand.value) {
-      url.searchParams.append('filters[brand][]', selectedBrand.value)
+      url.searchParams.append('brand', selectedBrand.value)
     }
     if (hasCustomPriceRange.value) {
-      url.searchParams.append('filters[price][0][operator]', '>')
-      url.searchParams.append('filters[price][0][value]', String(selectedPriceMin.value))
-      url.searchParams.append('filters[price][1][operator]', '<')
-      url.searchParams.append('filters[price][1][value]', String(selectedPriceMax.value))
+      url.searchParams.append('priceMin', String(selectedPriceMin.value))
+      url.searchParams.append('priceMax', String(selectedPriceMax.value))
     }
+
+    console.debug('[Search] request', {
+      url: url.toString(),
+      vendor: normalizedVendor || null,
+      brand: selectedBrand.value,
+      priceRange: hasCustomPriceRange.value
+        ? { min: selectedPriceMin.value, max: selectedPriceMax.value }
+        : null
+    })
 
     const response = await fetch(url.toString())
 
     if (!response.ok) {
+      console.error('[Search] response error', {
+        status: response.status,
+        statusText: response.statusText
+      })
       throw new Error(`Search failed with status ${response.status}`)
     }
 
     const data = (await response.json()) as ApiSearchResponse
 
     if (requestId !== latestRequestId) {
+      console.debug('[Search] stale response ignored', { requestId, latestRequestId })
       return
     }
 
     const normalizedHits = (data.hits ?? []).map(normalizeHit)
     searchResults.value = normalizedHits
+    console.debug('[Search] results', {
+      totalHits: normalizedHits.length,
+      brandsFacetCount: data.facets?.brand?.values?.length ?? 0
+    })
 
     const brandsFromHits = Array.from(
       new Set(
@@ -572,8 +598,10 @@ const performSearch = async (query: string) => {
         ? [...brandsFromFacets, selectedBrand.value].sort((a, b) => a.localeCompare(b))
         : brandsFromFacets
     }
+    console.debug('[Search] brand options', { count: brandOptions.value.length })
   } catch (error) {
     if (requestId !== latestRequestId) {
+      console.debug('[Search] error ignored for stale request', { requestId, latestRequestId })
       return
     }
     console.error('Failed to search products from header search', error)
@@ -789,6 +817,7 @@ const performAutocomplete = async (query: string) => {
   const requestId = ++autocompleteRequestId
 
   if (!trimmed) {
+    console.debug('[Search][Autocomplete] skip: empty query')
     autocompleteSuggestions.value = []
     return
   }
@@ -799,15 +828,24 @@ const performAutocomplete = async (query: string) => {
     url.searchParams.set('query', trimmed)
     url.searchParams.set('hits_per_page', '6')
 
+    console.debug('[Search][Autocomplete] request', { url: url.toString() })
     const response = await fetch(url.toString())
 
     if (!response.ok) {
+      console.error('[Search][Autocomplete] response error', {
+        status: response.status,
+        statusText: response.statusText
+      })
       throw new Error(`Autocomplete failed with status ${response.status}`)
     }
 
     const data = (await response.json()) as { suggestions?: { text?: string }[] }
 
     if (requestId !== autocompleteRequestId) {
+      console.debug('[Search][Autocomplete] stale response ignored', {
+        requestId,
+        latestRequestId: autocompleteRequestId
+      })
       return
     }
 
@@ -815,8 +853,15 @@ const performAutocomplete = async (query: string) => {
       data.suggestions?.map((suggestion) => suggestion.text?.trim())
         .filter((text): text is string => Boolean(text))
         .slice(0, 6) ?? []
+    console.debug('[Search][Autocomplete] results', {
+      count: autocompleteSuggestions.value.length
+    })
   } catch (error) {
     if (requestId !== autocompleteRequestId) {
+      console.debug('[Search][Autocomplete] error ignored for stale request', {
+        requestId,
+        latestRequestId: autocompleteRequestId
+      })
       return
     }
     console.error('Failed to fetch autocomplete suggestions', error)
