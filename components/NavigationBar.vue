@@ -2,7 +2,11 @@
   <div>
     <header ref="headerRef" class="fixed inset-x-0 top-0 z-40 bg-white/90 backdrop-blur">
       <nav class="mx-auto flex max-w-7xl items-center px-4 py-4 sm:px-6 lg:px-8">
-        <NuxtLink to="/" class="flex flex-1 items-center gap-2 text-xl font-semibold text-primary-600">
+        <NuxtLink
+          to="/"
+          class="flex flex-1 items-center gap-2 text-xl font-semibold text-primary-600"
+          @click="handleNavClick"
+        >
           <span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary-100 text-primary-600">
             <ShoppingBagIcon class="h-6 w-6" />
           </span>
@@ -14,6 +18,7 @@
             :key="item.href"
             :to="item.href"
             :class="['inline-flex items-center gap-2', desktopLinkClass(item.href)]"
+            @click="handleNavClick"
           >
             <component
               :is="item.icon"
@@ -33,7 +38,11 @@
           >
             <MagnifyingGlassIcon class="h-5 w-5" />
           </button>
-          <NuxtLink to="/cart" class="relative inline-flex items-center rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-md">
+          <NuxtLink
+            to="/cart"
+            class="relative inline-flex items-center rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-md"
+            @click="handleNavClick"
+          >
             <ShoppingCartIcon class="mr-2 h-5 w-5" />
             Cart
             <span
@@ -88,7 +97,7 @@
               :key="item.href"
               :to="item.href"
               :class="mobileLinkClass(item.href)"
-              @click="closeMobileMenu"
+              @click="handleNavClick"
             >
               <span class="flex items-center gap-2">
                 <component
@@ -325,6 +334,21 @@
                       </NuxtLink>
                     </article>
                   </div>
+                  <div class="mt-6 flex flex-col items-center gap-3">
+                    <button
+                      v-if="canLoadMore"
+                      type="button"
+                      class="inline-flex items-center justify-center rounded-full border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                      :disabled="isLoadingMore || isSearching"
+                      @click="loadMoreResults"
+                    >
+                      <span v-if="isLoadingMore">Loading more...</span>
+                      <span v-else>Load more results</span>
+                    </button>
+                    <p class="text-xs text-slate-500">
+                      Showing {{ searchResults.length }} of {{ totalHits || searchResults.length }} results
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -378,6 +402,10 @@ interface ApiFacetResponse {
 interface ApiSearchResponse {
   hits?: ApiSearchHit[]
   facets?: ApiFacetResponse
+  totalPages?: number
+  page?: number
+  hitsPerPage?: number
+  totalHits?: number
 }
 
 interface SearchHit {
@@ -396,6 +424,7 @@ const FALLBACK_IMAGE = 'https://assets-manager.abtasty.com/placeholder.png'
 const PRICE_SLIDER_MIN = 0
 const PRICE_SLIDER_MAX = 500
 const PRICE_SLIDER_STEP = 5
+const SEARCH_HITS_PER_PAGE = 24
 
 const { totalItems } = useCart()
 const activeVendor = useState<string>('active-vendor', () => '')
@@ -449,11 +478,15 @@ const searchQuery = ref('')
 const searchResults = ref<SearchHit[]>([])
 const searchError = ref('')
 const isSearching = ref(false)
+const isLoadingMore = ref(false)
 const brandOptions = ref<string[]>([])
 const selectedBrand = ref<string | null>(null)
 const selectedPriceMin = ref(PRICE_SLIDER_MIN)
 const selectedPriceMax = ref(PRICE_SLIDER_MAX)
 const autocompleteSuggestions = ref<string[]>([])
+const currentPage = ref(0)
+const totalPages = ref(0)
+const totalHits = ref(0)
 
 const hasMinimumQuery = computed(() => searchQuery.value.trim().length >= 2)
 const isDesktop = computed(() => viewportWidth.value >= 1024)
@@ -506,20 +539,29 @@ let debounceTimeout: ReturnType<typeof setTimeout> | null = null
 let autocompleteRequestId = 0
 let suppressAutocomplete = false
 
-const performSearch = async (query: string) => {
+const performSearch = async (query: string, options: { page?: number; append?: boolean } = {}) => {
   const trimmed = query.trim()
   const requestId = ++latestRequestId
   const normalizedVendor = activeVendor.value?.trim() || ''
+  const requestedPage = options.page ?? 0
+  const shouldAppend = Boolean(options.append)
 
   if (trimmed.length < 2) {
     console.debug('[Search] skip: query too short', { query: trimmed })
     searchResults.value = []
     searchError.value = ''
     isSearching.value = false
+    currentPage.value = 0
+    totalPages.value = 0
+    totalHits.value = 0
     return
   }
 
-  isSearching.value = true
+  if (shouldAppend) {
+    isLoadingMore.value = true
+  } else {
+    isSearching.value = true
+  }
   searchError.value = ''
   console.debug('[Search] start', {
     query: trimmed,
@@ -529,12 +571,15 @@ const performSearch = async (query: string) => {
       min: selectedPriceMin.value,
       max: selectedPriceMax.value,
       custom: hasCustomPriceRange.value
-    }
+    },
+    page: requestedPage
   })
 
   try {
     const url = new URL(SEARCH_ENDPOINT, window.location.origin)
     url.searchParams.set('text', trimmed)
+    url.searchParams.set('page', String(requestedPage))
+    url.searchParams.set('hitsPerPage', String(SEARCH_HITS_PER_PAGE))
 
     if (selectedBrand.value) {
       url.searchParams.append('brand', selectedBrand.value)
@@ -550,7 +595,8 @@ const performSearch = async (query: string) => {
       brand: selectedBrand.value,
       priceRange: hasCustomPriceRange.value
         ? { min: selectedPriceMin.value, max: selectedPriceMax.value }
-        : null
+        : null,
+      page: requestedPage
     })
 
     const response = await fetch(url.toString())
@@ -571,10 +617,20 @@ const performSearch = async (query: string) => {
     }
 
     const normalizedHits = (data.hits ?? []).map(normalizeHit)
-    searchResults.value = normalizedHits
+    if (shouldAppend) {
+      searchResults.value = [...searchResults.value, ...normalizedHits]
+    } else {
+      searchResults.value = normalizedHits
+    }
+    currentPage.value = Number.isFinite(data.page) ? Number(data.page) : requestedPage
+    totalPages.value = Number.isFinite(data.totalPages) ? Number(data.totalPages) : 0
+    totalHits.value = Number.isFinite(data.totalHits) ? Number(data.totalHits) : searchResults.value.length
     console.debug('[Search] results', {
       totalHits: normalizedHits.length,
-      brandsFacetCount: data.facets?.brand?.values?.length ?? 0
+      brandsFacetCount: data.facets?.brand?.values?.length ?? 0,
+      page: currentPage.value,
+      totalPages: totalPages.value,
+      totalHitsAll: totalHits.value
     })
 
     const brandsFromHits = Array.from(
@@ -607,9 +663,13 @@ const performSearch = async (query: string) => {
     console.error('Failed to search products from header search', error)
     searchError.value = 'We were unable to search products right now.'
     searchResults.value = []
+    currentPage.value = 0
+    totalPages.value = 0
+    totalHits.value = 0
   } finally {
     if (requestId === latestRequestId) {
       isSearching.value = false
+      isLoadingMore.value = false
     }
   }
 }
@@ -690,6 +750,11 @@ const closeMobileMenu = () => {
   isMobileMenuOpen.value = false
 }
 
+const handleNavClick = () => {
+  closeOverlay()
+  closeMobileMenu()
+}
+
 const toggleMobileMenu = () => {
   isMobileMenuOpen.value = !isMobileMenuOpen.value
 }
@@ -724,6 +789,9 @@ const clearSearch = () => {
   selectedPriceMax.value = PRICE_SLIDER_MAX
   brandOptions.value = []
   autocompleteSuggestions.value = []
+  currentPage.value = 0
+  totalPages.value = 0
+  totalHits.value = 0
   nextTick(() => searchInputRef.value?.focus())
 }
 
@@ -739,6 +807,9 @@ const closeOverlay = () => {
   selectedPriceMin.value = PRICE_SLIDER_MIN
   selectedPriceMax.value = PRICE_SLIDER_MAX
   isFilterPanelOpen.value = true
+  currentPage.value = 0
+  totalPages.value = 0
+  totalHits.value = 0
 }
 
 const toggleBrandFilter = (brand: string) => {
@@ -782,6 +853,16 @@ const updateMaxPrice = (value: number) => {
     selectedPriceMax.value = next
     triggerSearchWithFilters()
   }
+}
+
+const canLoadMore = computed(() => totalPages.value > 0 && currentPage.value + 1 < totalPages.value)
+
+const loadMoreResults = () => {
+  if (isSearching.value || isLoadingMore.value || !canLoadMore.value) {
+    return
+  }
+  const nextPage = currentPage.value + 1
+  void performSearch(searchQuery.value, { page: nextPage, append: true })
 }
 
 const handleMinPriceInput = (event: Event) => {
