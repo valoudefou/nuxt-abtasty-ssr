@@ -56,7 +56,7 @@ export default defineEventHandler(async (event) => {
   const url = new URL(SEARCH_ENDPOINT)
   url.searchParams.set('index', SEARCH_INDEX)
   if (normalizedVendor) {
-    url.searchParams.append(`filters[brand][${normalizedVendor}]`, text)
+    url.searchParams.append(`filters[vendor][${normalizedVendor}]`, text)
   } else {
     url.searchParams.set('text', text)
   }
