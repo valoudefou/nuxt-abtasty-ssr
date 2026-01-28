@@ -519,7 +519,7 @@ const normalizeSearchProduct = (hit: SearchHit, index: number): Product => {
   const categories = Array.isArray(hit.categories_ids)
     ? hit.categories_ids.map((entry) => entry?.trim()).filter((entry): entry is string => Boolean(entry))
     : []
-  const primaryCategory = hit.category_id?.trim() || categories[0] || 'Search'
+  const primaryCategory = categories[0] || hit.category_id?.trim() || 'Search'
   const price = normalizeSearchPrice(hit.price)
   return {
     id,
@@ -575,11 +575,22 @@ const filteredBrandOptions = computed(() => {
   return brandOptions.value.filter((brand) => brand.toLowerCase().includes(query))
 })
 
+const categorySuggestions = computed(() => {
+  const source = giftSearchNormalized.value ? filteredProducts.value : products.value
+  const unique = new Set<string>()
+  for (const product of source) {
+    for (const entry of extractCategories(product)) {
+      unique.add(entry)
+    }
+  }
+  return Array.from(unique).sort((a, b) => a.localeCompare(b))
+})
+
 const giftSuggestionChips = computed(() => {
   if (autocompleteSuggestions.value.length) {
     return autocompleteSuggestions.value
   }
-  return categoryOptions.value.slice(0, 8)
+  return categorySuggestions.value.slice(0, 8)
 })
 
 const normalizeGiftQuery = (value: string) =>
@@ -657,11 +668,11 @@ const normalizeToken = (value: string) => value.toLowerCase().trim()
 
 const extractCategories = (product: Product) => {
   const categories = [
+    ...(product.categoryIds ?? []),
     product.category,
     product.category_level2,
     product.category_level3,
-    product.category_level4,
-    ...(product.categoryIds ?? [])
+    product.category_level4
   ]
   return categories.map((entry) => entry?.trim()).filter((entry): entry is string => Boolean(entry))
 }
