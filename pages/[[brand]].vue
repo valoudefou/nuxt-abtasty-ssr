@@ -3,7 +3,6 @@
     <HeroSection />
     <RecommendationsCarousel class="mt-20" filter-field="homepage" />
     <FeatureGrid />
-    <StoryHighlights />
     <NewsletterBanner />
   </div>
 </template>

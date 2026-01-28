@@ -18,12 +18,6 @@
           </article>
         </div>
       </div>
-      <div class="space-y-6">
-        <div v-for="(tip, index) in stylingTips" :key="tip" class="rounded-3xl bg-white p-8 shadow-lg ring-1 ring-slate-100">
-          <p class="text-xs font-semibold uppercase tracking-[0.25em] text-primary-400">Style tip {{ index + 1 }}</p>
-          <p class="mt-3 text-sm leading-6 text-slate-600">{{ tip }}</p>
-        </div>
-      </div>
     </div>
   </section>
 </template>
@@ -49,8 +43,4 @@ const stories = [
   }
 ]
 
-const stylingTips = [
-  'Layer lightweight knits under structured outerwear for versatility across changing temperatures.',
-  'Anchor bright accessories with monochrome basics to create a balanced, modern palette.'
-]
 </script>
