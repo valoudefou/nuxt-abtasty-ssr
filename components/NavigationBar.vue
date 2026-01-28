@@ -174,6 +174,42 @@
               >
                 <div>
                   <div class="flex items-center justify-between">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Categories</p>
+                    <button
+                      v-if="selectedCategories.length"
+                      type="button"
+                      class="text-xs font-semibold text-primary-600 hover:text-primary-500"
+                      @click="clearCategoryFilter"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <div class="mt-3 h-56 space-y-1 overflow-y-auto rounded-2xl border border-slate-200 bg-white/80 p-2">
+                    <button
+                      v-for="category in categoryOptions"
+                      :key="category"
+                      type="button"
+                      class="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition"
+                      :class="selectedCategories.includes(category)
+                        ? 'bg-primary-50 text-primary-700'
+                        : 'text-slate-700 hover:bg-slate-100'"
+                      @click="toggleCategoryFilter(category)"
+                    >
+                      <span class="truncate">{{ category }}</span>
+                      <span
+                        class="ml-3 h-4 w-4 rounded-full border border-slate-300"
+                        :class="selectedCategories.includes(category)
+                          ? 'bg-primary-600 border-primary-600'
+                          : 'bg-white'"
+                      ></span>
+                    </button>
+                    <p v-if="!categoryOptions.length" class="px-3 py-2 text-xs text-slate-500">
+                      No categories found.
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <div class="flex items-center justify-between">
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Brands</p>
                     <button
                       v-if="selectedBrand"
@@ -391,6 +427,8 @@ interface ApiSearchHit {
   price?: number | string | null
   brand?: string | null
   vendor?: string | null
+  category_id?: string | null
+  categories_ids?: string[] | null
 }
 
 interface ApiFacetResponse {
@@ -415,6 +453,7 @@ interface SearchHit {
   link: string
   price: number | null
   brand: string | null
+  categories: string[]
 }
 
 const SEARCH_ENDPOINT = '/api/abtasty-search'
@@ -480,7 +519,9 @@ const searchError = ref('')
 const isSearching = ref(false)
 const isLoadingMore = ref(false)
 const brandOptions = ref<string[]>([])
+const categoryOptions = ref<string[]>([])
 const selectedBrand = ref<string | null>(null)
+const selectedCategories = ref<string[]>([])
 const selectedPriceMin = ref(PRICE_SLIDER_MIN)
 const selectedPriceMax = ref(PRICE_SLIDER_MAX)
 const autocompleteSuggestions = ref<string[]>([])
@@ -531,7 +572,12 @@ const normalizeHit = (hit: ApiSearchHit): SearchHit => ({
   image: hit.img_link || FALLBACK_IMAGE,
   link: hit.link || `/products/${hit.id}`,
   price: normalizePrice(hit.price),
-  brand: hit.brand?.trim() || null
+  brand: hit.brand?.trim() || null,
+  categories: Array.isArray(hit.categories_ids)
+    ? hit.categories_ids.map((entry) => entry?.trim()).filter((entry): entry is string => Boolean(entry))
+    : hit.category_id
+      ? [hit.category_id.trim()].filter(Boolean)
+      : []
 })
 
 let latestRequestId = 0
@@ -584,6 +630,11 @@ const performSearch = async (query: string, options: { page?: number; append?: b
     if (selectedBrand.value) {
       url.searchParams.append('brand', selectedBrand.value)
     }
+    if (selectedCategories.value.length) {
+      for (const category of selectedCategories.value) {
+        url.searchParams.append('category', category)
+      }
+    }
     if (hasCustomPriceRange.value) {
       url.searchParams.append('priceMin', String(selectedPriceMin.value))
       url.searchParams.append('priceMax', String(selectedPriceMax.value))
@@ -593,6 +644,7 @@ const performSearch = async (query: string, options: { page?: number; append?: b
       url: url.toString(),
       vendor: normalizedVendor || null,
       brand: selectedBrand.value,
+      categories: selectedCategories.value,
       priceRange: hasCustomPriceRange.value
         ? { min: selectedPriceMin.value, max: selectedPriceMax.value }
         : null,
@@ -633,9 +685,10 @@ const performSearch = async (query: string, options: { page?: number; append?: b
       totalHitsAll: totalHits.value
     })
 
+    const sourceHits = shouldAppend ? searchResults.value : normalizedHits
     const brandsFromHits = Array.from(
       new Set(
-        normalizedHits
+        sourceHits
           .map((hit) => hit.brand?.trim())
           .filter((brand): brand is string => Boolean(brand))
       )
@@ -655,6 +708,22 @@ const performSearch = async (query: string, options: { page?: number; append?: b
         : brandsFromFacets
     }
     console.debug('[Search] brand options', { count: brandOptions.value.length })
+
+    const categoriesFromHits = Array.from(
+      new Set(
+        sourceHits.flatMap((hit) => hit.categories)
+      )
+    ).sort((a, b) => a.localeCompare(b))
+
+    if (categoriesFromHits.length > 0) {
+      const selected = selectedCategories.value
+      categoryOptions.value = selected.length
+        ? Array.from(new Set([...categoriesFromHits, ...selected])).sort((a, b) => a.localeCompare(b))
+        : categoriesFromHits
+    } else {
+      categoryOptions.value = selectedCategories.value.slice().sort((a, b) => a.localeCompare(b))
+    }
+    console.debug('[Search] category options', { count: categoryOptions.value.length })
   } catch (error) {
     if (requestId !== latestRequestId) {
       console.debug('[Search] error ignored for stale request', { requestId, latestRequestId })
@@ -666,6 +735,7 @@ const performSearch = async (query: string, options: { page?: number; append?: b
     currentPage.value = 0
     totalPages.value = 0
     totalHits.value = 0
+    categoryOptions.value = []
   } finally {
     if (requestId === latestRequestId) {
       isSearching.value = false
@@ -785,9 +855,11 @@ const clearSearch = () => {
   searchError.value = ''
   isSearching.value = false
   selectedBrand.value = null
+  selectedCategories.value = []
   selectedPriceMin.value = PRICE_SLIDER_MIN
   selectedPriceMax.value = PRICE_SLIDER_MAX
   brandOptions.value = []
+  categoryOptions.value = []
   autocompleteSuggestions.value = []
   currentPage.value = 0
   totalPages.value = 0
@@ -803,6 +875,8 @@ const closeOverlay = () => {
   isSearching.value = false
   selectedBrand.value = null
   brandOptions.value = []
+  selectedCategories.value = []
+  categoryOptions.value = []
   autocompleteSuggestions.value = []
   selectedPriceMin.value = PRICE_SLIDER_MIN
   selectedPriceMax.value = PRICE_SLIDER_MAX
@@ -821,6 +895,29 @@ const toggleBrandFilter = (brand: string) => {
 
   selectedBrand.value = selectedBrand.value === normalized ? null : normalized
 
+  triggerSearchWithFilters()
+}
+
+const toggleCategoryFilter = (category: string) => {
+  const normalized = category.trim()
+  if (!normalized) {
+    return
+  }
+  const next = new Set(selectedCategories.value)
+  if (next.has(normalized)) {
+    next.delete(normalized)
+  } else {
+    next.add(normalized)
+  }
+  selectedCategories.value = Array.from(next)
+  triggerSearchWithFilters()
+}
+
+const clearCategoryFilter = () => {
+  if (!selectedCategories.value.length) {
+    return
+  }
+  selectedCategories.value = []
   triggerSearchWithFilters()
 }
 
