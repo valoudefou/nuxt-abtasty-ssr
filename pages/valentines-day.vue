@@ -544,10 +544,7 @@ import ValentinesProductCard from '@/components/ValentinesProductCard.vue'
 
 type SortOption = 'featured' | 'price-asc' | 'price-desc'
 
-const SEARCH_QUERY = 'gift'
-const AUTOCOMPLETE_ENDPOINT = 'https://search-api.abtasty.com/autocomplete'
-const AUTOCOMPLETE_CLIENT_ID = '47c5c9b4ee0a19c9859f47734c1e8200'
-const FALLBACK_IMAGE = 'https://assets-manager.abtasty.com/placeholder.png'
+const PRODUCTS_ENDPOINT = '/api/valentines-products'
 const PRICE_SLIDER_STEP = 1
 const PRICE_FALLBACK_MIN = 0
 const PRICE_FALLBACK_MAX = 500
@@ -556,53 +553,19 @@ const ITEMS_PER_BATCH = 24
 const route = useRoute()
 const router = useRouter()
 
-type ApiSearchHit = {
-  id: number | string
-  name: string
-  img_link?: string
-  link?: string
-  price?: number | string | null
-  brand?: string | null
-  vendor?: string | null
-  category?: string | null
-  category_level2?: string | null
-  category_level3?: string | null
-  category_level4?: string | null
-  categories_ids?: string[] | null
-}
-
-type ApiFacetResponse = {
-  brand?: {
-    values?: [string, number][]
-  }
-  categories_ids?: {
-    values?: [string, number][]
-  }
-  category?: {
-    values?: [string, number][]
-  }
-}
-
-type ApiSearchResponse = {
-  hits?: ApiSearchHit[]
-  facets?: ApiFacetResponse
-  totalPages?: number
-  totalHits?: number
-  hitsPerPage?: number
-  page?: number
+type ValentinesResponse = {
+  products?: Product[]
+  fetchedAt?: number
 }
 
 const pending = ref(true)
 const error = ref<string | null>(null)
-const searchResults = ref<Product[]>([])
+const allProducts = ref<Product[]>([])
 const brandOptions = ref<string[]>([])
 const categoryOptions = ref<string[]>([])
-const categoryFacetKey = ref('categories_ids')
 const currentPage = ref(0)
-const totalPages = ref(0)
-const totalHits = ref(0)
 
-const products = computed(() => searchResults.value)
+const products = computed(() => allProducts.value)
 
 const selectedCategories = ref<string[]>([])
 const selectedBrands = ref<string[]>([])
@@ -646,8 +609,6 @@ const normalizeGiftQuery = (value: string) =>
   value.replace(/^gift\s+/i, '').trim()
 
 const giftSearchNormalized = computed(() => normalizeGiftQuery(giftSearch.value))
-
-const searchText = computed(() => SEARCH_QUERY)
 
 const priceBounds = computed(() => {
   const prices = products.value.map((product) => product.price).filter(Number.isFinite)
@@ -715,7 +676,69 @@ const priceFillStyle = computed(() => {
   }
 })
 
-const filteredProducts = computed(() => products.value)
+const normalizeToken = (value: string) => value.toLowerCase().trim()
+
+const extractCategories = (product: Product) => {
+  const categories = [
+    product.category,
+    product.category_level2,
+    product.category_level3,
+    product.category_level4,
+    ...(product.categoryIds ?? [])
+  ]
+  return categories.map((entry) => entry?.trim()).filter((entry): entry is string => Boolean(entry))
+}
+
+const matchesSelectedCategories = (product: Product) => {
+  if (!selectedCategories.value.length) return true
+  const selected = new Set(selectedCategories.value.map(normalizeToken))
+  const productCategories = extractCategories(product).map(normalizeToken)
+  return productCategories.some((category) => selected.has(category))
+}
+
+const matchesSelectedBrands = (product: Product) => {
+  if (!selectedBrands.value.length) return true
+  const selected = new Set(selectedBrands.value.map(normalizeToken))
+  const brand = product.brand ? normalizeToken(product.brand) : ''
+  return brand ? selected.has(brand) : false
+}
+
+const matchesPriceRange = (product: Product) => {
+  const min = priceMin.value
+  const max = priceMax.value
+  if (min !== null && product.price < min) return false
+  if (max !== null && product.price > max) return false
+  return true
+}
+
+const matchesGiftQuery = (product: Product) => {
+  const term = giftSearchNormalized.value.toLowerCase()
+  if (!term) return true
+  const haystack = [
+    product.name,
+    product.brand,
+    product.category,
+    product.category_level2,
+    product.category_level3,
+    product.category_level4,
+    ...(product.categoryIds ?? []),
+    product.description
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+  return haystack.includes(term)
+}
+
+const filteredProducts = computed(() =>
+  products.value.filter(
+    (product) =>
+      matchesSelectedCategories(product)
+      && matchesSelectedBrands(product)
+      && matchesPriceRange(product)
+      && matchesGiftQuery(product)
+  )
+)
 
 const sortedProducts = computed(() => {
   const items = [...filteredProducts.value]
@@ -728,7 +751,13 @@ const sortedProducts = computed(() => {
   return items
 })
 
-const visibleProducts = computed(() => sortedProducts.value)
+const totalHits = computed(() => filteredProducts.value.length)
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(filteredProducts.value.length / ITEMS_PER_BATCH))
+)
+const visibleProducts = computed(() =>
+  sortedProducts.value.slice(0, (currentPage.value + 1) * ITEMS_PER_BATCH)
+)
 const canLoadMore = computed(() => currentPage.value + 1 < totalPages.value)
 
 const hasActiveFilters = computed(
@@ -797,7 +826,7 @@ const openFilterDrawer = () => {
 }
 
 const handleRetry = () => {
-  void fetchSearchResults()
+  void fetchValentinesProducts()
 }
 
 const closeFilterDrawer = () => {
@@ -813,7 +842,6 @@ const scrollToProducts = () => {
 const loadMore = () => {
   if (!canLoadMore.value || pending.value) return
   currentPage.value += 1
-  void fetchSearchResults()
 }
 
 const parseList = (value: string | Array<string | null | undefined> | null | undefined) => {
@@ -849,140 +877,68 @@ let lastSearchKey = ''
 let autocompleteTimeout: ReturnType<typeof setTimeout> | null = null
 let autocompleteRequestId = 0
 
-const normalizePrice = (value: number | string | null | undefined): number | null => {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string') {
-    const parsed = Number.parseFloat(value)
-    return Number.isFinite(parsed) ? parsed : null
-  }
-  return null
-}
-
-const normalizeHitToProduct = (hit: ApiSearchHit): Product => {
-  const numericId = Number.parseInt(String(hit.id), 10)
-  const id = Number.isFinite(numericId) ? numericId : 0
-  const category =
-    hit.categories_ids?.[0]
-    || hit.category
-    || hit.category_level2
-    || hit.category_level3
-    || hit.category_level4
-    || ''
-  return {
-    id,
-    slug: String(hit.id ?? ''),
-    name: hit.name?.trim() || 'Untitled',
-    description: '',
-    price: normalizePrice(hit.price) ?? 0,
-    category,
-    image: hit.img_link || FALLBACK_IMAGE,
-    rating: 0,
-    highlights: [],
-    inStock: true,
-    colors: [],
-    sizes: [],
-    brand: hit.brand?.trim() || undefined,
-    vendor: hit.vendor?.trim() || undefined,
-    link: hit.link || undefined
-  }
-}
-
-const updateBrandOptions = (data: ApiSearchResponse) => {
-  const brandsFromHits = Array.from(
+const updateBrandOptions = (items: Product[]) => {
+  const brandsFromProducts = Array.from(
     new Set(
-      (data.hits ?? [])
-        .map((hit) => hit.brand?.trim())
+      items
+        .map((product) => product.brand?.trim())
         .filter((brand): brand is string => Boolean(brand))
     )
   )
 
-  const brandsFromFacets =
-    data.facets?.brand?.values
-      ?.map(([label]) => label?.trim())
-      .filter((label): label is string => Boolean(label)) ?? []
-
-  const base = brandsFromHits.length ? brandsFromHits : brandsFromFacets
   const selected = selectedBrands.value
-  const merged = new Set(base)
+  const merged = new Set(brandsFromProducts)
   for (const brand of selected) {
     merged.add(brand)
   }
   brandOptions.value = Array.from(merged).sort((a, b) => a.localeCompare(b))
 }
 
-const updateCategoryOptions = (data: ApiSearchResponse) => {
-  const facetKeys = ['categories_ids', 'category_id']
-  let detectedKey = 'categories_ids'
-  let categoriesFromFacets: string[] = []
-
-  for (const key of facetKeys) {
-    const values = (data.facets as Record<string, { values?: [string, number][] } | undefined>)?.[key]?.values
-    const next = values
-      ?.map(([label]) => label?.trim())
-      .filter((label): label is string => Boolean(label)) ?? []
-    if (next.length) {
-      detectedKey = key
-      categoriesFromFacets = next
-      break
+const updateCategoryOptions = (items: Product[]) => {
+  const categoriesFromProducts = new Set<string>()
+  for (const product of items) {
+    for (const entry of extractCategories(product)) {
+      categoriesFromProducts.add(entry)
     }
   }
 
-  const categoriesFromHits = new Set<string>()
-  for (const hit of data.hits ?? []) {
-    const ids = hit.categories_ids?.map((entry) => entry.trim()).filter(Boolean) ?? []
-    for (const entry of ids) {
-      categoriesFromHits.add(entry)
-    }
-  }
-
-  const base = categoriesFromFacets.length ? categoriesFromFacets : categoriesFromHits
-  categoryFacetKey.value = detectedKey
   const selected = selectedCategories.value
-  const merged = new Set(base)
+  const merged = new Set(categoriesFromProducts)
   for (const category of selected) {
     merged.add(category)
   }
   categoryOptions.value = Array.from(merged).sort((a, b) => a.localeCompare(b))
 }
 
-const fetchSearchResults = async () => {
+const fetchValentinesProducts = async () => {
   pending.value = true
   error.value = null
 
   try {
-    const data = await $fetch<ApiSearchResponse>('/api/abtasty-search', {
-      params: {
-        text: searchText.value,
-        page: currentPage.value,
-        hitsPerPage: ITEMS_PER_BATCH,
-        category: selectedCategories.value,
-        brand: selectedBrands.value,
-        priceMin: priceMin.value ?? undefined,
-        priceMax: priceMax.value ?? undefined
-      }
-    })
-    const nextHits = (data.hits ?? []).map(normalizeHitToProduct)
-    searchResults.value = currentPage.value === 0 ? nextHits : [...searchResults.value, ...nextHits]
-    totalPages.value = data.totalPages ?? 0
-    totalHits.value = data.totalHits ?? searchResults.value.length
-    updateBrandOptions(data)
-    updateCategoryOptions(data)
+    const data = await $fetch<ValentinesResponse>(PRODUCTS_ENDPOINT)
+    const items = data.products ?? []
+    allProducts.value = items
+    updateBrandOptions(items)
+    updateCategoryOptions(items)
   } catch (fetchError) {
-    console.error('Failed to search Valentines products', fetchError)
-    error.value = 'We were unable to search products right now.'
-    searchResults.value = []
+    console.error('Failed to load Valentines products', fetchError)
+    error.value = 'We were unable to load products right now.'
+    allProducts.value = []
     brandOptions.value = []
     categoryOptions.value = []
-    totalPages.value = 0
-    totalHits.value = 0
   } finally {
     pending.value = false
   }
 }
 
+const ensureProductsLoaded = async () => {
+  if (allProducts.value.length || pending.value) return
+  await fetchValentinesProducts()
+}
+
 const scheduleSearch = () => {
   if (!import.meta.client) {
-    void fetchSearchResults()
+    void ensureProductsLoaded()
     return
   }
   if (searchTimeout) {
@@ -990,8 +946,39 @@ const scheduleSearch = () => {
     searchTimeout = null
   }
   searchTimeout = setTimeout(() => {
-    void fetchSearchResults()
+    void ensureProductsLoaded()
   }, 250)
+}
+
+const buildAutocompleteSuggestions = (input: string) => {
+  const normalized = normalizeGiftQuery(input).toLowerCase()
+  const suggestions: string[] = []
+  const seen = new Set<string>()
+  const addSuggestion = (value?: string) => {
+    const trimmed = value?.trim()
+    if (!trimmed) return
+    const key = trimmed.toLowerCase()
+    if (seen.has(key)) return
+    if (normalized && !key.includes(normalized)) return
+    seen.add(key)
+    suggestions.push(trimmed)
+  }
+
+  for (const product of allProducts.value) {
+    addSuggestion(product.brand)
+    addSuggestion(product.category)
+    addSuggestion(product.category_level2)
+    addSuggestion(product.category_level3)
+    addSuggestion(product.category_level4)
+    if (product.categoryIds) {
+      for (const entry of product.categoryIds) {
+        addSuggestion(entry)
+      }
+    }
+    if (suggestions.length >= 8) break
+  }
+
+  return suggestions.slice(0, 6)
 }
 
 const performAutocomplete = async (input: string) => {
@@ -1004,30 +991,16 @@ const performAutocomplete = async (input: string) => {
     return
   }
 
-  const queryText = trimmed.length >= 2 ? `${SEARCH_QUERY} ${trimmed}`.trim() : SEARCH_QUERY
   isAutocompleteLoading.value = true
 
   try {
-    const url = new URL(AUTOCOMPLETE_ENDPOINT)
-    url.searchParams.set('client_id', AUTOCOMPLETE_CLIENT_ID)
-    url.searchParams.set('query', queryText)
-    url.searchParams.set('hits_per_page', '6')
-
-    const response = await fetch(url.toString())
-    if (!response.ok) {
-      throw new Error(`Autocomplete failed with status ${response.status}`)
-    }
-
-    const data = (await response.json()) as { suggestions?: { text?: string }[] }
+    const suggestions = buildAutocompleteSuggestions(trimmed)
 
     if (requestId !== autocompleteRequestId) {
       return
     }
 
-    autocompleteSuggestions.value =
-      data.suggestions?.map((suggestion) => suggestion.text?.trim())
-        .filter((text): text is string => Boolean(text))
-        .slice(0, 6) ?? []
+    autocompleteSuggestions.value = suggestions
   } catch (fetchError) {
     if (requestId !== autocompleteRequestId) {
       return
@@ -1128,9 +1101,6 @@ watch(
   () => JSON.stringify(queryState.value),
   () => {
     currentPage.value = 0
-    searchResults.value = []
-    totalPages.value = 0
-    totalHits.value = 0
     lastSearchKey = ''
   }
 )

@@ -61,9 +61,11 @@ const buildFallbackResponse = async (
   }
 ) => {
   const allProducts = await fetchProducts(event)
-  const brandFilter = options.brandId !== 'All' ? options.brandId.toLowerCase() : null
+  const hasBrandData = allProducts.some((product) => Boolean(product.brand?.trim()))
+  const hasVendorData = allProducts.some((product) => Boolean(product.vendor?.trim()))
+  const brandFilter = hasBrandData && options.brandId !== 'All' ? options.brandId.toLowerCase() : null
   const categoryFilter = options.categoryId !== 'All' ? options.categoryId.toLowerCase() : null
-  const vendorFilter = options.vendorId ? options.vendorId.toLowerCase() : null
+  const vendorFilter = hasVendorData && options.vendorId ? options.vendorId.toLowerCase() : null
   const termFilter = options.term ? options.term.toLowerCase() : null
 
   const filtered = allProducts.filter((product) => {
@@ -117,6 +119,7 @@ export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const baseRaw = config.public?.apiBase || config.public?.productsApiBase || 'https://api.live-server1.com'
   const base = baseRaw.replace(/\/+$/, '')
+  const disableRemote = Boolean(config.public?.productsDisableRemote)
   const vendorId = vendorIdFromQuery || (await getSelectedVendor(event))
 
   type RemotePagedResponse = RemoteResponse & { next_cursor?: string; nextCursor?: string }
@@ -125,6 +128,18 @@ export default defineEventHandler(async (event) => {
   if (cursorIsFallback) {
     return await buildFallbackResponse(event, {
       page: Number.isFinite(fallbackPage) && fallbackPage > 0 ? fallbackPage : page,
+      pageSize,
+      brandId,
+      categoryId,
+      vendorId,
+      term,
+      includeFacets: shouldIncludeFacets
+    })
+  }
+
+  if (disableRemote) {
+    return await buildFallbackResponse(event, {
+      page,
       pageSize,
       brandId,
       categoryId,

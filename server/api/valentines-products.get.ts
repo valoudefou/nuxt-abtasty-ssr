@@ -9,6 +9,20 @@ import { getSelectedVendor } from '@/server/utils/vendors'
 const CACHE_TTL_MS = 1000 * 60
 const PAGE_SIZE = 100
 const MAX_PAGES = 20
+const FALLBACK_LIMIT = 48
+const GIFT_KEYWORDS = [
+  'valentine',
+  'valentines',
+  'love',
+  'heart',
+  'romance',
+  'rose',
+  'roses',
+  'chocolate',
+  'flowers',
+  'gift',
+  'gifts'
+]
 
 type ValentinesCache = {
   products: Product[]
@@ -32,13 +46,15 @@ const normalizeCategoryText = (...values: Array<RemoteProduct[keyof RemoteProduc
 
 const hasGiftCategory = (product: RemoteProduct) => {
   const text = normalizeCategoryText(
+    product.name,
+    product.description,
     product.category,
     product.category_level2,
     product.category_level3,
     product.category_level4,
     ...(product.categoryIds ?? [])
   ).toLowerCase()
-  return text.includes('gift')
+  return GIFT_KEYWORDS.some((keyword) => text.includes(keyword))
 }
 
 const getApiConfig = async (event: H3Event) => {
@@ -52,8 +68,9 @@ const getApiConfig = async (event: H3Event) => {
 export default defineEventHandler(async (event) => {
   const now = Date.now()
   const { base, vendorId } = await getApiConfig(event)
+  const productsEndpoint = `${base}/products`
   const cached = cachedByVendor.get(vendorId)
-  if (cached && now - cached.fetchedAt < CACHE_TTL_MS) {
+  if (cached && cached.products.length > 0 && now - cached.fetchedAt < CACHE_TTL_MS) {
     return cached
   }
   const curated: Product[] = []
@@ -61,7 +78,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     for (let page = 1; page <= MAX_PAGES; page += 1) {
-      const response: RemoteResponse | RemoteProduct[] = await $fetch(`${base}/products`, {
+      const response: RemoteResponse | RemoteProduct[] = await $fetch(productsEndpoint, {
         params: { limit: PAGE_SIZE, ...(cursor ? { cursor } : {}), ...(vendorId ? { vendorId } : {}) }
       })
       const batch = normalizeResponse(response)
@@ -82,6 +99,14 @@ export default defineEventHandler(async (event) => {
         break
       }
     }
+
+    if (curated.length === 0) {
+      const fallbackResponse: RemoteResponse | RemoteProduct[] = await $fetch(productsEndpoint, {
+        params: { limit: FALLBACK_LIMIT, ...(vendorId ? { vendorId } : {}) }
+      })
+      const fallbackBatch = normalizeResponse(fallbackResponse)
+      curated.push(...fallbackBatch.map(normalizeRemoteProduct))
+    }
   } catch (error) {
     if (cached) {
       return cached
@@ -93,6 +118,8 @@ export default defineEventHandler(async (event) => {
   }
 
   const nextCache = { products: curated, fetchedAt: now }
-  cachedByVendor.set(vendorId, nextCache)
+  if (curated.length > 0) {
+    cachedByVendor.set(vendorId, nextCache)
+  }
   return nextCache
 })
