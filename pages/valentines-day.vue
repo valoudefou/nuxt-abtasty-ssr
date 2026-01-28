@@ -24,7 +24,7 @@
               class="rounded-full border border-rose-200 bg-white/70 px-6 py-3 text-sm font-semibold text-rose-500 transition hover:border-rose-300 hover:text-rose-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-200"
               @click="clearAll"
             >
-              Clear filters
+              Clear All Filters
             </button>
           </div>
         </div>
