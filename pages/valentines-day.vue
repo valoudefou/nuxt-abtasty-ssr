@@ -5,19 +5,20 @@
         <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p class="text-xs font-semibold uppercase tracking-[0.3em] text-rose-400">Seasonal edit</p>
-            <h1 class="mt-3 text-3xl font-semibold text-slate-900 sm:text-4xl">Valentines Day Gifts</h1>
+            <h1 class="mt-3 text-3xl font-semibold text-slate-900 sm:text-4xl">
+              Valentines Day
+              <input
+                v-model.trim="headlineWord"
+                type="text"
+                class="inline-block w-28 border-b border-dashed border-rose-300 bg-transparent text-center font-semibold text-rose-600 focus:border-rose-400 focus:outline-none"
+                aria-label="Edit headline word"
+              />
+            </h1>
             <p class="mt-3 max-w-2xl text-sm text-slate-600 sm:text-base">
               Thoughtful picks with heart-forward details, curated for cozy nights, elegant surprises, and everyday romance.
             </p>
           </div>
           <div class="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              class="rounded-full bg-rose-500 px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-rose-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
-              @click="scrollToProducts"
-            >
-              Shop gifts
-            </button>
             <button
               type="button"
               class="rounded-full border border-rose-200 bg-white/70 px-6 py-3 text-sm font-semibold text-rose-500 transition hover:border-rose-300 hover:text-rose-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-200"
@@ -34,8 +35,7 @@
     <div class="lg:grid lg:grid-cols-[280px,1fr] lg:items-start lg:gap-8">
       <aside class="hidden lg:sticky lg:top-24 lg:block lg:self-start">
         <div class="rounded-2xl border border-slate-200 bg-white/70 p-4 shadow-sm">
-          <div class="flex items-center justify-between">
-            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Filters</p>
+          <div class="flex items-center justify-end">
             <button
               v-if="hasActiveFilters"
               type="button"
@@ -45,49 +45,20 @@
               Clear
             </button>
           </div>
-          <p class="mt-1 text-xs text-slate-500">Showing {{ filteredProducts.length }} gifts</p>
 
           <div class="mt-5 space-y-6">
             <div class="space-y-3">
-              <div class="flex items-center justify-between">
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Categories</p>
-                <button
-                  v-if="selectedCategories.length"
-                  type="button"
-                  class="text-xs font-semibold text-primary-600 hover:text-primary-500"
-                  @click="clearCategories"
-                >
-                  Reset
-                </button>
-              </div>
-              <div v-if="showCategorySearch" class="relative">
-                <input
-                  v-model="categorySearch"
-                  type="search"
-                  name="category-search"
-                  class="w-full rounded-full border border-slate-200 px-4 py-2 text-xs shadow-sm outline-none transition focus:border-primary-400 focus:ring-primary-200"
-                  placeholder="Search categories"
-                  aria-label="Search categories"
-                />
-              </div>
-              <div class="max-h-56 space-y-2 overflow-y-auto pr-2">
-                <label
-                  v-for="category in filteredCategoryOptions"
-                  :key="category"
-                  class="flex items-center gap-2 text-sm text-slate-600"
-                >
-                  <input
-                    type="checkbox"
-                    class="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-300"
-                    :checked="selectedCategories.includes(category)"
-                    @change="toggleCategory(category)"
-                  />
-                  <span>{{ category }}</span>
-                </label>
-                <p v-if="!filteredCategoryOptions.length" class="text-xs text-slate-400">No categories match.</p>
-              </div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Sort</p>
+              <select
+                v-model="sortOption"
+                class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                aria-label="Sort products"
+              >
+                <option value="featured">Featured</option>
+                <option value="price-asc">Price: Low to High</option>
+                <option value="price-desc">Price: High to Low</option>
+              </select>
             </div>
-
             <div class="space-y-3">
               <div class="flex items-center justify-between">
                 <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Brands</p>
@@ -196,18 +167,6 @@
               </div>
             </div>
 
-            <div class="space-y-3">
-              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Sort</p>
-              <select
-                v-model="sortOption"
-                class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-100"
-                aria-label="Sort products"
-              >
-                <option value="featured">Featured</option>
-                <option value="price-asc">Price: Low to High</option>
-                <option value="price-desc">Price: High to Low</option>
-              </select>
-            </div>
           </div>
         </div>
       </aside>
@@ -217,7 +176,6 @@
           <div class="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p class="text-sm font-semibold text-slate-900">Filter the collection</p>
-              <p class="text-xs text-slate-500">Showing {{ filteredProducts.length }} gifts</p>
             </div>
             <button
               type="button"
@@ -301,7 +259,6 @@
               v-if="!pending && !visibleProducts.length"
               class="rounded-3xl border border-slate-200 bg-white px-6 py-10 text-center text-base font-semibold text-slate-600 shadow-sm"
             >
-              Merchandising coming soon
             </div>
             <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               <ValentinesProductCard
@@ -341,7 +298,7 @@
       >
         <div class="absolute inset-x-0 bottom-0 max-h-[85vh] rounded-t-3xl bg-white p-6 shadow-2xl">
           <div class="flex items-center justify-between">
-            <p class="text-sm font-semibold text-slate-900">Filters</p>
+            <span></span>
             <button
               type="button"
               class="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500"
@@ -351,46 +308,6 @@
             </button>
           </div>
           <div class="mt-6 space-y-6 overflow-y-auto pb-8">
-            <div class="space-y-3">
-              <div class="flex items-center justify-between">
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Categories</p>
-                <button
-                  v-if="selectedCategories.length"
-                  type="button"
-                  class="text-xs font-semibold text-primary-600 hover:text-primary-500"
-                  @click="clearCategories"
-                >
-                  Reset
-                </button>
-              </div>
-              <div v-if="showCategorySearch" class="relative">
-                <input
-                  v-model="categorySearch"
-                  type="search"
-                  name="category-search-mobile"
-                  class="w-full rounded-full border border-slate-200 px-4 py-2 text-xs shadow-sm outline-none transition focus:border-primary-400 focus:ring-primary-200"
-                  placeholder="Search categories"
-                  aria-label="Search categories"
-                />
-              </div>
-              <div class="max-h-52 space-y-2 overflow-y-auto pr-2">
-                <label
-                  v-for="category in filteredCategoryOptions"
-                  :key="category"
-                  class="flex items-center gap-2 text-sm text-slate-600"
-                >
-                  <input
-                    type="checkbox"
-                    class="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-300"
-                    :checked="selectedCategories.includes(category)"
-                    @change="toggleCategory(category)"
-                  />
-                  <span>{{ category }}</span>
-                </label>
-                <p v-if="!filteredCategoryOptions.length" class="text-xs text-slate-400">No categories match.</p>
-              </div>
-            </div>
-
             <div class="space-y-3">
               <div class="flex items-center justify-between">
                 <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Brands</p>
@@ -549,6 +466,9 @@ const PRICE_SLIDER_STEP = 1
 const PRICE_FALLBACK_MIN = 0
 const PRICE_FALLBACK_MAX = 500
 const ITEMS_PER_BATCH = 24
+const SEARCH_ENDPOINT = '/api/abtasty-search'
+const SEARCH_HITS_PER_PAGE = 48
+const SEARCH_PLACEHOLDER_IMAGE = 'https://assets-manager.abtasty.com/placeholder.png'
 
 const route = useRoute()
 const router = useRouter()
@@ -558,12 +478,69 @@ type ValentinesResponse = {
   fetchedAt?: number
 }
 
+type SearchHit = {
+  id: string | number
+  name?: string
+  img_link?: string
+  link?: string
+  price?: number | string | null
+  brand?: string | null
+  vendor?: string | null
+  category_id?: string | null
+  categories_ids?: string[] | null
+  description?: string | null
+}
+
+type SearchResponse = {
+  hits?: SearchHit[]
+}
+
 const pending = ref(true)
 const error = ref<string | null>(null)
 const allProducts = ref<Product[]>([])
 const brandOptions = ref<string[]>([])
 const categoryOptions = ref<string[]>([])
 const currentPage = ref(0)
+const headlineWord = ref('Gifts')
+const headlineSearchTimeout = ref<ReturnType<typeof setTimeout> | null>(null)
+
+const normalizeSearchPrice = (value: SearchHit['price']) => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value)
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+  return 0
+}
+
+const normalizeSearchProduct = (hit: SearchHit, index: number): Product => {
+  const id = hit.id ?? `search-${index}`
+  const name = hit.name?.trim() || `Product ${index + 1}`
+  const categories = Array.isArray(hit.categories_ids)
+    ? hit.categories_ids.map((entry) => entry?.trim()).filter((entry): entry is string => Boolean(entry))
+    : []
+  const primaryCategory = hit.category_id?.trim() || categories[0] || 'Search'
+  const price = normalizeSearchPrice(hit.price)
+  return {
+    id,
+    slug: String(id),
+    name,
+    title: name,
+    description: hit.description?.trim() || 'Curated for you.',
+    price,
+    category: primaryCategory,
+    image: hit.img_link?.trim() || SEARCH_PLACEHOLDER_IMAGE,
+    rating: 4.7,
+    highlights: ['Editor pick', 'Great for gifting'],
+    inStock: true,
+    colors: [],
+    sizes: ['One Size'],
+    brand: hit.brand?.trim() || undefined,
+    vendor: hit.vendor?.trim() || undefined,
+    categoryIds: categories.length ? categories : undefined,
+    link: hit.link?.trim() || `/products/${id}`
+  }
+}
 
 const products = computed(() => allProducts.value)
 
@@ -915,8 +892,18 @@ const fetchValentinesProducts = async () => {
   error.value = null
 
   try {
-    const data = await $fetch<ValentinesResponse>(PRODUCTS_ENDPOINT)
-    const items = data.products ?? []
+    const query = headlineWord.value.trim()
+    let items: Product[] = []
+    if (query) {
+      const data = await $fetch<SearchResponse>(SEARCH_ENDPOINT, {
+        query: { text: query, hitsPerPage: String(SEARCH_HITS_PER_PAGE) }
+      })
+      const hits = data.hits ?? []
+      items = hits.map(normalizeSearchProduct)
+    } else {
+      const data = await $fetch<ValentinesResponse>(PRODUCTS_ENDPOINT)
+      items = data.products ?? []
+    }
     allProducts.value = items
     updateBrandOptions(items)
     updateCategoryOptions(items)
@@ -948,6 +935,16 @@ const scheduleSearch = () => {
   searchTimeout = setTimeout(() => {
     void ensureProductsLoaded()
   }, 250)
+}
+
+const scheduleHeadlineSearch = () => {
+  if (headlineSearchTimeout.value) {
+    clearTimeout(headlineSearchTimeout.value)
+    headlineSearchTimeout.value = null
+  }
+  headlineSearchTimeout.value = setTimeout(() => {
+    void fetchValentinesProducts()
+  }, 300)
 }
 
 const buildAutocompleteSuggestions = (input: string) => {
@@ -1078,6 +1075,19 @@ watch(giftSearch, (value) => {
   autocompleteSuggestions.value = []
 })
 
+watch(headlineWord, () => {
+  const value = headlineWord.value.trim()
+  if (!value) {
+    scheduleHeadlineSearch()
+    return
+  }
+  const capitalized = value.charAt(0).toUpperCase() + value.slice(1)
+  if (capitalized !== headlineWord.value) {
+    headlineWord.value = capitalized
+  }
+  scheduleHeadlineSearch()
+})
+
 const queryState = computed(() => ({
   giftQuery: giftSearchNormalized.value ? giftSearchNormalized.value : undefined,
   category: selectedCategories.value.length ? selectedCategories.value.join(',') : undefined,
@@ -1122,6 +1132,10 @@ onBeforeUnmount(() => {
   if (autocompleteTimeout) {
     clearTimeout(autocompleteTimeout)
     autocompleteTimeout = null
+  }
+  if (headlineSearchTimeout.value) {
+    clearTimeout(headlineSearchTimeout.value)
+    headlineSearchTimeout.value = null
   }
 })
 </script>
