@@ -284,8 +284,16 @@ const router = useRouter()
 const checkoutSummary = useState<
   {
     orderId: string
-    items: Array<{ id: string | number; name: string; quantity: number; price: number; image: string }>
+    items: Array<{
+      id: string | number
+      name: string
+      quantity: number
+      price: number
+      image: string
+      category: string
+    }>
     total: number
+    email: string
     shipping: {
       firstName: string
       lastName: string
@@ -304,6 +312,7 @@ const checkoutSummary = useState<
       id: string
       label: string
       cost: number
+      description: string
     }
   } | null
 >('checkout-summary', () => null)
@@ -327,6 +336,20 @@ const cardCvc = ref('123')
 const cardName = ref('John Smith')
 const suppressAutocomplete = ref(false)
 let addressDebounce: ReturnType<typeof setTimeout> | null = null
+
+const normalizeEmailPart = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+const derivedEmail = computed(() => {
+  const first = normalizeEmailPart(firstName.value)
+  const last = normalizeEmailPart(lastName.value)
+  if (!first || !last) return ''
+  return `${first}.${last}@commerce-demo.com`
+})
 
 const deliveryOptions = [
   { id: 'evri', label: 'Evri (Standard)', description: 'Arrives within 3-5 days', cost: 2.99 },
@@ -413,6 +436,7 @@ const requiredFields = computed(() => [
   addressInput.value,
   cityInput.value,
   postcodeInput.value,
+  derivedEmail.value,
   cardNumber.value,
   cardExpiry.value,
   cardCvc.value,
@@ -439,6 +463,7 @@ const confirmAndPay = () => {
     return
   }
   const orderId = `VC-${Date.now().toString(36).toUpperCase()}`
+  const selectedDelivery = deliveryOptions.find((option) => option.id === selectedDeliveryId.value)
   checkoutSummary.value = {
     orderId,
     items: items.value.map((item) => ({
@@ -446,9 +471,11 @@ const confirmAndPay = () => {
       name: item.name,
       quantity: item.quantity,
       price: item.price,
-      image: item.image
+      image: item.image,
+      category: item.category
     })),
     total: grandTotal.value,
+    email: derivedEmail.value,
     shipping: {
       firstName: firstName.value,
       lastName: lastName.value,
@@ -459,8 +486,9 @@ const confirmAndPay = () => {
     },
     delivery: {
       id: selectedDeliveryId.value,
-      label: deliveryOptions.find((option) => option.id === selectedDeliveryId.value)?.label ?? '',
-      cost: deliveryCost.value
+      label: selectedDelivery?.label ?? '',
+      cost: deliveryCost.value,
+      description: selectedDelivery?.description ?? ''
     },
     billing: {
       address: useShippingForBilling.value ? addressInput.value : billingAddress.value,

@@ -156,6 +156,8 @@ declare module 'nuxt/schema' {
 
    productsDisableRemote: boolean,
 
+   transactionEndpoint: string,
+
    flagship: {
       envId: string,
 
