@@ -2,6 +2,8 @@ import { useRuntimeConfig } from '#imports'
 import { getCookie } from 'h3'
 import type { H3Event } from 'h3'
 
+import { fetchUpstreamJson } from '@/server/utils/upstreamFetch'
+
 const DEFAULT_VENDOR_ID = ''
 const VENDOR_COOKIE = 'abt_vendor'
 const CACHE_TTL_MS = 1000 * 60 * 5
@@ -65,7 +67,7 @@ export const fetchVendors = async (options: { fresh?: boolean } = {}): Promise<V
   const base = getApiBase()
 
   try {
-    const response = await $fetch(`${base}/vendors`, { params: { limit: 50 } })
+    const response = await fetchUpstreamJson(`${base}`, '/vendors', { params: { limit: 50 } })
     const vendors = normalizeVendors(response)
     if (vendors.length > 0) {
       cached = { vendors, fetchedAt: now }

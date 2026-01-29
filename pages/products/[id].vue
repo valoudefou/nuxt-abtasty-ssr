@@ -37,8 +37,14 @@
     <div v-else class="space-y-16">
     <div class="grid gap-16 lg:grid-cols-[1.2fr,1fr]">
       <div>
-      <div class="overflow-hidden rounded-3xl bg-white shadow-xl">
+      <div class="relative overflow-hidden rounded-3xl bg-white shadow-xl">
         <img :src="product.image" :alt="product.name" class="h-[32rem] w-full object-cover" />
+        <span
+          v-if="product.tag"
+          class="absolute left-4 top-4 z-10 max-w-[75%] truncate rounded-full bg-white/90 px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm ring-1 ring-black/5 backdrop-blur"
+        >
+          {{ product.tag }}
+        </span>
       </div>
       <section class="mt-12">
         <h2 class="text-2xl font-semibold text-slate-900">Product details</h2>

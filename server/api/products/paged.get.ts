@@ -6,6 +6,7 @@ import type { Product } from '@/types/product'
 import type { RemoteResponse } from '@/server/utils/products'
 import { fetchProducts, normalizeRemoteProduct } from '@/server/utils/products'
 import { getSelectedVendor } from '@/server/utils/vendors'
+import { fetchUpstreamJson } from '@/server/utils/upstreamFetch'
 
 const DEFAULT_PAGE_SIZE = 12
 const MAX_PAGE_SIZE = 60
@@ -121,6 +122,7 @@ export default defineEventHandler(async (event) => {
   const base = baseRaw.replace(/\/+$/, '')
   const disableRemote = Boolean(config.public?.productsDisableRemote)
   const vendorId = vendorIdFromQuery || (await getSelectedVendor(event))
+  const normalizedVendor = vendorId.trim()
 
   type RemotePagedResponse = RemoteResponse & { next_cursor?: string; nextCursor?: string }
   let response: RemotePagedResponse | null = null
@@ -154,8 +156,9 @@ export default defineEventHandler(async (event) => {
     ...(cursor ? { cursor } : {}),
     ...(brandId !== 'All' ? { brandId } : {}),
     ...(categoryId !== 'All' ? { categoryId } : {}),
-    ...(vendorId ? { vendorId } : {}),
-    ...(term ? { q: term } : {})
+    ...(normalizedVendor ? { vendorId: undefined } : {}),
+    ...(term ? { q: term } : {}),
+    includeRaw: 'true'
   }
 
   let attempt = 0
@@ -163,7 +166,11 @@ export default defineEventHandler(async (event) => {
 
   while (attempt < 2) {
     try {
-      response = await $fetch<RemotePagedResponse>(`${base}/products`, { params })
+      response = await fetchUpstreamJson<RemotePagedResponse>(
+        base,
+        normalizedVendor ? `/vendors/${encodeURIComponent(normalizedVendor)}/products` : '/products',
+        { params }
+      )
       lastError = null
       break
     } catch (error) {

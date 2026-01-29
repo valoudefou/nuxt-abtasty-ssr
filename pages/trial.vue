@@ -64,7 +64,7 @@ type Vendor = {
 
 const { data } = await useAsyncData<{ data: Vendor[] }>(
   'trial-vendors',
-  () => $fetch('/api/vendors', { query: { fresh: '1' } }),
+  () => $fetch<{ data: Vendor[] }>('/api/vendors', { params: { fresh: 1 } }),
   { server: true }
 )
 

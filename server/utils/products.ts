@@ -7,6 +7,7 @@ import type { H3Event } from 'h3'
 import type { Product } from '@/types/product'
 import { products as fallbackProducts } from '@/data/products'
 import { getSelectedVendor } from '@/server/utils/vendors'
+import { fetchUpstreamJson } from '@/server/utils/upstreamFetch'
 
 export type RemoteProduct = {
   id: string | number
@@ -33,10 +34,12 @@ export type RemoteProduct = {
   thumbnail?: string | null
   images?: Array<{ url?: string | null }> | null
   tag?: string | null
+  tags?: string[] | string | null
   recency?: string | number | null
   vendor?: string | null
   vendorId?: string | null
   breadcrumbs?: string | string[] | null
+  raw?: Record<string, unknown> | null
 }
 
 export type RemoteResponse = {
@@ -68,6 +71,67 @@ let cachedVersion = 0
 let remoteBackoffUntil = 0
 
 const PLACEHOLDER_IMAGE = 'https://assets-manager.abtasty.com/placeholder.png'
+
+const normalizeTag = (value: unknown): string | null => {
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return trimmed.length > 0 ? trimmed : null
+  }
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const candidate = normalizeTag(entry)
+      if (candidate) return candidate
+    }
+    return null
+  }
+
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    return (
+      normalizeTag(record.label)
+      ?? normalizeTag(record.name)
+      ?? normalizeTag(record.value)
+      ?? null
+    )
+  }
+
+  return null
+}
+
+const resolveRemoteTag = (raw: RemoteProduct): string | null => {
+  const record = raw as unknown as Record<string, unknown>
+  const nested = record.raw && typeof record.raw === 'object'
+    ? (record.raw as Record<string, unknown>)
+    : null
+  return (
+    normalizeTag(raw.tag)
+    ?? normalizeTag(raw.tags)
+    ?? normalizeTag(nested?.tag)
+    ?? normalizeTag(nested?.tags)
+    ?? normalizeTag(record.badge)
+    ?? normalizeTag(record.productTag)
+    ?? normalizeTag(record.madeIn)
+    ?? normalizeTag(record.made_in)
+    ?? normalizeTag(record.made_in_country)
+    ?? normalizeTag(record.manufactured_in)
+    ?? normalizeTag(record.origin)
+    ?? normalizeTag(record.countryOfOrigin)
+    ?? normalizeTag(record.country_of_origin)
+    ?? normalizeTag(record.origin_country)
+    ?? normalizeTag(nested?.badge)
+    ?? normalizeTag(nested?.productTag)
+    ?? normalizeTag(nested?.madeIn)
+    ?? normalizeTag(nested?.made_in)
+    ?? normalizeTag(nested?.made_in_country)
+    ?? normalizeTag(nested?.manufactured_in)
+    ?? normalizeTag(nested?.origin)
+    ?? normalizeTag(nested?.countryOfOrigin)
+    ?? normalizeTag(nested?.country_of_origin)
+    ?? normalizeTag(nested?.origin_country)
+    ?? null
+  )
+}
 
 type ProductCacheFile = {
   version: number
@@ -206,6 +270,10 @@ const normalizeFallbackProduct = (product: Product): Product => ({
 const fallbackCatalog = fallbackProducts.map(normalizeFallbackProduct)
 
 export const normalizeRemoteProduct = (raw: RemoteProduct): Product => {
+  const rawRecord =
+    raw.raw && typeof raw.raw === 'object'
+      ? (raw.raw as Record<string, unknown>)
+      : null
   const id = raw.id
   const name = raw.name ?? raw.title ?? `Product ${String(id)}`
   const pricePayload = raw.price
@@ -235,6 +303,7 @@ export const normalizeRemoteProduct = (raw: RemoteProduct): Product => {
 
   const brandValue = sanitizeBrand(raw.brandId ?? raw.brand)
   const vendor = sanitizeVendor(raw.vendorId ?? raw.vendor)
+  const sku = normalizeTag(raw.sku) ?? normalizeTag(rawRecord?.sku)
   const categoryIds = Array.isArray(raw.categoryIds)
     ? raw.categoryIds.map((value) => String(value).trim()).filter(Boolean)
     : []
@@ -258,10 +327,11 @@ export const normalizeRemoteProduct = (raw: RemoteProduct): Product => {
   }
 
   const tagSet = new Set<string>()
+  const tag = resolveRemoteTag(raw)
 
   if (categoryPrimary) tagSet.add(categoryPrimary)
   if (brandValue) tagSet.add(brandValue)
-  if (raw.tag) tagSet.add(raw.tag)
+  if (tag) tagSet.add(tag)
 
   const tags = Array.from(tagSet)
 
@@ -297,8 +367,8 @@ export const normalizeRemoteProduct = (raw: RemoteProduct): Product => {
     stock,
     discountPercentage: discount,
     price_before_discount: raw.price_before_discount ?? undefined,
-    sku: raw.sku ?? undefined,
-    tag: raw.tag ?? undefined,
+    sku: sku ?? undefined,
+    tag: tag ?? undefined,
     recency: raw.recency ?? undefined,
     availabilityStatus: availability || undefined,
     returnPolicy: raw.returnPolicy ?? undefined,
@@ -314,6 +384,7 @@ const fetchRemoteProducts = async (
   const products: RemoteProduct[] = []
   const maxPages = options.maxPages ?? Number.POSITIVE_INFINITY
   let cursor: string | null = null
+  const vendorId = typeof params.vendorId === 'string' ? params.vendorId.trim() : ''
 
   for (let page = 1; page <= maxPages; page += 1) {
     let response: RemoteResponse | RemoteProduct[] | null = null
@@ -323,9 +394,19 @@ const fetchRemoteProducts = async (
     while (attempt <= PAGE_RETRY_COUNT) {
       try {
         response = await withTimeout(
-          $fetch<RemoteResponse | RemoteProduct[]>(`${base}/products`, {
-            params: { ...params, limit: PAGE_SIZE, ...(cursor ? { cursor } : {}) }
-          }),
+          fetchUpstreamJson<RemoteResponse | RemoteProduct[]>(
+            base,
+            vendorId ? `/vendors/${encodeURIComponent(vendorId)}/products` : '/products',
+            {
+              params: {
+                ...params,
+                ...(vendorId ? { vendorId: undefined } : {}),
+                limit: PAGE_SIZE,
+                ...(cursor ? { cursor } : {}),
+                includeRaw: 'true'
+              }
+            }
+          ),
           REMOTE_FETCH_TIMEOUT_MS
         )
         pageError = null
@@ -470,7 +551,8 @@ export const findProductBySlug = async (slug: string, event?: H3Event): Promise<
 
 export const findProductById = async (id: string | number, event?: H3Event): Promise<Product | undefined> => {
   const targetId = String(id)
-  const { base } = await getApiConfig(event)
+  const { base, vendorId } = await getApiConfig(event)
+  const normalizedVendor = vendorId.trim()
 
   try {
     if (cachedProducts && cachedVersion === CACHE_VERSION) {
@@ -480,7 +562,13 @@ export const findProductById = async (id: string | number, event?: H3Event): Pro
       }
     }
 
-    const response = await $fetch<RemoteProduct>(`${base}/products/${encodeURIComponent(targetId)}`)
+    const response = await fetchUpstreamJson<RemoteProduct>(
+      base,
+      normalizedVendor
+        ? `/vendors/${encodeURIComponent(normalizedVendor)}/products/${encodeURIComponent(targetId)}`
+        : `/products/${encodeURIComponent(targetId)}`,
+      { params: { includeRaw: 'true' } }
+    )
     return normalizeRemoteProduct(response)
   } catch (error) {
     const cached = cachedProducts ?? (await fetchProducts(event))

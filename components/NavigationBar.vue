@@ -349,7 +349,15 @@
                       :key="product.id"
                       class="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
                     >
-                      <img :src="product.image" :alt="product.name" class="h-48 w-full rounded-xl object-cover" />
+                      <div class="relative overflow-hidden rounded-xl bg-slate-100">
+                        <span
+                          v-if="product.tag"
+                          class="absolute left-3 top-3 z-10 max-w-[75%] truncate rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-900 shadow-sm ring-1 ring-black/5 backdrop-blur"
+                        >
+                          {{ product.tag }}
+                        </span>
+                        <img :src="product.image" :alt="product.name" class="h-48 w-full object-cover" />
+                      </div>
                       <div class="mt-4">
                         <p class="text-sm font-semibold text-slate-900">
                           {{ product.name }}
@@ -361,13 +369,24 @@
                           {{ formatPrice(product.price) }}
                         </p>
                       </div>
-                      <NuxtLink
-                        :to="product.link"
-                        class="mt-4 inline-flex w-full items-center justify-center rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-700"
-                        @click="closeOverlay"
-                      >
-                        View product
-                      </NuxtLink>
+                      <div class="mt-6 flex flex-row items-center gap-3">
+                        <button
+                          type="button"
+                          class="inline-flex basis-1/3 flex-shrink-0 items-center justify-center rounded-full bg-primary-600 p-2 text-white shadow-sm transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+                          :disabled="isAddingToCart[product.id] === true"
+                          @click="addSearchResultToCart(product)"
+                        >
+                          <ShoppingCartIcon class="h-5 w-5" />
+                          <span class="sr-only">Add to cart</span>
+                        </button>
+                        <NuxtLink
+                          :to="product.link"
+                          class="inline-flex flex-1 items-center justify-center rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                          @click="closeOverlay"
+                        >
+                          View detail
+                        </NuxtLink>
+                      </div>
                     </article>
                   </div>
                   <div class="mt-6 flex flex-col items-center gap-3">
@@ -419,6 +438,8 @@ import {
   XMarkIcon
 } from '@heroicons/vue/24/solid'
 
+import type { Product } from '@/types/product'
+
 interface ApiSearchHit {
   id: number | string
   name: string
@@ -426,6 +447,8 @@ interface ApiSearchHit {
   link?: string
   price?: number | string | null
   brand?: string | null
+  tag?: string | null
+  tags?: string[] | string | null
   vendor?: string | null
   category_id?: string | null
   categories_ids?: string[] | null
@@ -453,6 +476,7 @@ interface SearchHit {
   link: string
   price: number | null
   brand: string | null
+  tag: string | null
   categories: string[]
 }
 
@@ -465,7 +489,8 @@ const PRICE_SLIDER_MAX = 500
 const PRICE_SLIDER_STEP = 5
 const SEARCH_HITS_PER_PAGE = 24
 
-const { totalItems } = useCart()
+const cart = useCart()
+const { totalItems } = cart
 const activeVendor = useState<string>('active-vendor', () => '')
 
 type NavigationItem = {
@@ -566,6 +591,28 @@ const normalizePrice = (value: number | string | null | undefined): number | nul
   return null
 }
 
+const normalizeTag = (value: unknown): string | null => {
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return trimmed.length > 0 ? trimmed : null
+  }
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const candidate = normalizeTag(entry)
+      if (candidate) return candidate
+    }
+    return null
+  }
+
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    return normalizeTag(record.label) ?? normalizeTag(record.name) ?? null
+  }
+
+  return null
+}
+
 const normalizeHit = (hit: ApiSearchHit): SearchHit => ({
   id: String(hit.id),
   name: hit.name,
@@ -573,6 +620,7 @@ const normalizeHit = (hit: ApiSearchHit): SearchHit => ({
   link: hit.link || `/products/${hit.id}`,
   price: normalizePrice(hit.price),
   brand: hit.brand?.trim() || null,
+  tag: normalizeTag(hit.tag) ?? normalizeTag(hit.tags),
   categories: Array.isArray(hit.categories_ids)
     ? hit.categories_ids.map((entry) => entry?.trim()).filter((entry): entry is string => Boolean(entry))
     : hit.category_id
@@ -580,10 +628,28 @@ const normalizeHit = (hit: ApiSearchHit): SearchHit => ({
       : []
 })
 
+const isAddingToCart = ref<Record<string, boolean>>({})
+
 let latestRequestId = 0
 let debounceTimeout: ReturnType<typeof setTimeout> | null = null
 let autocompleteRequestId = 0
 let suppressAutocomplete = false
+
+const addSearchResultToCart = async (hit: SearchHit) => {
+  const id = String(hit.id).trim()
+  if (!id) return
+  if (isAddingToCart.value[id]) return
+
+  isAddingToCart.value = { ...isAddingToCart.value, [id]: true }
+  try {
+    const product = await $fetch<Product>(`/api/products/${encodeURIComponent(id)}`)
+    cart.addItem(product)
+  } catch (error) {
+    console.error('Failed to add search result to cart', { id }, error)
+  } finally {
+    isAddingToCart.value = { ...isAddingToCart.value, [id]: false }
+  }
+}
 
 const performSearch = async (query: string, options: { page?: number; append?: boolean } = {}) => {
   const trimmed = query.trim()

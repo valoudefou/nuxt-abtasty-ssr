@@ -10,6 +10,12 @@
         loading="lazy"
         class="h-64 w-full object-cover transition duration-500 group-hover:scale-105"
       />
+      <span
+        v-if="product.tag"
+        class="absolute left-3 top-3 z-20 max-w-[75%] truncate rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-900 shadow-sm ring-1 ring-black/5 backdrop-blur"
+      >
+        {{ product.tag }}
+      </span>
       <div v-if="!product.inStock" class="absolute inset-0 flex items-center justify-center bg-black/40">
         <span class="rounded-full bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-900">
           Sold out
@@ -58,6 +64,7 @@
       </div>
       <div class="mt-6 flex flex-row items-center gap-3">
         <button
+          type="button"
           class="inline-flex basis-1/3 flex-shrink-0 items-center justify-center rounded-full bg-primary-600 p-2 text-white shadow-sm transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
           :disabled="!product.inStock"
           @click="addToCart"

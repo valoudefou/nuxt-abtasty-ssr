@@ -44,6 +44,7 @@ declare global {
   const fetchProductBrands: typeof import('../../server/utils/products').fetchProductBrands
   const fetchProducts: typeof import('../../server/utils/products').fetchProducts
   const fetchRecommendations: typeof import('../../server/utils/recommendations').fetchRecommendations
+  const fetchUpstreamJson: typeof import('../../server/utils/upstreamFetch').fetchUpstreamJson
   const fetchVendors: typeof import('../../server/utils/vendors').fetchVendors
   const fetchWithEvent: typeof import('../../node_modules/h3').fetchWithEvent
   const findProductById: typeof import('../../server/utils/products').findProductById
@@ -172,4 +173,5 @@ export { initializeFlagship } from '/Users/valerian.karsenty/Documents/App/val-c
 export { flagshipLogStore } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/flagship/logStore';
 export { normalizeRemoteProduct, fetchProducts, findProductBySlug, findProductById, fetchProductBrands, findProductsByBrand } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/products';
 export { fetchRecommendations, handleRecommendationsRequest } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/recommendations';
+export { fetchUpstreamJson } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/upstreamFetch';
 export { fetchVendors, getSelectedVendor, DEFAULT_VENDOR, VENDOR_COOKIE_NAME } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/vendors';

@@ -84,6 +84,12 @@
         </button>
 
         <div class="relative overflow-hidden rounded-2xl bg-slate-100">
+          <span
+            v-if="item.product.tag"
+            class="absolute left-3 top-3 z-10 max-w-[75%] truncate rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-900 shadow-sm ring-1 ring-black/5 backdrop-blur"
+          >
+            {{ item.product.tag }}
+          </span>
           <img
             :src="item.product.image || placeholderImage"
             :alt="item.product.name"

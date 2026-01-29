@@ -18,6 +18,7 @@ export const products: Product[] = [
       'Interior media pocket with headphone routing'
     ],
     inStock: true,
+    tag: 'Bestseller',
     colors: ['Midnight Navy', 'Glacier White', 'Ember Red'],
     sizes: ['XS', 'S', 'M', 'L', 'XL']
   },
@@ -38,6 +39,7 @@ export const products: Product[] = [
       'Breathable open-stitch pattern'
     ],
     inStock: true,
+    tag: 'New',
     colors: ['Seafoam', 'Sandstone', 'Deep Charcoal'],
     sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL']
   },
@@ -58,6 +60,7 @@ export const products: Product[] = [
       'Wrinkle-resistant and travel-ready'
     ],
     inStock: false,
+    tag: 'Limited',
     colors: ['Carbon Black', 'Storm Grey'],
     sizes: ['28', '30', '32', '34', '36']
   },
@@ -78,6 +81,7 @@ export const products: Product[] = [
       'USB passthrough for portable chargers'
     ],
     inStock: true,
+    tag: 'Editor’s Pick',
     colors: ['Obsidian', 'Mineral Blue'],
     sizes: ['One Size']
   }
