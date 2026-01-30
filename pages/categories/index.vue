@@ -59,10 +59,10 @@
                 :class="affinityScope === 'all_time'
                   ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300'
                   : 'border-emerald-200/70 bg-emerald-50/40 text-emerald-700/80 hover:border-emerald-300/70 hover:text-emerald-700'"
-                :aria-label="`Switch affinity scope (currently ${affinityScope === 'all_time' ? 'all time' : 'session'})`"
+                :aria-label="`Switch affinity scope (currently ${affinityScope === 'all_time' ? 'all times interest' : 'session interest'})`"
                 @click="affinityScope = affinityScope === 'all_time' ? 'session' : 'all_time'"
               >
-                Showing: {{ affinityScope === 'all_time' ? 'All time' : 'Session' }}
+                {{ affinityScope === 'all_time' ? 'All times interest' : 'Session interest' }}
               </button>
               <button
                 type="button"
