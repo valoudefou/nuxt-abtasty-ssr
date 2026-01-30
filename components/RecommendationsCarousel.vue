@@ -116,6 +116,10 @@
           <span class="text-base font-semibold text-primary-600">{{ formatCurrency(item.product.price) }}</span>
         </div>
 
+        <p v-if="item.product.recoSource === 'abtasty'" class="mt-2 text-xs font-semibold text-emerald-600">
+          Handpicked for you by AB Tasty
+        </p>
+
         <a
           v-if="item.externalUrl"
           :href="item.externalUrl"

@@ -17,6 +17,7 @@ export interface Product {
   sku?: string | null
   tag?: string | null
   recency?: string | number | null
+  recoSource?: 'abtasty'
   brand?: string
   vendor?: string
   brandId?: string

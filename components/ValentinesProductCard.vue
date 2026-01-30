@@ -36,17 +36,20 @@
         <span class="font-mono">{{ product.sku }}</span>
       </CopyToClipboard>
     </div>
-    <div class="mt-6 flex flex-1 flex-col">
-      <div class="flex flex-col gap-2">
-        <NuxtLink :to="product.link || `/products/${product.id}`" class="text-lg font-semibold text-slate-900">
-          {{ product.name }}
-        </NuxtLink>
-        <div class="flex flex-col">
-          <p class="text-lg font-semibold text-primary-600">
-            {{ formatCurrency(product.price) }}
+      <div class="mt-6 flex flex-1 flex-col">
+        <div class="flex flex-col gap-2">
+          <NuxtLink :to="product.link || `/products/${product.id}`" class="text-lg font-semibold text-slate-900">
+            {{ product.name }}
+          </NuxtLink>
+          <p v-if="product.recoSource === 'abtasty'" class="text-xs font-semibold text-emerald-600">
+            Handpicked for you by AB Tasty
           </p>
+          <div class="flex flex-col">
+            <p class="text-lg font-semibold text-primary-600">
+              {{ formatCurrency(product.price) }}
+            </p>
+          </div>
         </div>
-      </div>
       <NuxtLink
         v-if="product.description"
         :to="product.link || `/products/${product.id}`"

@@ -372,15 +372,18 @@
 	                          <span class="font-mono">{{ product.sku }}</span>
 	                        </CopyToClipboard>
 	                      </p>
-	                      <div class="mt-4">
-	                        <p class="text-sm font-semibold text-slate-900">
-	                          {{ product.name }}
+		                      <div class="mt-4">
+		                        <p class="text-sm font-semibold text-slate-900">
+		                          {{ product.name }}
+		                        </p>
+		                        <p v-if="product.recoSource === 'abtasty'" class="mt-1 text-xs font-semibold text-emerald-600">
+		                          Handpicked for you by AB Tasty
+		                        </p>
+		                        <p class="text-xs uppercase tracking-wide text-slate-500" v-if="product.brand">
+	                          {{ product.brand }}
 	                        </p>
-	                        <p class="text-xs uppercase tracking-wide text-slate-500" v-if="product.brand">
-                          {{ product.brand }}
-                        </p>
-                        <p class="mt-1 text-base font-semibold text-primary-600" v-if="product.price !== null">
-                          {{ formatPrice(product.price) }}
+	                        <p class="mt-1 text-base font-semibold text-primary-600" v-if="product.price !== null">
+	                          {{ formatPrice(product.price) }}
                         </p>
                       </div>
                       <div class="mt-6 flex flex-row items-center gap-3">
@@ -493,6 +496,7 @@ interface SearchHit {
   price: number | null
   sku: string | null
   sizes: string[]
+  recoSource: 'abtasty' | null
   brand: string | null
   tag: string | null
   categories: string[]
@@ -680,6 +684,7 @@ const normalizeHit = (hit: ApiSearchHit): SearchHit => ({
     }
     return normalizeSizes(hit.size)
   })(),
+  recoSource: null,
   brand: hit.brand?.trim() || null,
   tag: normalizeTag(hit.tag) ?? normalizeTag(hit.tags),
   categories: Array.isArray(hit.categories_ids)
@@ -721,6 +726,7 @@ const fetchSearchRecommendations = async (itemIds: string[]) => {
         price: typeof product.price === 'number' ? product.price : null,
         sku: product.sku ? String(product.sku) : null,
         sizes: Array.isArray(product.sizes) ? product.sizes : [],
+        recoSource: product.recoSource ?? null,
         brand: product.brand?.trim() || null,
         tag: product.tag?.trim() || 'Recommended',
         categories: Array.isArray(product.categoryIds) ? product.categoryIds : []

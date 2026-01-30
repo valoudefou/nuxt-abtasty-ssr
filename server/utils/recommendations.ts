@@ -351,10 +351,11 @@ const normalizeItem = (
       && (!productWithSku.sizes?.length || (productWithSku.sizes.length === 1 && productWithSku.sizes[0] === 'One Size'))
         ? { ...productWithSku, sizes }
         : productWithSku
+    const productWithSource = { ...productWithSkuAndSizes, recoSource: 'abtasty' as const }
 
     return {
       id: String(recommendationId ?? matchingProduct.slug),
-      product: productWithSkuAndSizes,
+      product: productWithSource,
       detailUrl: detailId ? `/products/${detailId}` : `/products/${matchingProduct.slug}`,
       externalUrl: absoluteLink
     }
@@ -367,7 +368,7 @@ const normalizeItem = (
     id: fallbackId,
     slug: `${slug}-${fallbackId}`,
     name,
-    description: item.description?.trim() || 'Hand-picked for you by Commerce Demo.',
+    description: item.description?.trim() || '',
     price: normalizePrice(item.price),
     category: 'Recommendations',
     image: item.img_link?.trim() || PLACEHOLDER_IMAGE,
@@ -377,6 +378,7 @@ const normalizeItem = (
     colors: [],
     sizes: sizes.length ? sizes : ['One Size'],
     sku,
+    recoSource: 'abtasty',
     brand: item.brand?.trim() || undefined,
     stock: undefined,
     discountPercentage: undefined,
