@@ -12,6 +12,29 @@
         <span class="rounded-full bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-900">Sold out</span>
       </div>
     </NuxtLink>
+    <div v-if="product.sku" class="mt-3 text-xs font-medium text-slate-500">
+      <CopyToClipboard
+        :text="product.sku"
+        title="Copy SKU"
+        :aria-label="`Copy SKU ${product.sku} to clipboard`"
+        notify
+        notify-title="Copied"
+        :notify-message="`SKU ${product.sku} copied to clipboard.`"
+        class="hover:text-slate-700"
+      >
+        <span>SKU</span>
+        <span class="font-mono">{{ product.sku }}</span>
+      </CopyToClipboard>
+    </div>
+    <div v-if="product.sizes.length" class="mt-2 flex flex-wrap gap-2 text-[11px] font-medium text-slate-500">
+      <span
+        v-for="size in product.sizes"
+        :key="size"
+        class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-slate-600"
+      >
+        {{ size }}
+      </span>
+    </div>
     <div class="mt-6 flex flex-1 flex-col">
       <div class="flex items-start justify-between gap-4">
         <NuxtLink :to="product.link || `/products/${product.id}`" class="text-lg font-semibold text-slate-900">
@@ -20,20 +43,6 @@
         <div class="text-right">
           <p class="text-lg font-semibold text-primary-600">
             {{ formatCurrency(product.price) }}
-          </p>
-          <p v-if="product.sku" class="mt-1 text-xs font-medium text-slate-500">
-            <CopyToClipboard
-              :text="product.sku"
-              title="Copy SKU"
-              :aria-label="`Copy SKU ${product.sku} to clipboard`"
-              notify
-              notify-title="Copied"
-              :notify-message="`SKU ${product.sku} copied to clipboard.`"
-              class="hover:text-slate-700"
-            >
-              <span>SKU</span>
-              <span class="font-mono">{{ product.sku }}</span>
-            </CopyToClipboard>
           </p>
         </div>
       </div>
@@ -45,7 +54,7 @@
           {{ product.description }}
         </span>
       </NuxtLink>
-      <div class="mt-4 flex items-center gap-2 text-xs font-medium text-amber-500">
+      <div v-if="product.rating !== null" class="mt-4 flex items-center gap-2 text-xs font-medium text-amber-500">
         <StarIcon v-for="index in 5" :key="index" :class="index <= Math.round(product.rating) ? 'fill-amber-400' : 'fill-slate-200'" class="h-4 w-4" />
         <span class="text-slate-500">({{ product.rating.toFixed(1) }})</span>
       </div>

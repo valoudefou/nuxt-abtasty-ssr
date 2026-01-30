@@ -97,12 +97,7 @@
           />
         </div>
 
-        <div class="mt-4 flex items-start justify-between gap-3">
-          <p class="text-base font-semibold text-slate-900">{{ item.product.name }}</p>
-          <span class="text-base font-semibold text-primary-600">{{ formatCurrency(item.product.price) }}</span>
-        </div>
-
-        <p v-if="item.product.sku" class="mt-1 text-xs font-medium text-slate-500">
+        <p v-if="item.product.sku" class="mt-3 text-xs font-medium text-slate-500">
           <CopyToClipboard
             :text="String(item.product.sku)"
             title="Copy SKU"
@@ -116,6 +111,20 @@
             <span class="font-mono">{{ item.product.sku }}</span>
           </CopyToClipboard>
         </p>
+        <div v-if="item.product.sizes.length" class="mt-2 flex flex-wrap gap-2 text-[11px] font-medium text-slate-500">
+          <span
+            v-for="size in item.product.sizes"
+            :key="size"
+            class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-slate-600"
+          >
+            {{ size }}
+          </span>
+        </div>
+
+        <div class="mt-4 flex items-start justify-between gap-3">
+          <p class="text-base font-semibold text-slate-900">{{ item.product.name }}</p>
+          <span class="text-base font-semibold text-primary-600">{{ formatCurrency(item.product.price) }}</span>
+        </div>
 
         <a
           v-if="item.externalUrl"

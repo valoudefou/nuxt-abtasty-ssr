@@ -11,6 +11,7 @@ import type { FlagshipLogLevel } from '@/utils/flagship/logStore'
 type RawRecommendation = {
   id?: string | number
   sku?: string | number
+  size?: string[] | string | number | null
   name?: string
   price?: string | number
   img_link?: string
@@ -245,6 +246,44 @@ const normalizeSku = (value?: RawRecommendation['sku']) => {
   return null
 }
 
+const normalizeStringList = (value: unknown): string[] => {
+  if (value === null || value === undefined) return []
+
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => normalizeStringList(entry))
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return [String(value)]
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return []
+
+    const looksLikeJsonArray = trimmed.startsWith('[') && trimmed.endsWith(']')
+    const looksLikeQuotedJson = trimmed.startsWith('"') && trimmed.endsWith('"')
+    if (looksLikeJsonArray || looksLikeQuotedJson) {
+      try {
+        const parsed = JSON.parse(trimmed) as unknown
+        const parsedList = normalizeStringList(parsed)
+        if (parsedList.length) return parsedList
+      } catch {
+        // Fall back below
+      }
+    }
+
+    if (trimmed.includes(',')) {
+      const split = trimmed.split(',').map((part) => part.trim()).filter(Boolean)
+      if (split.length > 1) return split
+    }
+
+    return [trimmed]
+  }
+
+  return []
+}
+
 const normalizePrice = (value: RawRecommendation['price']) => {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value
@@ -290,6 +329,7 @@ const normalizeItem = (
   const absoluteLink = ensureAbsoluteLink(item.link ?? item.absolute_link, siteUrl)
   const recommendationId = normalizeRecommendationId(item.id)
   const sku = normalizeSku(item.sku)
+  const sizes = normalizeStringList(item.size)
   const matchingProduct =
     catalog.find((product) => product.name.toLowerCase() === normalizedName) ?? null
   const detailId = recommendationId ?? (matchingProduct ? String(matchingProduct.id) : null)
@@ -302,10 +342,15 @@ const normalizeItem = (
         : matchingProduct
     const productWithSku =
       sku && !productForCarousel.sku ? { ...productForCarousel, sku } : productForCarousel
+    const productWithSkuAndSizes =
+      sizes.length
+      && (!productWithSku.sizes?.length || (productWithSku.sizes.length === 1 && productWithSku.sizes[0] === 'One Size'))
+        ? { ...productWithSku, sizes }
+        : productWithSku
 
     return {
       id: String(recommendationId ?? matchingProduct.slug),
-      product: productWithSku,
+      product: productWithSkuAndSizes,
       detailUrl: detailId ? `/products/${detailId}` : `/products/${matchingProduct.slug}`,
       externalUrl: absoluteLink
     }
@@ -326,7 +371,7 @@ const normalizeItem = (
     highlights: ['Exclusive pick curated for you'],
     inStock: true,
     colors: [],
-    sizes: ['One Size'],
+    sizes: sizes.length ? sizes : ['One Size'],
     sku,
     brand: item.brand?.trim() || undefined,
     stock: undefined,

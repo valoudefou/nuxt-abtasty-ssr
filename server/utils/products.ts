@@ -28,6 +28,8 @@ export type RemoteProduct = {
   brand?: string | null
   brandId?: string | null
   sku?: string | null
+  size?: string[] | string | null
+  sizes?: string[] | string | null
   availabilityStatus?: string | null
   status?: string | null
   returnPolicy?: string | null
@@ -103,7 +105,7 @@ const resolveRemoteTag = (raw: RemoteProduct): string | null => {
   const record = raw as unknown as Record<string, unknown>
   const nested = record.raw && typeof record.raw === 'object'
     ? (record.raw as Record<string, unknown>)
-    : null
+  : null
   return (
     normalizeTag(raw.tag)
     ?? normalizeTag(raw.tags)
@@ -131,6 +133,44 @@ const resolveRemoteTag = (raw: RemoteProduct): string | null => {
     ?? normalizeTag(nested?.origin_country)
     ?? null
   )
+}
+
+const normalizeStringList = (value: unknown): string[] => {
+  if (value === null || value === undefined) return []
+
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => normalizeStringList(entry))
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return [String(value)]
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return []
+
+    const looksLikeJsonArray = trimmed.startsWith('[') && trimmed.endsWith(']')
+    const looksLikeQuotedJson = trimmed.startsWith('"') && trimmed.endsWith('"')
+    if (looksLikeJsonArray || looksLikeQuotedJson) {
+      try {
+        const parsed = JSON.parse(trimmed) as unknown
+        const parsedList = normalizeStringList(parsed)
+        if (parsedList.length) return parsedList
+      } catch {
+        // Fall back below
+      }
+    }
+
+    if (trimmed.includes(',')) {
+      const split = trimmed.split(',').map((part) => part.trim()).filter(Boolean)
+      if (split.length > 1) return split
+    }
+
+    return [trimmed]
+  }
+
+  return []
 }
 
 type ProductCacheFile = {
@@ -286,7 +326,10 @@ export const normalizeRemoteProduct = (raw: RemoteProduct): Product => {
     pricePayload && typeof pricePayload === 'object' && typeof pricePayload.currency === 'string'
       ? pricePayload.currency
       : undefined
-  const rating = Math.min(Math.max(parseNumber(raw.rating), 0), 5)
+  const rating =
+    raw.rating === null || raw.rating === undefined
+      ? null
+      : Math.min(Math.max(parseNumber(raw.rating), 0), 5)
   const stock = Math.max(parseNumber(raw.stock), 0)
   const discount = parseNumber(raw.discountPercentage)
   const availability = raw.availabilityStatus?.trim() ?? ''
@@ -304,6 +347,13 @@ export const normalizeRemoteProduct = (raw: RemoteProduct): Product => {
   const brandValue = sanitizeBrand(raw.brandId ?? raw.brand)
   const vendor = sanitizeVendor(raw.vendorId ?? raw.vendor)
   const sku = normalizeTag(raw.sku) ?? normalizeTag(rawRecord?.sku)
+  const sizeCandidates = [
+    normalizeStringList(raw.size),
+    normalizeStringList(raw.sizes),
+    normalizeStringList(rawRecord?.size),
+    normalizeStringList(rawRecord?.sizes)
+  ]
+  const sizes = sizeCandidates.find((list) => list.length > 0) ?? []
   const categoryIds = Array.isArray(raw.categoryIds)
     ? raw.categoryIds.map((value) => String(value).trim()).filter(Boolean)
     : []
@@ -357,7 +407,7 @@ export const normalizeRemoteProduct = (raw: RemoteProduct): Product => {
     highlights: highlightItems,
     inStock,
     colors: tags,
-    sizes: ['One Size'],
+    sizes: sizes.length ? sizes : ['One Size'],
     brand: brandValue || undefined,
     vendor: vendor || undefined,
     brandId: brandValue || undefined,

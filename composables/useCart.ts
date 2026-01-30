@@ -1,6 +1,6 @@
 import type { Product } from '@/types/product'
 
-type CartItem = Product & { quantity: number }
+type CartItem = Product & { quantity: number; selectedSize?: string }
 
 type CartState = {
   items: CartItem[]
@@ -65,15 +65,20 @@ export const useCart = () => {
     state.value.items.reduce((sum, item) => sum + item.quantity * item.price, 0)
   )
 
+  const matchesVariant = (item: CartItem, productId: string | number, selectedSize?: string) =>
+    item.id === productId && (item.selectedSize ?? null) === (selectedSize ?? null)
+
   const pendingNotificationTimeout = ref<ReturnType<typeof setTimeout> | null>(null)
 
-  const addItem = (product: Product, quantity = 1) => {
-    const existingItem = state.value.items.find((item) => item.id === product.id)
+  const addItem = (product: Product, quantity = 1, selectedSize?: string) => {
+    const existingItem = state.value.items.find((item) =>
+      matchesVariant(item, product.id, selectedSize)
+    )
 
     if (existingItem) {
       existingItem.quantity += quantity
     } else {
-      state.value.items.push({ ...product, quantity })
+      state.value.items.push({ ...product, quantity, selectedSize: selectedSize ?? undefined })
     }
     logCartIds()
 
@@ -85,7 +90,7 @@ export const useCart = () => {
     pendingNotificationTimeout.value = setTimeout(() => {
       notifications.show({
         title: 'Added to cart',
-        message: `${product.name} has been added to your cart.`,
+        message: `${product.name}${selectedSize ? ` (${selectedSize})` : ''} has been added to your cart.`,
         type: 'cart'
       })
       pendingNotificationTimeout.value = null
@@ -94,16 +99,20 @@ export const useCart = () => {
     logCartItems('added', product)
   }
 
-  const removeItem = (productId: string | number) => {
-    state.value.items = state.value.items.filter((item) => item.id !== productId)
+  const removeItem = (productId: string | number, selectedSize?: string) => {
+    if (selectedSize === undefined) {
+      state.value.items = state.value.items.filter((item) => item.id !== productId)
+    } else {
+      state.value.items = state.value.items.filter((item) => !matchesVariant(item, productId, selectedSize))
+    }
     logCartIds()
   }
 
-  const updateQuantity = (productId: string | number, quantity: number) => {
-    const item = state.value.items.find((product) => product.id === productId)
+  const updateQuantity = (productId: string | number, quantity: number, selectedSize?: string) => {
+    const item = state.value.items.find((product) => matchesVariant(product, productId, selectedSize))
     if (!item) return
     if (quantity <= 0) {
-      removeItem(productId)
+      removeItem(productId, selectedSize)
       return
     }
     item.quantity = quantity

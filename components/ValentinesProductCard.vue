@@ -22,6 +22,29 @@
         </span>
       </div>
     </NuxtLink>
+    <div v-if="product.sku" class="mt-3 text-xs font-medium text-slate-500">
+      <CopyToClipboard
+        :text="product.sku"
+        title="Copy SKU"
+        :aria-label="`Copy SKU ${product.sku} to clipboard`"
+        notify
+        notify-title="Copied"
+        :notify-message="`SKU ${product.sku} copied to clipboard.`"
+        class="hover:text-slate-700"
+      >
+        <span>SKU</span>
+        <span class="font-mono">{{ product.sku }}</span>
+      </CopyToClipboard>
+    </div>
+    <div v-if="product.sizes.length" class="mt-2 flex flex-wrap gap-2 text-[11px] font-medium text-slate-500">
+      <span
+        v-for="size in product.sizes"
+        :key="size"
+        class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-slate-600"
+      >
+        {{ size }}
+      </span>
+    </div>
     <div class="mt-6 flex flex-1 flex-col">
       <div class="flex flex-col gap-2">
         <NuxtLink :to="product.link || `/products/${product.id}`" class="text-lg font-semibold text-slate-900">
@@ -30,20 +53,6 @@
         <div class="flex flex-col">
           <p class="text-lg font-semibold text-primary-600">
             {{ formatCurrency(product.price) }}
-          </p>
-          <p v-if="product.sku" class="text-xs font-medium text-slate-500">
-            <CopyToClipboard
-              :text="product.sku"
-              title="Copy SKU"
-              :aria-label="`Copy SKU ${product.sku} to clipboard`"
-              notify
-              notify-title="Copied"
-              :notify-message="`SKU ${product.sku} copied to clipboard.`"
-              class="hover:text-slate-700"
-            >
-              <span>SKU</span>
-              <span class="font-mono">{{ product.sku }}</span>
-            </CopyToClipboard>
           </p>
         </div>
       </div>
@@ -56,7 +65,7 @@
           {{ product.description }}
         </span>
       </NuxtLink>
-      <div class="mt-4 flex items-center gap-2 text-xs font-medium text-amber-500">
+      <div v-if="product.rating !== null" class="mt-4 flex items-center gap-2 text-xs font-medium text-amber-500">
         <StarIcon
           v-for="index in 5"
           :key="index"

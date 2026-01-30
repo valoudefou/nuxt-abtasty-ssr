@@ -37,7 +37,8 @@ const defaultRecommendationFields = JSON.stringify([
   'name',
   'img_link',
   'absolute_link',
-  'sku'
+  'sku',
+  'size'
 ])
 
 const withRecommendationFields = (endpoint: string) => {

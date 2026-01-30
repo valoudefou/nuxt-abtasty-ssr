@@ -348,21 +348,44 @@
                       v-for="product in searchResults"
                       :key="product.id"
                       class="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
-                    >
-                      <div class="relative overflow-hidden rounded-xl bg-slate-100">
-                        <span
-                          v-if="product.tag"
-                          class="absolute left-3 top-3 z-10 max-w-[75%] truncate rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-900 shadow-sm ring-1 ring-black/5 backdrop-blur"
-                        >
-                          {{ product.tag }}
-                        </span>
-                        <img :src="product.image" :alt="product.name" class="h-48 w-full object-cover" />
-                      </div>
-                      <div class="mt-4">
-                        <p class="text-sm font-semibold text-slate-900">
-                          {{ product.name }}
-                        </p>
-                        <p class="text-xs uppercase tracking-wide text-slate-500" v-if="product.brand">
+	                    >
+	                      <div class="relative overflow-hidden rounded-xl bg-slate-100">
+	                        <span
+	                          v-if="product.tag"
+	                          class="absolute left-3 top-3 z-10 max-w-[75%] truncate rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-900 shadow-sm ring-1 ring-black/5 backdrop-blur"
+	                        >
+	                          {{ product.tag }}
+	                        </span>
+	                        <img :src="product.image" :alt="product.name" class="h-48 w-full object-cover" />
+	                      </div>
+	                      <p v-if="product.sku" class="mt-3 text-xs font-medium text-slate-500">
+	                        <CopyToClipboard
+	                          :text="product.sku"
+	                          title="Copy SKU"
+	                          :aria-label="`Copy SKU ${product.sku} to clipboard`"
+	                          notify
+	                          notify-title="Copied"
+	                          :notify-message="`SKU ${product.sku} copied to clipboard.`"
+	                          class="hover:text-slate-700"
+	                        >
+	                          <span>SKU</span>
+	                          <span class="font-mono">{{ product.sku }}</span>
+	                        </CopyToClipboard>
+	                      </p>
+	                      <div v-if="product.sizes.length" class="mt-2 flex flex-wrap gap-2 text-[11px] font-medium text-slate-500">
+	                        <span
+	                          v-for="size in product.sizes"
+	                          :key="size"
+	                          class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-slate-600"
+	                        >
+	                          {{ size }}
+	                        </span>
+	                      </div>
+	                      <div class="mt-4">
+	                        <p class="text-sm font-semibold text-slate-900">
+	                          {{ product.name }}
+	                        </p>
+	                        <p class="text-xs uppercase tracking-wide text-slate-500" v-if="product.brand">
                           {{ product.brand }}
                         </p>
                         <p class="mt-1 text-base font-semibold text-primary-600" v-if="product.price !== null">
@@ -446,6 +469,8 @@ interface ApiSearchHit {
   img_link?: string
   link?: string
   price?: number | string | null
+  sku?: string | number | null
+  size?: string[] | string | number | null
   brand?: string | null
   tag?: string | null
   tags?: string[] | string | null
@@ -475,6 +500,8 @@ interface SearchHit {
   image: string
   link: string
   price: number | null
+  sku: string | null
+  sizes: string[]
   brand: string | null
   tag: string | null
   categories: string[]
@@ -619,6 +646,36 @@ const normalizeHit = (hit: ApiSearchHit): SearchHit => ({
   image: hit.img_link || FALLBACK_IMAGE,
   link: hit.link || `/products/${hit.id}`,
   price: normalizePrice(hit.price),
+  sku: typeof hit.sku === 'string' || typeof hit.sku === 'number' ? String(hit.sku).trim() || null : null,
+  sizes: (() => {
+    const normalizeSizes = (value: unknown): string[] => {
+      if (value === null || value === undefined) return []
+      if (Array.isArray(value)) return value.flatMap((entry) => normalizeSizes(entry))
+      if (typeof value === 'number' && Number.isFinite(value)) return [String(value)]
+      if (typeof value === 'string') {
+        const trimmed = value.trim()
+        if (!trimmed) return []
+        const looksLikeJsonArray = trimmed.startsWith('[') && trimmed.endsWith(']')
+        const looksLikeQuotedJson = trimmed.startsWith('"') && trimmed.endsWith('"')
+        if (looksLikeJsonArray || looksLikeQuotedJson) {
+          try {
+            const parsed = JSON.parse(trimmed) as unknown
+            const parsedList = normalizeSizes(parsed)
+            if (parsedList.length) return parsedList
+          } catch {
+            // Fall back below
+          }
+        }
+        if (trimmed.includes(',')) {
+          const split = trimmed.split(',').map((part) => part.trim()).filter(Boolean)
+          if (split.length > 1) return split
+        }
+        return [trimmed]
+      }
+      return []
+    }
+    return normalizeSizes(hit.size)
+  })(),
   brand: hit.brand?.trim() || null,
   tag: normalizeTag(hit.tag) ?? normalizeTag(hit.tags),
   categories: Array.isArray(hit.categories_ids)

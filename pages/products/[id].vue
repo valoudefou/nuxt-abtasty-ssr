@@ -100,19 +100,81 @@
             {{ color }}
           </span>
         </div>
+        <fieldset v-if="product.sizes?.length" ref="sizeFieldsetRef" class="mt-6">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <legend class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Size
+              <span
+                v-if="requiresSizeSelection"
+                class="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700"
+              >
+                Required
+              </span>
+            </legend>
+            <div v-if="selectedSize" class="flex items-center gap-3 text-xs font-semibold text-slate-700">
+              <span>Selected: <span class="font-mono">{{ selectedSize }}</span></span>
+              <button type="button" class="text-primary-600 hover:text-primary-500" @click="selectedSize = null">
+                Clear
+              </button>
+            </div>
+          </div>
+
+          <p class="mt-2 text-xs text-slate-500">
+            <span v-if="requiresSizeSelection">Choose one size to continue.</span>
+            <span v-else>Select a size.</span>
+          </p>
+
+          <div
+            class="mt-3 flex flex-wrap gap-2"
+            role="radiogroup"
+            aria-label="Select size"
+            :aria-invalid="sizeError ? 'true' : 'false'"
+          >
+            <label
+              v-for="size in product.sizes"
+              :key="size"
+              class="cursor-pointer"
+            >
+              <input
+                v-model="selectedSize"
+                type="radio"
+                :name="`size-${product.id}`"
+                :value="size"
+                class="sr-only"
+              />
+              <span
+                class="inline-flex min-w-[3.25rem] items-center justify-center gap-1 rounded-full border px-4 py-2 text-sm font-semibold transition focus-within:outline-none"
+                :class="selectedSize === size
+                  ? 'border-primary-500 bg-primary-600 text-white shadow-sm'
+                  : 'border-slate-200 bg-white text-slate-800 hover:border-slate-300'"
+              >
+                <span class="font-mono">{{ size }}</span>
+                <span v-if="selectedSize === size" aria-hidden="true">✓</span>
+              </span>
+            </label>
+          </div>
+
+          <p v-if="sizeError" class="mt-3 text-sm font-semibold text-rose-600">
+            Select a size to continue.
+          </p>
+        </fieldset>
         <button
           class="mt-8 inline-flex w-full items-center justify-center rounded-full bg-primary-600 px-6 py-3 text-md font-semibold text-white shadow-lg transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
-          :disabled="!product.inStock"
+          :disabled="!canAddToCart"
           @click="addToCart"
         >
           <ShoppingCartIcon class="mr-3 h-8 w-5" />
-          {{ product.inStock ? 'Add to cart' : 'Sold out' }}
+          {{
+            !product.inStock
+              ? 'Sold out'
+              : (requiresSizeSelection && !selectedSize ? 'Select a size' : (selectedSize ? `Add to cart — ${selectedSize}` : 'Add to cart'))
+          }}
         </button>
         <button
           v-if="applePayEnabled"
           class="apple-pay-button mt-4"
           type="button"
-          :disabled="!product.inStock"
+          :disabled="!canAddToCart"
           @click="beginApplePay"
         >
           <span aria-hidden="true" class="apple-pay-button__fallback">
@@ -215,6 +277,45 @@ const applePayEnabled = ref(Boolean(applePayFeature.value?.enabled))
 const flagshipVisitor = ref<Visitor | null>(null)
 const viewedProductIds = viewedProducts
 const cartProductIds = computed(() => cart.items.value.map((item) => item.id))
+const selectedSize = ref<string | null>(null)
+const sizeError = ref(false)
+const sizeFieldsetRef = ref<HTMLElement | null>(null)
+
+const requiresSizeSelection = computed(() => (product.value?.sizes?.length ?? 0) > 1)
+const canAddToCart = computed(() => Boolean(product.value?.inStock) && (!requiresSizeSelection.value || Boolean(selectedSize.value)))
+
+watch(
+  () => product.value?.id,
+  () => {
+    const sizes = product.value?.sizes ?? []
+    selectedSize.value = sizes.length === 1 ? sizes[0] : null
+    sizeError.value = false
+  },
+  { immediate: true }
+)
+
+watch(selectedSize, () => {
+  sizeError.value = false
+})
+
+const scrollToSize = async () => {
+  if (!import.meta.client) return
+  await nextTick()
+  sizeFieldsetRef.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
+const ensureSizeSelected = () => {
+  if (!requiresSizeSelection.value) return true
+  if (selectedSize.value) return true
+  sizeError.value = true
+  void scrollToSize()
+  notifications.show({
+    title: 'Select a size',
+    message: 'Please choose a size before continuing.',
+    type: 'success'
+  })
+  return false
+}
 
 const logTimestamp = () =>
   new Date().toLocaleTimeString('en-US', {
@@ -305,7 +406,9 @@ if (import.meta.client) {
 
 const addToCart = () => {
   if (!product.value?.inStock) return
-  cart.addItem(product.value)
+  const sizes = product.value?.sizes ?? []
+  if (sizes.length > 1 && !ensureSizeSelected()) return
+  cart.addItem(product.value, 1, selectedSize.value ?? undefined)
 }
 
 const trackApplePayClick = async () => {
@@ -369,6 +472,10 @@ const beginApplePay = async () => {
       title: 'Unavailable',
       message: 'This product is currently out of stock.'
     })
+    return
+  }
+
+  if (!ensureSizeSelected()) {
     return
   }
 

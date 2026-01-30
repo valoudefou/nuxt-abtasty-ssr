@@ -16,23 +16,30 @@
       </div>
 
       <ul v-else class="mt-10 space-y-6">
-        <li v-for="item in items" :key="item.id" class="flex flex-col gap-6 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100 sm:flex-row sm:items-center sm:gap-8">
+        <li
+          v-for="item in items"
+          :key="`${item.id}:${item.selectedSize ?? ''}`"
+          class="flex flex-col gap-6 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100 sm:flex-row sm:items-center sm:gap-8"
+        >
           <img :src="item.image" :alt="item.name" class="h-32 w-32 rounded-2xl object-cover" />
           <div class="flex-1">
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 class="text-lg font-semibold text-slate-900">{{ item.name }}</h2>
+                <p v-if="item.selectedSize" class="mt-1 text-xs font-medium text-slate-500">
+                  Size <span class="font-mono text-slate-700">{{ item.selectedSize }}</span>
+                </p>
               </div>
               <p class="text-lg font-semibold text-primary-600">{{ formatCurrency(item.price) }}</p>
             </div>
             <div class="mt-4 flex flex-wrap items-center gap-4">
               <label class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Quantity</label>
               <div class="flex items-center rounded-full border border-slate-200">
-                <button class="px-3 py-1 text-sm" @click="decrease(item.id)">−</button>
+                <button class="px-3 py-1 text-sm" @click="decrease(item.id, item.selectedSize)">−</button>
                 <span class="px-4 text-sm font-medium text-slate-700">{{ item.quantity }}</span>
-                <button class="px-3 py-1 text-sm" @click="increase(item.id)">+</button>
+                <button class="px-3 py-1 text-sm" @click="increase(item.id, item.selectedSize)">+</button>
               </div>
-              <button class="text-sm font-semibold text-rose-500" @click="remove(item.id)">Remove</button>
+              <button class="text-sm font-semibold text-rose-500" @click="remove(item.id, item.selectedSize)">Remove</button>
             </div>
           </div>
         </li>
@@ -115,20 +122,20 @@ const addedToCartProductId = computed(() => {
   return ids.length ? ids[ids.length - 1] : null
 })
 
-const increase = (id: string | number) => {
-  const item = items.value.find((product) => product.id === id)
+const increase = (id: string | number, selectedSize?: string) => {
+  const item = items.value.find((product) => product.id === id && (product.selectedSize ?? null) === (selectedSize ?? null))
   if (!item) return
-  updateQuantity(id, item.quantity + 1)
+  updateQuantity(id, item.quantity + 1, selectedSize)
 }
 
-const decrease = (id: string | number) => {
-  const item = items.value.find((product) => product.id === id)
+const decrease = (id: string | number, selectedSize?: string) => {
+  const item = items.value.find((product) => product.id === id && (product.selectedSize ?? null) === (selectedSize ?? null))
   if (!item) return
   const nextQuantity = Math.max(1, item.quantity - 1)
-  updateQuantity(id, nextQuantity)
+  updateQuantity(id, nextQuantity, selectedSize)
 }
 
-const remove = (id: string | number) => removeItem(id)
+const remove = (id: string | number, selectedSize?: string) => removeItem(id, selectedSize)
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)

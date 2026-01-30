@@ -484,7 +484,9 @@ type SearchHit = {
   img_link?: string
   link?: string
   price?: number | string | null
+  rating?: number | string | null
   sku?: string | number | null
+  size?: string[] | string | number | null
   brand?: string | null
   vendor?: string | null
   category_id?: string | null
@@ -514,15 +516,53 @@ const normalizeSearchPrice = (value: SearchHit['price']) => {
   return 0
 }
 
+const normalizeSearchRating = (value: SearchHit['rating']) => {
+  if (value === null || value === undefined) return null
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.min(Math.max(value, 0), 5)
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value)
+    return Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0), 5) : null
+  }
+  return null
+}
+
 const normalizeSearchProduct = (hit: SearchHit, index: number): Product => {
   const id = hit.id ?? `search-${index}`
   const name = hit.name?.trim() || `Product ${index + 1}`
   const sku = typeof hit.sku === 'string' || typeof hit.sku === 'number' ? String(hit.sku).trim() : ''
+  const normalizeSizes = (value: unknown): string[] => {
+    if (value === null || value === undefined) return []
+    if (Array.isArray(value)) return value.flatMap((entry) => normalizeSizes(entry))
+    if (typeof value === 'number' && Number.isFinite(value)) return [String(value)]
+    if (typeof value === 'string') {
+      const trimmed = value.trim()
+      if (!trimmed) return []
+      const looksLikeJsonArray = trimmed.startsWith('[') && trimmed.endsWith(']')
+      const looksLikeQuotedJson = trimmed.startsWith('"') && trimmed.endsWith('"')
+      if (looksLikeJsonArray || looksLikeQuotedJson) {
+        try {
+          const parsed = JSON.parse(trimmed) as unknown
+          const parsedList = normalizeSizes(parsed)
+          if (parsedList.length) return parsedList
+        } catch {
+          // Fall back below
+        }
+      }
+      if (trimmed.includes(',')) {
+        const split = trimmed.split(',').map((part) => part.trim()).filter(Boolean)
+        if (split.length > 1) return split
+      }
+      return [trimmed]
+    }
+    return []
+  }
+  const sizes = normalizeSizes(hit.size)
   const categories = Array.isArray(hit.categories_ids)
     ? hit.categories_ids.map((entry) => entry?.trim()).filter((entry): entry is string => Boolean(entry))
     : []
   const primaryCategory = categories[0] || hit.category_id?.trim() || 'Search'
   const price = normalizeSearchPrice(hit.price)
+  const rating = normalizeSearchRating(hit.rating)
   return {
     id,
     slug: String(id),
@@ -532,11 +572,11 @@ const normalizeSearchProduct = (hit: SearchHit, index: number): Product => {
     price,
     category: primaryCategory,
     image: hit.img_link?.trim() || SEARCH_PLACEHOLDER_IMAGE,
-    rating: 4.7,
+    rating,
     highlights: ['Editor pick', 'Great for gifting'],
     inStock: true,
     colors: [],
-    sizes: ['One Size'],
+    sizes: sizes.length ? sizes : ['One Size'],
     sku: sku || undefined,
     brand: hit.brand?.trim() || undefined,
     vendor: hit.vendor?.trim() || undefined,
@@ -918,7 +958,6 @@ const fetchValentinesProducts = async () => {
       const data = await $fetch<SearchResponse>(SEARCH_ENDPOINT, {
         query: {
           wildcard: 'true',
-          vendor: 'ME EM',
           hitsPerPage: String(SEARCH_HITS_PER_PAGE),
           page: '0'
         }
@@ -1083,10 +1122,17 @@ const syncStateFromQuery = async () => {
   }
 }
 
-void syncStateFromQuery()
-if (import.meta.client) {
-  void performAutocomplete('')
+const ensureInitialLoad = async () => {
+  await syncStateFromQuery()
+  if (!allProducts.value.length) {
+    await fetchValentinesProducts()
+  }
+  if (import.meta.client) {
+    void performAutocomplete('')
+  }
 }
+
+void ensureInitialLoad()
 
 watch(giftSearch, (value) => {
   const term = normalizeGiftQuery(value)
