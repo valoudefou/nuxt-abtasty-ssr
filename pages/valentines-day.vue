@@ -101,6 +101,46 @@
 
             <div class="space-y-3">
               <div class="flex items-center justify-between">
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Sizes</p>
+                <button
+                  v-if="selectedSizes.length"
+                  type="button"
+                  class="text-xs font-semibold text-primary-600 hover:text-primary-500"
+                  @click="clearSizes"
+                >
+                  Reset
+                </button>
+              </div>
+              <div v-if="showSizeSearch" class="relative">
+                <input
+                  v-model="sizeSearch"
+                  type="search"
+                  name="size-search"
+                  class="w-full rounded-full border border-slate-200 px-4 py-2 text-xs shadow-sm outline-none transition focus:border-primary-400 focus:ring-primary-200"
+                  placeholder="Search sizes"
+                  aria-label="Search sizes"
+                />
+              </div>
+              <div class="max-h-56 space-y-2 overflow-y-auto pr-2">
+                <label
+                  v-for="size in filteredSizeOptions"
+                  :key="size"
+                  class="flex items-center gap-2 text-sm text-slate-600"
+                >
+                  <input
+                    type="checkbox"
+                    class="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-300"
+                    :checked="selectedSizes.includes(size)"
+                    @change="toggleSize(size)"
+                  />
+                  <span>{{ size }}</span>
+                </label>
+                <p v-if="!filteredSizeOptions.length" class="text-xs text-slate-400">No sizes match.</p>
+              </div>
+            </div>
+
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
                 <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Price</p>
                 <button
                   v-if="priceMin !== null || priceMax !== null"
@@ -350,6 +390,46 @@
 
             <div class="space-y-3">
               <div class="flex items-center justify-between">
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Sizes</p>
+                <button
+                  v-if="selectedSizes.length"
+                  type="button"
+                  class="text-xs font-semibold text-primary-600 hover:text-primary-500"
+                  @click="clearSizes"
+                >
+                  Reset
+                </button>
+              </div>
+              <div v-if="showSizeSearch" class="relative">
+                <input
+                  v-model="sizeSearch"
+                  type="search"
+                  name="size-search-mobile"
+                  class="w-full rounded-full border border-slate-200 px-4 py-2 text-xs shadow-sm outline-none transition focus:border-primary-400 focus:ring-primary-200"
+                  placeholder="Search sizes"
+                  aria-label="Search sizes"
+                />
+              </div>
+              <div class="max-h-52 space-y-2 overflow-y-auto pr-2">
+                <label
+                  v-for="size in filteredSizeOptions"
+                  :key="size"
+                  class="flex items-center gap-2 text-sm text-slate-600"
+                >
+                  <input
+                    type="checkbox"
+                    class="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-300"
+                    :checked="selectedSizes.includes(size)"
+                    @change="toggleSize(size)"
+                  />
+                  <span>{{ size }}</span>
+                </label>
+                <p v-if="!filteredSizeOptions.length" class="text-xs text-slate-400">No sizes match.</p>
+              </div>
+            </div>
+
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
                 <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Price</p>
                 <button
                   v-if="priceMin !== null || priceMax !== null"
@@ -503,6 +583,7 @@ const error = ref<string | null>(null)
 const allProducts = ref<Product[]>([])
 const brandOptions = ref<string[]>([])
 const categoryOptions = ref<string[]>([])
+const sizeOptions = ref<string[]>([])
 const currentPage = ref(0)
 const headlineWord = ref('Gifts')
 const headlineSearchTimeout = ref<ReturnType<typeof setTimeout> | null>(null)
@@ -582,6 +663,7 @@ const normalizeSearchProduct = (hit: SearchHit, index: number): Product => {
     colors: [],
     sizes: sizes.length ? sizes : ['One Size'],
     sku: sku || undefined,
+    recoSource: 'abtasty',
     brand: hit.brand?.trim() || undefined,
     vendor: hit.vendor?.trim() || undefined,
     categoryIds: categories.length ? categories : undefined,
@@ -593,18 +675,21 @@ const products = computed(() => allProducts.value)
 
 const selectedCategories = ref<string[]>([])
 const selectedBrands = ref<string[]>([])
+const selectedSizes = ref<string[]>([])
 const priceMin = ref<number | null>(null)
 const priceMax = ref<number | null>(null)
 const sortOption = ref<SortOption>('featured')
 const giftSearch = ref('')
 const categorySearch = ref('')
 const brandSearch = ref('')
+const sizeSearch = ref('')
 const isFilterDrawerOpen = ref(false)
 const autocompleteSuggestions = ref<string[]>([])
 const isAutocompleteLoading = ref(false)
 
 const showBrandSearch = computed(() => brandOptions.value.length > 10)
 const showCategorySearch = computed(() => categoryOptions.value.length > 10)
+const showSizeSearch = computed(() => sizeOptions.value.length > 10)
 
 const filteredCategoryOptions = computed(() => {
   if (!showCategorySearch.value || !categorySearch.value.trim()) {
@@ -620,6 +705,14 @@ const filteredBrandOptions = computed(() => {
   }
   const query = brandSearch.value.toLowerCase()
   return brandOptions.value.filter((brand) => brand.toLowerCase().includes(query))
+})
+
+const filteredSizeOptions = computed(() => {
+  if (!showSizeSearch.value || !sizeSearch.value.trim()) {
+    return sizeOptions.value
+  }
+  const query = sizeSearch.value.toLowerCase()
+  return sizeOptions.value.filter((size) => size.toLowerCase().includes(query))
 })
 
 const categorySuggestions = computed(() => {
@@ -738,6 +831,13 @@ const matchesSelectedBrands = (product: Product) => {
   return brand ? selected.has(brand) : false
 }
 
+const matchesSelectedSizes = (product: Product) => {
+  if (!selectedSizes.value.length) return true
+  const selected = new Set(selectedSizes.value.map(normalizeToken))
+  const sizes = (product.sizes ?? []).map((value) => value?.trim()).filter(Boolean)
+  return sizes.some((size) => selected.has(normalizeToken(size)))
+}
+
 const matchesPriceRange = (product: Product) => {
   const min = priceMin.value
   const max = priceMax.value
@@ -770,6 +870,7 @@ const filteredProducts = computed(() =>
     (product) =>
       matchesSelectedCategories(product)
       && matchesSelectedBrands(product)
+      && matchesSelectedSizes(product)
       && matchesPriceRange(product)
       && matchesGiftQuery(product)
   )
@@ -817,6 +918,7 @@ const hasActiveFilters = computed(
     Boolean(giftSearchNormalized.value)
     || selectedCategories.value.length > 0
     || selectedBrands.value.length > 0
+    || selectedSizes.value.length > 0
     || priceMin.value !== null
     || priceMax.value !== null
     || sortOption.value !== 'featured'
@@ -842,12 +944,26 @@ const toggleBrand = (brand: string) => {
   selectedBrands.value = Array.from(next)
 }
 
+const toggleSize = (size: string) => {
+  const next = new Set(selectedSizes.value)
+  if (next.has(size)) {
+    next.delete(size)
+  } else {
+    next.add(size)
+  }
+  selectedSizes.value = Array.from(next)
+}
+
 const clearBrands = () => {
   selectedBrands.value = []
 }
 
 const clearCategories = () => {
   selectedCategories.value = []
+}
+
+const clearSizes = () => {
+  selectedSizes.value = []
 }
 
 const clearPrice = () => {
@@ -859,6 +975,7 @@ const clearAll = () => {
   clearGiftSearch()
   clearCategories()
   clearBrands()
+  clearSizes()
   clearPrice()
   sortOption.value = 'featured'
 }
@@ -1011,6 +1128,31 @@ const updateCategoryOptions = (items: Product[]) => {
   categoryOptions.value = Array.from(merged).sort((a, b) => a.localeCompare(b))
 }
 
+const updateSizeOptions = (items: Product[]) => {
+  const sizesFromProducts = new Set<string>()
+  let sawOneSize = false
+  for (const product of items) {
+    for (const rawSize of product.sizes ?? []) {
+      const trimmed = rawSize?.trim()
+      if (!trimmed) continue
+      if (trimmed.toLowerCase() === 'one size') {
+        sawOneSize = true
+        continue
+      }
+      sizesFromProducts.add(trimmed)
+    }
+  }
+
+  const selected = selectedSizes.value
+  const merged = new Set(sizesFromProducts)
+  for (const size of selected) {
+    merged.add(size)
+  }
+
+  const mergedList = Array.from(merged).sort((a, b) => a.localeCompare(b))
+  sizeOptions.value = mergedList.length > 0 ? mergedList : (sawOneSize ? ['One Size'] : [])
+}
+
 const fetchValentinesProducts = async () => {
   pending.value = true
   error.value = null
@@ -1038,12 +1180,14 @@ const fetchValentinesProducts = async () => {
     allProducts.value = items
     updateBrandOptions(items)
     updateCategoryOptions(items)
+    updateSizeOptions(items)
   } catch (fetchError) {
     console.error('Failed to load Valentines products', fetchError)
     error.value = 'We were unable to load products right now.'
     allProducts.value = []
     brandOptions.value = []
     categoryOptions.value = []
+    sizeOptions.value = []
   } finally {
     pending.value = false
   }
@@ -1167,10 +1311,11 @@ const clearGiftSearch = () => {
 const buildSearchKey = () => {
   const categories = [...selectedCategories.value].sort().join('|')
   const brands = [...selectedBrands.value].sort().join('|')
+  const sizes = [...selectedSizes.value].sort().join('|')
   const term = giftSearchNormalized.value
   const min = priceMin.value !== null ? String(priceMin.value) : ''
   const max = priceMax.value !== null ? String(priceMax.value) : ''
-  return `${categories}:${brands}:${term}:${min}:${max}`
+  return `${categories}:${brands}:${sizes}:${term}:${min}:${max}`
 }
 
 const syncStateFromQuery = async () => {
@@ -1178,6 +1323,7 @@ const syncStateFromQuery = async () => {
   giftSearch.value = parseString(route.query.giftQuery)
   selectedCategories.value = parseList(route.query.category)
   selectedBrands.value = parseList(route.query.brand)
+  selectedSizes.value = parseList(route.query.size)
   priceMin.value = parseNumber(route.query.minPrice)
   priceMax.value = parseNumber(route.query.maxPrice)
   const sortValueRaw = Array.isArray(route.query.sort) ? route.query.sort[0] : route.query.sort
@@ -1230,6 +1376,7 @@ const queryState = computed(() => ({
   giftQuery: giftSearchNormalized.value ? giftSearchNormalized.value : undefined,
   category: selectedCategories.value.length ? selectedCategories.value.join(',') : undefined,
   brand: selectedBrands.value.length ? selectedBrands.value.join(',') : undefined,
+  size: selectedSizes.value.length ? selectedSizes.value.join(',') : undefined,
   minPrice: priceMin.value !== null ? String(priceMin.value) : undefined,
   maxPrice: priceMax.value !== null ? String(priceMax.value) : undefined,
   sort: sortOption.value !== 'featured' ? sortOption.value : undefined

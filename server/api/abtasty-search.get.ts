@@ -48,6 +48,7 @@ export default defineEventHandler(async (event) => {
     typeof query.hitsPerPage === 'string' ? query.hitsPerPage : String(query.hitsPerPage ?? '24')
   const categories = asArray(query.category).map((value) => value.trim()).filter(Boolean)
   const brands = asArray(query.brand).map((value) => value.trim()).filter(Boolean)
+  const sizes = asArray(query.size).map((value) => value.trim()).filter(Boolean)
   const categoryField = categories.length ? 'categories_ids' : ''
   const priceMin = typeof query.priceMin === 'string' ? query.priceMin : null
   const priceMax = typeof query.priceMax === 'string' ? query.priceMax : null
@@ -72,6 +73,9 @@ export default defineEventHandler(async (event) => {
   } else {
     appendListFilter(url, 'brand', brandFilters)
   }
+  if (sizes.length) {
+    appendListFilter(url, 'size', sizes)
+  }
   if (normalizedVendor) {
     appendListFilter(url, 'vendor', [normalizedVendor])
   }
@@ -94,6 +98,7 @@ export default defineEventHandler(async (event) => {
     vendor: normalizedVendor || null,
     brands,
     categories,
+    sizes,
     priceMin: priceMin ?? null,
     priceMax: priceMax ?? null
   })

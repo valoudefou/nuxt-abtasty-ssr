@@ -242,6 +242,42 @@
                 </div>
                 <div>
                   <div class="flex items-center justify-between">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Sizes</p>
+                    <button
+                      v-if="selectedSizes.length"
+                      type="button"
+                      class="text-xs font-semibold text-primary-600 hover:text-primary-500"
+                      @click="clearSizeFilter"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <div class="mt-3 h-56 space-y-1 overflow-y-auto rounded-2xl border border-slate-200 bg-white/80 p-2">
+                    <button
+                      v-for="size in sizeOptions"
+                      :key="size"
+                      type="button"
+                      class="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium transition"
+                      :class="selectedSizes.includes(size)
+                        ? 'bg-primary-50 text-primary-700'
+                        : 'text-slate-700 hover:bg-slate-100'"
+                      @click="toggleSizeFilter(size)"
+                    >
+                      <span class="truncate">{{ size }}</span>
+                      <span
+                        class="ml-3 h-4 w-4 rounded-full border border-slate-300"
+                        :class="selectedSizes.includes(size)
+                          ? 'bg-primary-600 border-primary-600'
+                          : 'bg-white'"
+                      ></span>
+                    </button>
+                    <p v-if="!sizeOptions.length" class="px-3 py-2 text-xs text-slate-500">
+                      No sizes found.
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <div class="flex items-center justify-between">
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Price</p>
                     <button
                       v-if="hasCustomPriceRange"
@@ -571,8 +607,10 @@ const isSearching = ref(false)
 const isLoadingMore = ref(false)
 const brandOptions = ref<string[]>([])
 const categoryOptions = ref<string[]>([])
+const sizeOptions = ref<string[]>([])
 const selectedBrand = ref<string | null>(null)
 const selectedCategories = ref<string[]>([])
+const selectedSizes = ref<string[]>([])
 const selectedPriceMin = ref(PRICE_SLIDER_MIN)
 const selectedPriceMax = ref(PRICE_SLIDER_MAX)
 const autocompleteSuggestions = ref<string[]>([])
@@ -684,7 +722,7 @@ const normalizeHit = (hit: ApiSearchHit): SearchHit => ({
     }
     return normalizeSizes(hit.size)
   })(),
-  recoSource: null,
+  recoSource: 'abtasty',
   brand: hit.brand?.trim() || null,
   tag: normalizeTag(hit.tag) ?? normalizeTag(hit.tags),
   categories: Array.isArray(hit.categories_ids)
@@ -817,6 +855,11 @@ const performSearch = async (query: string, options: { page?: number; append?: b
         url.searchParams.append('category', category)
       }
     }
+    if (selectedSizes.value.length) {
+      for (const size of selectedSizes.value) {
+        url.searchParams.append('size', size)
+      }
+    }
     if (hasCustomPriceRange.value) {
       url.searchParams.append('priceMin', String(selectedPriceMin.value))
       url.searchParams.append('priceMax', String(selectedPriceMax.value))
@@ -896,6 +939,28 @@ const performSearch = async (query: string, options: { page?: number; append?: b
     }
     console.debug('[Search] brand options', { count: brandOptions.value.length })
 
+    const sizeSet = new Set<string>()
+    let sawOneSize = false
+    for (const hit of sourceHits) {
+      for (const size of hit.sizes) {
+        const normalized = size?.trim()
+        if (!normalized) continue
+        if (normalized.toLowerCase() === 'one size') {
+          sawOneSize = true
+          continue
+        }
+        sizeSet.add(normalized)
+      }
+    }
+    const sizesFromHits = Array.from(sizeSet).sort((a, b) => a.localeCompare(b))
+    const mergedSizes = new Set(sizesFromHits)
+    for (const size of selectedSizes.value) {
+      const normalized = size.trim()
+      if (normalized) mergedSizes.add(normalized)
+    }
+    const mergedSizeList = Array.from(mergedSizes).sort((a, b) => a.localeCompare(b))
+    sizeOptions.value = mergedSizeList.length > 0 ? mergedSizeList : (sawOneSize ? ['One Size'] : [])
+
     const categoriesFromHits = Array.from(
       new Set(
         sourceHits.flatMap((hit) => hit.categories)
@@ -923,6 +988,7 @@ const performSearch = async (query: string, options: { page?: number; append?: b
     totalPages.value = 0
     totalHits.value = 0
     categoryOptions.value = []
+    sizeOptions.value = []
   } finally {
     if (requestId === latestRequestId) {
       isSearching.value = false
@@ -1043,10 +1109,12 @@ const clearSearch = () => {
   isSearching.value = false
   selectedBrand.value = null
   selectedCategories.value = []
+  selectedSizes.value = []
   selectedPriceMin.value = PRICE_SLIDER_MIN
   selectedPriceMax.value = PRICE_SLIDER_MAX
   brandOptions.value = []
   categoryOptions.value = []
+  sizeOptions.value = []
   autocompleteSuggestions.value = []
   currentPage.value = 0
   totalPages.value = 0
@@ -1064,6 +1132,8 @@ const closeOverlay = () => {
   brandOptions.value = []
   selectedCategories.value = []
   categoryOptions.value = []
+  selectedSizes.value = []
+  sizeOptions.value = []
   autocompleteSuggestions.value = []
   selectedPriceMin.value = PRICE_SLIDER_MIN
   selectedPriceMax.value = PRICE_SLIDER_MAX
@@ -1097,6 +1167,29 @@ const toggleCategoryFilter = (category: string) => {
     next.add(normalized)
   }
   selectedCategories.value = Array.from(next)
+  triggerSearchWithFilters()
+}
+
+const toggleSizeFilter = (size: string) => {
+  const normalized = size.trim()
+  if (!normalized) {
+    return
+  }
+  const next = new Set(selectedSizes.value)
+  if (next.has(normalized)) {
+    next.delete(normalized)
+  } else {
+    next.add(normalized)
+  }
+  selectedSizes.value = Array.from(next)
+  triggerSearchWithFilters()
+}
+
+const clearSizeFilter = () => {
+  if (!selectedSizes.value.length) {
+    return
+  }
+  selectedSizes.value = []
   triggerSearchWithFilters()
 }
 
