@@ -418,9 +418,25 @@
 		                        <p class="text-xs uppercase tracking-wide text-slate-500" v-if="product.brand">
 	                          {{ product.brand }}
 	                        </p>
-	                        <p class="mt-1 text-base font-semibold text-primary-600" v-if="product.price !== null">
-	                          {{ formatPrice(product.price) }}
-                        </p>
+	                        <div v-if="product.price !== null" class="mt-1">
+                            <div
+                              v-if="product.beforePrice !== null
+                                && product.discountPercentage !== null
+                                && product.price > 0
+                                && product.beforePrice > product.price"
+                              class="flex items-center gap-2"
+                            >
+                              <span class="text-xs font-semibold text-rose-600">
+                                -{{ Math.round(product.discountPercentage) }}%
+                              </span>
+                              <span class="text-xs font-semibold text-slate-400 line-through">
+                                {{ formatPrice(product.beforePrice) }}
+                              </span>
+                            </div>
+	                          <p class="text-base font-semibold text-primary-600">
+	                            {{ formatPrice(product.price) }}
+                          </p>
+                        </div>
                       </div>
                       <div class="mt-6 flex flex-row items-center gap-3">
                         <button
@@ -498,7 +514,13 @@ interface ApiSearchHit {
   name: string
   img_link?: string
   link?: string
+  beforePrice?: number | string | null
+  before_price?: number | string | null
+  price_before_discount?: number | string | { amount?: number | string | null } | null
   price?: number | string | null
+  discountPercentage?: number | string | null
+  discount_percentage?: number | string | null
+  discount_percent?: number | string | null
   sku?: string | number | null
   size?: string[] | string | number | null
   brand?: string | null
@@ -529,7 +551,9 @@ interface SearchHit {
   name: string
   image: string
   link: string
+  beforePrice: number | null
   price: number | null
+  discountPercentage: number | null
   sku: string | null
   sizes: string[]
   recoSource: 'abtasty' | null
@@ -664,6 +688,11 @@ const normalizePrice = (value: number | string | null | undefined): number | nul
   return null
 }
 
+const normalizeDiscountPercentage = (value: unknown): number | null => {
+  const normalized = normalizePrice(value as number | string | null | undefined)
+  return normalized !== null && normalized > 0 ? normalized : null
+}
+
 const normalizeTag = (value: unknown): string | null => {
   if (typeof value === 'string') {
     const trimmed = value.trim()
@@ -691,7 +720,19 @@ const normalizeHit = (hit: ApiSearchHit): SearchHit => ({
   name: hit.name,
   image: hit.img_link || FALLBACK_IMAGE,
   link: hit.link || `/products/${hit.id}`,
+  beforePrice: normalizePrice(hit.beforePrice)
+    ?? normalizePrice(hit.before_price)
+    ?? (() => {
+      const candidate = hit.price_before_discount
+      if (candidate && typeof candidate === 'object' && 'amount' in candidate) {
+        return normalizePrice((candidate as { amount?: unknown }).amount as number | string | null | undefined)
+      }
+      return normalizePrice(candidate as number | string | null | undefined)
+    })(),
   price: normalizePrice(hit.price),
+  discountPercentage: normalizeDiscountPercentage(hit.discountPercentage)
+    ?? normalizeDiscountPercentage(hit.discount_percentage)
+    ?? normalizeDiscountPercentage(hit.discount_percent),
   sku: typeof hit.sku === 'string' || typeof hit.sku === 'number' ? String(hit.sku).trim() || null : null,
   sizes: (() => {
     const normalizeSizes = (value: unknown): string[] => {
@@ -761,7 +802,9 @@ const fetchSearchRecommendations = async (itemIds: string[]) => {
         name: product.name,
         image: product.image || FALLBACK_IMAGE,
         link: product.link || `/products/${product.id}`,
+        beforePrice: normalizePrice(product.price_before_discount ?? null),
         price: typeof product.price === 'number' ? product.price : null,
+        discountPercentage: normalizeDiscountPercentage(product.discountPercentage ?? null),
         sku: product.sku ? String(product.sku) : null,
         sizes: Array.isArray(product.sizes) ? product.sizes : [],
         recoSource: product.recoSource ?? null,

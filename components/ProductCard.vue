@@ -32,7 +32,20 @@
           {{ product.name }}
         </NuxtLink>
         <div class="text-right">
-          <p class="text-lg font-semibold text-primary-600">
+          <div v-if="showDiscount" class="flex flex-col items-end gap-1">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-semibold text-rose-600">
+                -{{ Math.round(discountPercentage ?? 0) }}%
+              </span>
+              <span class="text-sm font-semibold text-slate-400 line-through">
+                {{ formatCurrency(beforePrice) }}
+              </span>
+            </div>
+            <p class="text-lg font-semibold text-primary-600">
+              {{ formatCurrency(product.price) }}
+            </p>
+          </div>
+          <p v-else class="text-lg font-semibold text-primary-600">
             {{ formatCurrency(product.price) }}
           </p>
         </div>
@@ -81,6 +94,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { ShoppingCartIcon, StarIcon } from '@heroicons/vue/24/solid'
 import type { Product } from '@/types/product'
 
@@ -91,11 +105,33 @@ const emit = defineEmits<{
 
 const cart = useCart()
 
+const normalizeNumber = (value: unknown): number | null => {
+  if (value === null || value === undefined) return null
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+const beforePrice = computed(() => normalizeNumber(props.product.price_before_discount))
+const discountPercentage = computed(() => normalizeNumber(props.product.discountPercentage))
+const showDiscount = computed(() => {
+  if (beforePrice.value === null) return false
+  if (discountPercentage.value === null) return false
+  if (discountPercentage.value <= 0) return false
+  if (props.product.price <= 0) return false
+  return beforePrice.value > props.product.price
+})
+
 const addToCart = () => {
   if (!props.product.inStock) return
   cart.addItem(props.product)
 }
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
+const formatCurrency = (value: number | null) =>
+  value === null
+    ? ''
+    : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
 </script>

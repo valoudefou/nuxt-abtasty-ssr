@@ -563,7 +563,13 @@ type SearchHit = {
   name?: string
   img_link?: string
   link?: string
+  beforePrice?: number | string | null
+  before_price?: number | string | null
+  price_before_discount?: number | string | { amount?: number | string | null } | null
   price?: number | string | null
+  discountPercentage?: number | string | null
+  discount_percentage?: number | string | null
+  discount_percent?: number | string | null
   rating?: number | string | null
   sku?: string | number | null
   size?: string[] | string | number | null
@@ -585,7 +591,7 @@ const brandOptions = ref<string[]>([])
 const categoryOptions = ref<string[]>([])
 const sizeOptions = ref<string[]>([])
 const currentPage = ref(0)
-const headlineWord = ref('Gifts')
+const headlineWord = ref('Shoes')
 const headlineSearchTimeout = ref<ReturnType<typeof setTimeout> | null>(null)
 const recommendations = ref<Product[]>([])
 const recommendationsLoading = ref(false)
@@ -599,6 +605,16 @@ const normalizeSearchPrice = (value: SearchHit['price']) => {
     return Number.isFinite(parsed) ? parsed : 0
   }
   return 0
+}
+
+const normalizeOptionalSearchNumber = (value: unknown): number | null => {
+  if (value === null || value === undefined) return null
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
 }
 
 const normalizeSearchRating = (value: SearchHit['rating']) => {
@@ -615,6 +631,20 @@ const normalizeSearchProduct = (hit: SearchHit, index: number): Product => {
   const id = hit.id ?? `search-${index}`
   const name = hit.name?.trim() || `Product ${index + 1}`
   const sku = typeof hit.sku === 'string' || typeof hit.sku === 'number' ? String(hit.sku).trim() : ''
+  const beforePrice =
+    normalizeOptionalSearchNumber(hit.beforePrice)
+    ?? normalizeOptionalSearchNumber(hit.before_price)
+    ?? (() => {
+      const candidate = hit.price_before_discount
+      if (candidate && typeof candidate === 'object' && 'amount' in candidate) {
+        return normalizeOptionalSearchNumber((candidate as { amount?: unknown }).amount)
+      }
+      return normalizeOptionalSearchNumber(candidate)
+    })()
+  const discountPercentage =
+    normalizeOptionalSearchNumber(hit.discountPercentage)
+    ?? normalizeOptionalSearchNumber(hit.discount_percentage)
+    ?? normalizeOptionalSearchNumber(hit.discount_percent)
   const normalizeSizes = (value: unknown): string[] => {
     if (value === null || value === undefined) return []
     if (Array.isArray(value)) return value.flatMap((entry) => normalizeSizes(entry))
@@ -655,6 +685,8 @@ const normalizeSearchProduct = (hit: SearchHit, index: number): Product => {
     title: name,
     description: hit.description?.trim() || '',
     price,
+    price_before_discount: beforePrice ?? undefined,
+    discountPercentage: discountPercentage ?? undefined,
     category: primaryCategory,
     image: hit.img_link?.trim() || SEARCH_PLACEHOLDER_IMAGE,
     rating,

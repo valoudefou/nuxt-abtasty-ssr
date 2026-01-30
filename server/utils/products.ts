@@ -21,6 +21,7 @@ export type RemoteProduct = {
   categoryIds?: string[] | null
   link?: string | null
   price?: { amount?: string | number | null; currency?: string | null } | string | number | null
+  beforePrice?: string | number | null
   price_before_discount?: string | number | null
   discountPercentage?: string | number | null
   rating?: string | number | null
@@ -331,7 +332,33 @@ export const normalizeRemoteProduct = (raw: RemoteProduct): Product => {
       ? null
       : Math.min(Math.max(parseNumber(raw.rating), 0), 5)
   const stock = Math.max(parseNumber(raw.stock), 0)
-  const discount = parseNumber(raw.discountPercentage)
+  const discountCandidate =
+    raw.discountPercentage
+    ?? (typeof rawRecord?.discountPercentage === 'string' || typeof rawRecord?.discountPercentage === 'number'
+      ? rawRecord.discountPercentage
+      : null)
+    ?? (typeof rawRecord?.discount_percentage === 'string' || typeof rawRecord?.discount_percentage === 'number'
+      ? rawRecord.discount_percentage
+      : null)
+    ?? (typeof rawRecord?.discountPercent === 'string' || typeof rawRecord?.discountPercent === 'number'
+      ? rawRecord.discountPercent
+      : null)
+  const discount = parseNumber(discountCandidate ?? null)
+  const priceBeforeDiscount =
+    raw.price_before_discount
+    ?? raw.beforePrice
+    ?? (typeof rawRecord?.price_before_discount === 'string' || typeof rawRecord?.price_before_discount === 'number'
+      ? rawRecord.price_before_discount
+      : null)
+    ?? (typeof rawRecord?.beforePrice === 'string' || typeof rawRecord?.beforePrice === 'number'
+      ? rawRecord.beforePrice
+      : null)
+    ?? (typeof rawRecord?.before_price === 'string' || typeof rawRecord?.before_price === 'number'
+      ? rawRecord.before_price
+      : null)
+    ?? (typeof rawRecord?.priceBeforeDiscount === 'string' || typeof rawRecord?.priceBeforeDiscount === 'number'
+      ? rawRecord.priceBeforeDiscount
+      : null)
   const availability = raw.availabilityStatus?.trim() ?? ''
   const status = raw.status?.trim() ?? ''
   const hasStockSignal = raw.stock !== null && raw.stock !== undefined
@@ -416,7 +443,7 @@ export const normalizeRemoteProduct = (raw: RemoteProduct): Product => {
     priceCurrency,
     stock,
     discountPercentage: discount,
-    price_before_discount: raw.price_before_discount ?? undefined,
+    price_before_discount: priceBeforeDiscount ?? undefined,
     sku: sku ?? undefined,
     tag: tag ?? undefined,
     recency: raw.recency ?? undefined,

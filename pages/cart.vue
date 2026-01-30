@@ -30,7 +30,20 @@
                   Size <span class="font-mono text-slate-700">{{ item.selectedSize }}</span>
                 </p>
               </div>
-              <p class="text-lg font-semibold text-primary-600">{{ formatCurrency(item.price) }}</p>
+              <div class="text-right">
+                <div v-if="getDiscount(item)" class="flex flex-col items-end gap-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs font-semibold text-rose-600">
+                      -{{ Math.round(getDiscount(item)!.discountPercentage) }}%
+                    </span>
+                    <span class="text-xs font-semibold text-slate-400 line-through">
+                      {{ formatCurrency(getDiscount(item)!.beforePrice) }}
+                    </span>
+                  </div>
+                  <p class="text-lg font-semibold text-primary-600">{{ formatCurrency(item.price) }}</p>
+                </div>
+                <p v-else class="text-lg font-semibold text-primary-600">{{ formatCurrency(item.price) }}</p>
+              </div>
             </div>
             <div class="mt-4 flex flex-wrap items-center gap-4">
               <label class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Quantity</label>
@@ -103,6 +116,7 @@
 import { ShoppingBagIcon } from '@heroicons/vue/24/outline'
 
 import RecommendationsCarousel from '@/components/RecommendationsCarousel.vue'
+import type { Product } from '@/types/product'
 
 const config = useRuntimeConfig()
 const { items, subtotal, updateQuantity, removeItem } = useCart()
@@ -136,6 +150,26 @@ const decrease = (id: string | number, selectedSize?: string) => {
 }
 
 const remove = (id: string | number, selectedSize?: string) => removeItem(id, selectedSize)
+
+const normalizeNumber = (value: unknown): number | null => {
+  if (value === null || value === undefined) return null
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+const getDiscount = (item: Product): { beforePrice: number; discountPercentage: number } | null => {
+  const beforePrice = normalizeNumber(item.price_before_discount)
+  const discountPercentage = normalizeNumber(item.discountPercentage)
+  if (beforePrice === null || discountPercentage === null) return null
+  if (discountPercentage <= 0) return null
+  if (item.price <= 0) return null
+  if (beforePrice <= item.price) return null
+  return { beforePrice, discountPercentage }
+}
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)

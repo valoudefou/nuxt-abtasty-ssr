@@ -33,7 +33,9 @@ const recommendationEndpoints = {
 }
 
 const defaultRecommendationFields = JSON.stringify([
+  'beforePrice',
   'price',
+  'discountPercentage',
   'name',
   'img_link',
   'absolute_link',

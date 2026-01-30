@@ -13,7 +13,13 @@ type RawRecommendation = {
   sku?: string | number
   size?: string[] | string | number | null
   name?: string
+  beforePrice?: string | number | null
+  before_price?: string | number | null
   price?: string | number
+  price_before_discount?: string | number | { amount?: string | number | null } | null
+  discountPercentage?: string | number | null
+  discount_percentage?: string | number | null
+  discount_percent?: string | number | null
   img_link?: string
   link?: string
   absolute_link?: string
@@ -303,6 +309,110 @@ const normalizePrice = (value: RawRecommendation['price']) => {
   return 0
 }
 
+const normalizeOptionalNumber = (value: unknown): number | null => {
+  if (value === null || value === undefined) return null
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+const getStatusCode = (error: unknown): number | null => {
+  if (!error || typeof error !== 'object') return null
+  const record = error as Record<string, unknown>
+  const statusCode = record.statusCode
+  if (typeof statusCode === 'number' && Number.isFinite(statusCode)) return statusCode
+  const status = record.status
+  if (typeof status === 'number' && Number.isFinite(status)) return status
+  const response = record.response
+  if (response && typeof response === 'object') {
+    const responseRecord = response as Record<string, unknown>
+    const responseStatus = responseRecord.status
+    if (typeof responseStatus === 'number' && Number.isFinite(responseStatus)) return responseStatus
+  }
+  return null
+}
+
+const stripUnsupportedRecommendationFields = (requestUrl: string) => {
+  try {
+    const url = new URL(requestUrl)
+    const rawFields = url.searchParams.get('fields')
+    if (!rawFields) return requestUrl
+
+    const parsed = JSON.parse(rawFields) as unknown
+    if (!Array.isArray(parsed)) return requestUrl
+
+    const nextFields = parsed
+      .map((value) => (typeof value === 'string' ? value.trim() : ''))
+      .filter((value) => value.length > 0)
+      .filter((value) => value !== 'beforePrice' && value !== 'discountPercentage')
+
+    if (nextFields.length === parsed.length) {
+      return requestUrl
+    }
+
+    if (nextFields.length === 0) {
+      url.searchParams.delete('fields')
+      return url.toString()
+    }
+
+    url.searchParams.set('fields', JSON.stringify(nextFields))
+    return url.toString()
+  } catch {
+    return requestUrl
+  }
+}
+
+const replaceRecommendationFieldAliases = (requestUrl: string) => {
+  try {
+    const url = new URL(requestUrl)
+    const rawFields = url.searchParams.get('fields')
+    if (!rawFields) return requestUrl
+
+    const parsed = JSON.parse(rawFields) as unknown
+    if (!Array.isArray(parsed)) return requestUrl
+
+    let changed = false
+    const nextFields = parsed
+      .map((value) => (typeof value === 'string' ? value.trim() : ''))
+      .filter((value) => value.length > 0)
+      .map((value) => {
+        if (value === 'beforePrice') {
+          changed = true
+          return 'price_before_discount'
+        }
+        if (value === 'discountPercentage') {
+          changed = true
+          return 'discount_percentage'
+        }
+        return value
+      })
+
+    if (!changed) return requestUrl
+
+    url.searchParams.set('fields', JSON.stringify(nextFields))
+    return url.toString()
+  } catch {
+    return requestUrl
+  }
+}
+
+const buildRecommendation422Fallbacks = (requestUrl: string) => {
+  const candidates = [
+    requestUrl,
+    replaceRecommendationFieldAliases(requestUrl),
+    stripUnsupportedRecommendationFields(requestUrl)
+  ]
+  const unique: string[] = []
+  for (const candidate of candidates) {
+    if (!candidate) continue
+    if (!unique.includes(candidate)) unique.push(candidate)
+  }
+  return unique
+}
+
 const ensureAbsoluteLink = (link: string | undefined, siteUrl?: string) => {
   if (!link) return undefined
 
@@ -334,6 +444,23 @@ const normalizeItem = (
   const recommendationId = normalizeRecommendationId(item.id)
   const sku = normalizeSku(item.sku)
   const sizes = normalizeStringList(item.size)
+  const beforePrice =
+    normalizeOptionalNumber(item.beforePrice)
+    ?? normalizeOptionalNumber(item.before_price)
+    ?? (() => {
+      const candidate = item.price_before_discount
+      if (candidate && typeof candidate === 'object' && 'amount' in candidate) {
+        return normalizeOptionalNumber((candidate as { amount?: unknown }).amount)
+      }
+      return normalizeOptionalNumber(candidate)
+    })()
+
+  const discountPercentage =
+    normalizeOptionalNumber(item.discountPercentage)
+    ?? normalizeOptionalNumber(item.discount_percentage)
+    ?? normalizeOptionalNumber(item.discount_percent)
+  const beforePriceValue = beforePrice !== null && beforePrice > 0 ? beforePrice : null
+  const discountValue = discountPercentage !== null && discountPercentage > 0 ? discountPercentage : null
   const matchingProduct =
     catalog.find((product) => product.name.toLowerCase() === normalizedName) ?? null
   const detailId = recommendationId ?? (matchingProduct ? String(matchingProduct.id) : null)
@@ -351,7 +478,11 @@ const normalizeItem = (
       && (!productWithSku.sizes?.length || (productWithSku.sizes.length === 1 && productWithSku.sizes[0] === 'One Size'))
         ? { ...productWithSku, sizes }
         : productWithSku
-    const productWithSource = { ...productWithSkuAndSizes, recoSource: 'abtasty' as const }
+    const productWithDiscount =
+      beforePriceValue !== null && discountValue !== null
+        ? { ...productWithSkuAndSizes, price_before_discount: beforePriceValue, discountPercentage: discountValue }
+        : productWithSkuAndSizes
+    const productWithSource = { ...productWithDiscount, recoSource: 'abtasty' as const }
 
     return {
       id: String(recommendationId ?? matchingProduct.slug),
@@ -370,6 +501,8 @@ const normalizeItem = (
     name,
     description: item.description?.trim() || '',
     price: normalizePrice(item.price),
+    price_before_discount: beforePriceValue ?? undefined,
+    discountPercentage: discountValue ?? undefined,
     category: 'Recommendations',
     image: item.img_link?.trim() || PLACEHOLDER_IMAGE,
     rating: 4.8,
@@ -381,7 +514,6 @@ const normalizeItem = (
     recoSource: 'abtasty',
     brand: item.brand?.trim() || undefined,
     stock: undefined,
-    discountPercentage: undefined,
     availabilityStatus: 'In stock',
     returnPolicy: undefined,
     link: absoluteLink
@@ -448,38 +580,73 @@ export const fetchRecommendations = async (
   const performFetch = async (
     activeFilter: RecommendationFilter | undefined,
     endpointOverride?: string
-  ) => {
-    const requestUrl = buildRecommendationUrl(endpointOverride || baseEndpoint, activeFilter, selectedVendor)
-    lastRequestUrl = requestUrl
-    const strategyField = activeFilter?.field ?? filter?.field ?? 'brand'
-    const recommendationName = resolveStrategyTitle(strategyField, strategyNames)
-    const recommendationId = extractRecommendationId(requestUrl)
-    console.log('[Recommendations] Fetching AB Tasty feed', {
-      endpoint: requestUrl,
-      field: strategyField,
-      value: activeFilter?.value ?? filter?.value
-    })
-    logRecommendationEvent('INFO', 'Fetching AB Tasty recommendations feed', {
-      endpoint: requestUrl,
-      field: strategyField,
-      value: activeFilter?.value ?? filter?.value,
-      recommendationName,
-      recommendationId
-    })
+	  ) => {
+	    const requestUrl = buildRecommendationUrl(endpointOverride || baseEndpoint, activeFilter, selectedVendor)
+	    lastRequestUrl = requestUrl
+	    const strategyField = activeFilter?.field ?? filter?.field ?? 'brand'
+	    const recommendationName = resolveStrategyTitle(strategyField, strategyNames)
+	    const recommendationId = extractRecommendationId(requestUrl)
+	    console.log('[Recommendations] Fetching AB Tasty feed', {
+	      endpoint: requestUrl,
+	      field: strategyField,
+	      value: activeFilter?.value ?? filter?.value
+	    })
+	    logRecommendationEvent('INFO', 'Fetching AB Tasty recommendations feed', {
+	      endpoint: requestUrl,
+	      field: strategyField,
+	      value: activeFilter?.value ?? filter?.value,
+	      recommendationName,
+	      recommendationId
+	    })
 
-    const response = await $fetch<{ name?: string; items?: RawRecommendation[] }>(requestUrl, {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        Accept: 'application/json'
-      }
-    })
+	    const fetchResponse = async (url: string) =>
+	      await $fetch<{ name?: string; items?: RawRecommendation[] }>(url, {
+	        headers: {
+	          Authorization: `Bearer ${apiKey}`,
+	          Accept: 'application/json'
+	        }
+	      })
 
-    if (!response?.items || !Array.isArray(response.items)) {
-      throw createError({
-        statusCode: 502,
-        statusMessage: 'Recommendations payload is invalid.'
-      })
-    }
+	    let response: { name?: string; items?: RawRecommendation[] } | null = null
+	    try {
+	      response = await fetchResponse(requestUrl)
+	    } catch (error) {
+	      const statusCode = getStatusCode(error)
+	      if (statusCode === 422) {
+	        const fallbacks = buildRecommendation422Fallbacks(requestUrl)
+	        let recovered = false
+	        for (const fallbackUrl of fallbacks.slice(1)) {
+	          try {
+	            console.warn('[Recommendations] unsupported fields; retrying with fallback fields', {
+	              original: requestUrl,
+	              fallback: fallbackUrl
+	            })
+	            lastRequestUrl = fallbackUrl
+	            response = await fetchResponse(fallbackUrl)
+	            recovered = true
+	            break
+	          } catch (fallbackError) {
+	            const fallbackStatus = getStatusCode(fallbackError)
+	            if (fallbackStatus === 422) {
+	              continue
+	            }
+	            throw fallbackError
+	          }
+	        }
+		        if (!recovered) {
+		          throw error
+		        }
+	      } else {
+	        throw error
+	      }
+	    }
+
+	    if (!response?.items || !Array.isArray(response.items)) {
+	      throw createError({
+	        statusCode: 502,
+	        statusMessage: 'Recommendations payload is invalid.'
+	      })
+	    }
 
     const catalog = await fetchProducts(event)
     let fallbackSeed = 900000
@@ -560,7 +727,7 @@ export const fetchRecommendations = async (
 
     throw lastError
   } catch (error) {
-    const statusCode = (error as { statusCode?: number })?.statusCode
+    const statusCode = getStatusCode(error)
     const failedRecommendationName = resolveStrategyTitle(filter?.field, strategyNames)
     const failedRecommendationId = extractRecommendationId(lastRequestUrl)
 
@@ -589,10 +756,9 @@ export const fetchRecommendations = async (
     })
   }
 
-  if (statusCode) {
-    if (filter?.field === 'cart_products' || filter?.field === 'viewed_items') {
-      console.error('Recommendations unavailable for contextual strategy, returning empty set', error)
-      logRecommendationEvent('ERROR', 'Recommendations contextual strategy failed', {
+    if (statusCode && statusCode >= 400) {
+      console.error('Recommendations unavailable, returning empty set', error)
+      logRecommendationEvent('ERROR', 'Recommendations request failed', {
         endpoint: lastRequestUrl,
         statusCode,
         field: filter?.field,
@@ -605,8 +771,6 @@ export const fetchRecommendations = async (
         items: []
       }
     }
-    throw error
-  }
 
     console.error('Failed to load recommendations, returning empty set', error)
     logRecommendationEvent('ERROR', 'Recommendations request failed', {
@@ -663,27 +827,61 @@ export const fetchSearchResultsRecommendations = async (
     }
   })()
 
-  logRecommendationEvent('INFO', 'Fetching AB Tasty recommendations feed (search_results)', {
-    endpoint: requestUrl,
-    field: 'search_results',
-    placementId,
-    vendor: selectedVendor || null,
-    search_results: searchResultIds.slice(0, 50)
-  })
+	  logRecommendationEvent('INFO', 'Fetching AB Tasty recommendations feed (search_results)', {
+	    endpoint: requestUrl,
+	    field: 'search_results',
+	    placementId,
+	    vendor: selectedVendor || null,
+	    search_results: searchResultIds.slice(0, 50)
+	  })
 
-  const response = await $fetch<{ name?: string; items?: RawRecommendation[] }>(requestUrl, {
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      Accept: 'application/json'
-    }
-  })
+	  const fetchResponse = async (url: string) =>
+	    await $fetch<{ name?: string; items?: RawRecommendation[] }>(url, {
+	      headers: {
+	        Authorization: `Bearer ${apiKey}`,
+	        Accept: 'application/json'
+	      }
+	    })
 
-  if (!response?.items || !Array.isArray(response.items)) {
-    throw createError({
-      statusCode: 502,
-      statusMessage: 'Recommendations payload is invalid.'
-    })
-  }
+	  let response: { name?: string; items?: RawRecommendation[] } | null = null
+	  try {
+	    response = await fetchResponse(requestUrl)
+	  } catch (error) {
+	    const statusCode = getStatusCode(error)
+	    if (statusCode === 422) {
+	      const fallbacks = buildRecommendation422Fallbacks(requestUrl)
+	      let recovered = false
+	      for (const fallbackUrl of fallbacks.slice(1)) {
+	        try {
+	          console.warn('[Recommendations] unsupported fields; retrying search_results with fallback fields', {
+	            original: requestUrl,
+	            fallback: fallbackUrl
+	          })
+	          response = await fetchResponse(fallbackUrl)
+	          recovered = true
+	          break
+	        } catch (fallbackError) {
+	          const fallbackStatus = getStatusCode(fallbackError)
+	          if (fallbackStatus === 422) {
+	            continue
+	          }
+	          throw fallbackError
+	        }
+	      }
+	      if (!recovered) {
+	        throw error
+	      }
+	    } else {
+	      throw error
+	    }
+	  }
+
+	  if (!response?.items || !Array.isArray(response.items)) {
+	    throw createError({
+	      statusCode: 502,
+	      statusMessage: 'Recommendations payload is invalid.'
+	    })
+	  }
 
   const catalog = await fetchProducts(event)
   let fallbackSeed = 910000

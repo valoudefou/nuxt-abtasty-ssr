@@ -113,7 +113,20 @@
         </p>
         <div class="mt-4 flex items-start justify-between gap-3">
           <p class="text-base font-semibold text-slate-900">{{ item.product.name }}</p>
-          <span class="text-base font-semibold text-primary-600">{{ formatCurrency(item.product.price) }}</span>
+          <div class="text-right">
+            <div v-if="getDiscount(item.product)" class="flex flex-col items-end gap-1">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-semibold text-rose-600">
+                  -{{ Math.round(getDiscount(item.product)!.discountPercentage) }}%
+                </span>
+                <span class="text-xs font-semibold text-slate-400 line-through">
+                  {{ formatCurrency(getDiscount(item.product)!.beforePrice) }}
+                </span>
+              </div>
+              <span class="text-base font-semibold text-primary-600">{{ formatCurrency(item.product.price) }}</span>
+            </div>
+            <span v-else class="text-base font-semibold text-primary-600">{{ formatCurrency(item.product.price) }}</span>
+          </div>
         </div>
 
         <p v-if="item.product.recoSource === 'abtasty'" class="mt-2 text-xs font-semibold text-emerald-600">
@@ -490,6 +503,26 @@ const dismissItem = (id: string) => {
 }
 
 const formatCurrency = (value: number) => currencyFormatter.format(value)
+
+const normalizeNumber = (value: unknown): number | null => {
+  if (value === null || value === undefined) return null
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+const getDiscount = (product: Product): { beforePrice: number; discountPercentage: number } | null => {
+  const beforePrice = normalizeNumber(product.price_before_discount)
+  const discountPercentage = normalizeNumber(product.discountPercentage)
+  if (beforePrice === null || discountPercentage === null) return null
+  if (discountPercentage <= 0) return null
+  if (product.price <= 0) return null
+  if (beforePrice <= product.price) return null
+  return { beforePrice, discountPercentage }
+}
 
 const addRecommendationToCart = (item: RecommendationItem) => {
   cart.addItem(item.product)

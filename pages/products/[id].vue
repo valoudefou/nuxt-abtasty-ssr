@@ -77,7 +77,20 @@
           Back to catalog
         </NuxtLink>
         <h1 class="mt-6 text-3xl font-semibold text-slate-900">{{ product.name }}</h1>
-        <p class="mt-3 text-lg font-semibold text-primary-600">{{ formatCurrency(product.price) }}</p>
+        <div class="mt-3">
+          <div
+            v-if="showDiscount"
+            class="flex flex-wrap items-baseline gap-2"
+          >
+            <span class="text-sm font-semibold text-rose-600">
+              -{{ Math.round(discountPercentage ?? 0) }}%
+            </span>
+            <span class="text-sm font-semibold text-slate-400 line-through">
+              {{ formatCurrency(beforePrice) }}
+            </span>
+          </div>
+          <p class="text-lg font-semibold text-primary-600">{{ formatCurrency(product.price) }}</p>
+        </div>
         <p v-if="product.sku" class="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
           <CopyToClipboard
             :text="product.sku"
@@ -270,6 +283,26 @@ const { data: productData, pending: productLoading, error: productError } = awai
 )
 
 const product = computed(() => productData.value as Product)
+
+const normalizeNumber = (value: unknown): number | null => {
+  if (value === null || value === undefined) return null
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+const beforePrice = computed(() => normalizeNumber(product.value?.price_before_discount))
+const discountPercentage = computed(() => normalizeNumber(product.value?.discountPercentage))
+const showDiscount = computed(() => {
+  if (beforePrice.value === null) return false
+  if (discountPercentage.value === null) return false
+  if (discountPercentage.value <= 0) return false
+  if (product.value.price <= 0) return false
+  return beforePrice.value > product.value.price
+})
 
 // applePayEnabled starts with the server-evaluated flag so SSR HTML and hydration match;
 // subsequent client checks overwrite it if the visitor’s decision changes.
@@ -493,8 +526,10 @@ const beginApplePay = async () => {
   })
 }
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
+const formatCurrency = (value: number | null) =>
+  value === null
+    ? ''
+    : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
 
 useHead({ title: computed(() => `${product.value?.name ?? 'Product'} – Commerce Demo`) })
 </script>
