@@ -32,7 +32,9 @@ const appendListFilter = (url: URL, field: string, values: string[]) => {
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
-  const text = typeof query.text === 'string' ? query.text.trim() : ''
+  const wildcard = query.wildcard === 'true'
+  const textInput = typeof query.text === 'string' ? query.text.trim() : ''
+  const text = textInput || (wildcard ? '*' : '')
 
   if (!text) {
     throw createError({
@@ -49,7 +51,8 @@ export default defineEventHandler(async (event) => {
   const categoryField = categories.length ? 'categories_ids' : ''
   const priceMin = typeof query.priceMin === 'string' ? query.priceMin : null
   const priceMax = typeof query.priceMax === 'string' ? query.priceMax : null
-  const vendorId = await getSelectedVendor(event)
+  const vendorOverride = typeof query.vendor === 'string' ? query.vendor.trim() : ''
+  const vendorId = vendorOverride ? vendorOverride : await getSelectedVendor(event)
   const normalizedVendor = vendorId.trim()
   const brandFilters = brands.length ? brands : []
 

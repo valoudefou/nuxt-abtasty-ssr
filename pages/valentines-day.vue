@@ -484,6 +484,7 @@ type SearchHit = {
   img_link?: string
   link?: string
   price?: number | string | null
+  sku?: string | number | null
   brand?: string | null
   vendor?: string | null
   category_id?: string | null
@@ -516,6 +517,7 @@ const normalizeSearchPrice = (value: SearchHit['price']) => {
 const normalizeSearchProduct = (hit: SearchHit, index: number): Product => {
   const id = hit.id ?? `search-${index}`
   const name = hit.name?.trim() || `Product ${index + 1}`
+  const sku = typeof hit.sku === 'string' || typeof hit.sku === 'number' ? String(hit.sku).trim() : ''
   const categories = Array.isArray(hit.categories_ids)
     ? hit.categories_ids.map((entry) => entry?.trim()).filter((entry): entry is string => Boolean(entry))
     : []
@@ -526,7 +528,7 @@ const normalizeSearchProduct = (hit: SearchHit, index: number): Product => {
     slug: String(id),
     name,
     title: name,
-    description: hit.description?.trim() || 'Curated for you.',
+    description: hit.description?.trim() || '',
     price,
     category: primaryCategory,
     image: hit.img_link?.trim() || SEARCH_PLACEHOLDER_IMAGE,
@@ -535,6 +537,7 @@ const normalizeSearchProduct = (hit: SearchHit, index: number): Product => {
     inStock: true,
     colors: [],
     sizes: ['One Size'],
+    sku: sku || undefined,
     brand: hit.brand?.trim() || undefined,
     vendor: hit.vendor?.trim() || undefined,
     categoryIds: categories.length ? categories : undefined,
@@ -912,8 +915,16 @@ const fetchValentinesProducts = async () => {
       const hits = data.hits ?? []
       items = hits.map(normalizeSearchProduct)
     } else {
-      const data = await $fetch<ValentinesResponse>(PRODUCTS_ENDPOINT)
-      items = data.products ?? []
+      const data = await $fetch<SearchResponse>(SEARCH_ENDPOINT, {
+        query: {
+          wildcard: 'true',
+          vendor: 'ME EM',
+          hitsPerPage: String(SEARCH_HITS_PER_PAGE),
+          page: '0'
+        }
+      })
+      const hits = data.hits ?? []
+      items = hits.map(normalizeSearchProduct)
     }
     allProducts.value = items
     updateBrandOptions(items)

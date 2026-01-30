@@ -14,6 +14,7 @@ type HydrationStrategies = {
 type LazyComponent<T> = DefineComponent<HydrationStrategies, {}, {}, {}, {}, {}, {}, { hydrated: () => void }> & T
 
 
+export const CopyToClipboard: typeof import("../components/CopyToClipboard.vue")['default']
 export const FeatureGrid: typeof import("../components/FeatureGrid.vue")['default']
 export const FlagshipLogPanel: typeof import("../components/FlagshipLogPanel.vue")['default']
 export const HeroSection: typeof import("../components/HeroSection.vue")['default']
@@ -49,6 +50,7 @@ export const Head: typeof import("../node_modules/nuxt/dist/head/runtime/compone
 export const Html: typeof import("../node_modules/nuxt/dist/head/runtime/components")['Html']
 export const Body: typeof import("../node_modules/nuxt/dist/head/runtime/components")['Body']
 export const NuxtIsland: typeof import("../node_modules/nuxt/dist/app/components/nuxt-island")['default']
+export const LazyCopyToClipboard: LazyComponent<typeof import("../components/CopyToClipboard.vue")['default']>
 export const LazyFeatureGrid: LazyComponent<typeof import("../components/FeatureGrid.vue")['default']>
 export const LazyFlagshipLogPanel: LazyComponent<typeof import("../components/FlagshipLogPanel.vue")['default']>
 export const LazyHeroSection: LazyComponent<typeof import("../components/HeroSection.vue")['default']>

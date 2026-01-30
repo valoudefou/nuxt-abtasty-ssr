@@ -232,6 +232,19 @@ const normalizeRecommendationId = (value?: RawRecommendation['id']) => {
   return null
 }
 
+const normalizeSku = (value?: RawRecommendation['sku']) => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value)
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return trimmed.length > 0 ? trimmed : null
+  }
+
+  return null
+}
+
 const normalizePrice = (value: RawRecommendation['price']) => {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value
@@ -276,6 +289,7 @@ const normalizeItem = (
   const normalizedName = name.toLowerCase()
   const absoluteLink = ensureAbsoluteLink(item.link ?? item.absolute_link, siteUrl)
   const recommendationId = normalizeRecommendationId(item.id)
+  const sku = normalizeSku(item.sku)
   const matchingProduct =
     catalog.find((product) => product.name.toLowerCase() === normalizedName) ?? null
   const detailId = recommendationId ?? (matchingProduct ? String(matchingProduct.id) : null)
@@ -286,10 +300,12 @@ const normalizeItem = (
       remotePrice > 0 && remotePrice !== matchingProduct.price
         ? { ...matchingProduct, price: remotePrice }
         : matchingProduct
+    const productWithSku =
+      sku && !productForCarousel.sku ? { ...productForCarousel, sku } : productForCarousel
 
     return {
       id: String(recommendationId ?? matchingProduct.slug),
-      product: productForCarousel,
+      product: productWithSku,
       detailUrl: detailId ? `/products/${detailId}` : `/products/${matchingProduct.slug}`,
       externalUrl: absoluteLink
     }
@@ -311,6 +327,7 @@ const normalizeItem = (
     inStock: true,
     colors: [],
     sizes: ['One Size'],
+    sku,
     brand: item.brand?.trim() || undefined,
     stock: undefined,
     discountPercentage: undefined,

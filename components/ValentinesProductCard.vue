@@ -32,11 +32,23 @@
             {{ formatCurrency(product.price) }}
           </p>
           <p v-if="product.sku" class="text-xs font-medium text-slate-500">
-            SKU {{ product.sku }}
+            <CopyToClipboard
+              :text="product.sku"
+              title="Copy SKU"
+              :aria-label="`Copy SKU ${product.sku} to clipboard`"
+              notify
+              notify-title="Copied"
+              :notify-message="`SKU ${product.sku} copied to clipboard.`"
+              class="hover:text-slate-700"
+            >
+              <span>SKU</span>
+              <span class="font-mono">{{ product.sku }}</span>
+            </CopyToClipboard>
           </p>
         </div>
       </div>
       <NuxtLink
+        v-if="product.description"
         :to="product.link || `/products/${product.id}`"
         class="mt-3 block text-sm leading-6 text-slate-600"
       >

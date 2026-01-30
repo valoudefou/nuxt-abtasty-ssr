@@ -102,6 +102,21 @@
           <span class="text-base font-semibold text-primary-600">{{ formatCurrency(item.product.price) }}</span>
         </div>
 
+        <p v-if="item.product.sku" class="mt-1 text-xs font-medium text-slate-500">
+          <CopyToClipboard
+            :text="String(item.product.sku)"
+            title="Copy SKU"
+            :aria-label="`Copy SKU ${item.product.sku} to clipboard`"
+            notify
+            notify-title="Copied"
+            :notify-message="`SKU ${item.product.sku} copied to clipboard.`"
+            class="hover:text-slate-700"
+          >
+            <span>SKU</span>
+            <span class="font-mono">{{ item.product.sku }}</span>
+          </CopyToClipboard>
+        </p>
+
         <a
           v-if="item.externalUrl"
           :href="item.externalUrl"
