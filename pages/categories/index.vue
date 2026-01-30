@@ -52,13 +52,26 @@
               <span class="h-2 w-2 rounded-full bg-amber-400"></span>
               Affinities
             </p>
-            <button
-              type="button"
-              class="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-500 transition hover:border-primary-300 hover:text-primary-600"
-              @click="clearAffinities"
-            >
-              Clear
-            </button>
+            <div class="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                class="rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] transition"
+                :class="affinityScope === 'all_time'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300'
+                  : 'border-emerald-200/70 bg-emerald-50/40 text-emerald-700/80 hover:border-emerald-300/70 hover:text-emerald-700'"
+                :aria-label="`Switch affinity scope (currently ${affinityScope === 'all_time' ? 'all time' : 'session'})`"
+                @click="affinityScope = affinityScope === 'all_time' ? 'session' : 'all_time'"
+              >
+                Showing: {{ affinityScope === 'all_time' ? 'All time' : 'Session' }}
+              </button>
+              <button
+                type="button"
+                class="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-500 transition hover:border-primary-300 hover:text-primary-600"
+                @click="clearAffinities"
+              >
+                Clear
+              </button>
+            </div>
           </div>
           <div class="flex flex-wrap gap-3 pb-4">
             <button
@@ -97,6 +110,9 @@ type StoredFilters = {
 }
 
 const STORED_FILTERS_KEY = 'category-filter-history'
+const SESSION_FILTERS_KEY = 'category-filter-session'
+const AFFINITY_SCOPE_KEY = 'category-affinity-scope'
+const affinityScope = ref<'session' | 'all_time'>('session')
 const storedAffinities = ref<StoredAffinity[]>([])
 const VENDOR_COOKIE_NAME = 'abt_vendor'
 const vendorCookieReady = ref(false)
@@ -135,7 +151,12 @@ const persistSelections = (product?: Product) => {
   }
 
   storedAffinities.value = next.slice(0, 12)
-  localStorage.setItem(STORED_FILTERS_KEY, JSON.stringify({ affinities: storedAffinities.value }))
+
+  if (!import.meta.client) return
+  sessionStorage.setItem(SESSION_FILTERS_KEY, JSON.stringify({ affinities: storedAffinities.value }))
+  if (affinityScope.value === 'all_time') {
+    localStorage.setItem(STORED_FILTERS_KEY, JSON.stringify({ affinities: storedAffinities.value }))
+  }
 }
 
 const {
@@ -174,23 +195,57 @@ onMounted(() => {
     }, 50)
   }
 
-  const raw = localStorage.getItem(STORED_FILTERS_KEY)
-  if (!raw) return
   try {
-    const parsed = JSON.parse(raw) as StoredFilters & {
-      categories?: string[]
-      brands?: string[]
-    }
-    if (Array.isArray(parsed?.affinities)) {
-      storedAffinities.value = parsed.affinities
-    } else {
+    const savedScope = sessionStorage.getItem(AFFINITY_SCOPE_KEY)
+    affinityScope.value = savedScope === 'all_time' ? 'all_time' : 'session'
+  } catch {
+    affinityScope.value = 'session'
+  }
+
+  const loadAffinities = (raw: string | null) => {
+    if (!raw) return []
+    try {
+      const parsed = JSON.parse(raw) as StoredFilters & {
+        categories?: string[]
+        brands?: string[]
+      }
+      if (Array.isArray(parsed?.affinities)) {
+        return parsed.affinities
+      }
       const categories = Array.isArray(parsed?.categories) ? parsed.categories : []
       const brands = Array.isArray(parsed?.brands) ? parsed.brands : []
-      storedAffinities.value = [
+      return [
         ...categories.map((category) => ({ category, brand: null })),
         ...brands.map((brand) => ({ category: null, brand }))
       ]
+    } catch {
+      return []
     }
+  }
+
+  const sessionRaw = sessionStorage.getItem(SESSION_FILTERS_KEY)
+  const allTimeRaw = localStorage.getItem(STORED_FILTERS_KEY)
+  storedAffinities.value =
+    affinityScope.value === 'all_time' ? loadAffinities(allTimeRaw) : loadAffinities(sessionRaw)
+})
+
+watch(affinityScope, (next) => {
+  if (!import.meta.client) return
+  try {
+    sessionStorage.setItem(AFFINITY_SCOPE_KEY, next)
+  } catch {
+    // no-op
+  }
+  const sessionRaw = sessionStorage.getItem(SESSION_FILTERS_KEY)
+  const allTimeRaw = localStorage.getItem(STORED_FILTERS_KEY)
+  const raw = next === 'all_time' ? allTimeRaw : sessionRaw
+  if (!raw) {
+    storedAffinities.value = []
+    return
+  }
+  try {
+    const parsed = JSON.parse(raw) as StoredFilters & { affinities?: StoredAffinity[] }
+    storedAffinities.value = Array.isArray(parsed?.affinities) ? parsed.affinities : []
   } catch {
     storedAffinities.value = []
   }
@@ -214,7 +269,12 @@ const onViewDetails = (product: Product) => {
 
 const clearAffinities = () => {
   storedAffinities.value = []
-  localStorage.removeItem(STORED_FILTERS_KEY)
+  if (!import.meta.client) return
+  if (affinityScope.value === 'all_time') {
+    localStorage.removeItem(STORED_FILTERS_KEY)
+  } else {
+    sessionStorage.removeItem(SESSION_FILTERS_KEY)
+  }
 }
 
 const formatBrandLabel = (brand: string) => brand.trim().toUpperCase()

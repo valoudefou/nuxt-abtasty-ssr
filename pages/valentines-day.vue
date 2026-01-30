@@ -2,16 +2,16 @@
   <div class="space-y-10">
     <section class="space-y-4">
       <div class="rounded-3xl bg-gradient-to-r from-rose-50 via-pink-50 to-amber-50 p-6 shadow-sm ring-1 ring-rose-100 sm:p-10">
-        <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.3em] text-rose-400">Seasonal edit</p>
-            <h1 class="mt-3 text-3xl font-semibold text-slate-900 sm:text-4xl">
-              Valentines Day
-              <input
-                v-model.trim="headlineWord"
-                type="text"
-                class="inline-block w-28 border-b border-dashed border-rose-300 bg-transparent text-center font-semibold text-rose-600 focus:border-rose-400 focus:outline-none"
-                aria-label="Edit headline word"
+	        <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+	          <div>
+	            <p class="text-xs font-semibold uppercase tracking-[0.3em] text-rose-400">Seasonal edit</p>
+	            <h1 class="mt-3 text-3xl font-semibold text-slate-900 sm:text-4xl">
+	              Valentines Day
+	              <input
+	                v-model.trim="headlineWord"
+	                type="text"
+	                class="inline-block w-28 border-b border-dashed border-rose-300 bg-transparent text-center font-semibold text-rose-600 focus:border-rose-400 focus:outline-none"
+	                aria-label="Edit headline word"
               />
             </h1>
             <p class="mt-3 max-w-2xl text-sm text-slate-600 sm:text-base">
@@ -262,7 +262,7 @@
             </div>
             <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               <ValentinesProductCard
-                v-for="product in visibleProducts"
+                v-for="product in blendedProducts"
                 :key="product.id"
                 :product="product"
               />
@@ -506,6 +506,10 @@ const categoryOptions = ref<string[]>([])
 const currentPage = ref(0)
 const headlineWord = ref('Gifts')
 const headlineSearchTimeout = ref<ReturnType<typeof setTimeout> | null>(null)
+const recommendations = ref<Product[]>([])
+const recommendationsLoading = ref(false)
+let recommendationsKey = ''
+let recommendationsRequestId = 0
 
 const normalizeSearchPrice = (value: SearchHit['price']) => {
   if (typeof value === 'number' && Number.isFinite(value)) return value
@@ -791,6 +795,23 @@ const visibleProducts = computed(() =>
 )
 const canLoadMore = computed(() => currentPage.value + 1 < totalPages.value)
 
+const visibleProductIds = computed(() =>
+  visibleProducts.value.map((product) => String(product.id)).filter(Boolean)
+)
+
+const blendedProducts = computed(() => {
+  const base = visibleProducts.value
+  if (!recommendations.value.length) return base
+
+  const baseIds = new Set(base.map((product) => String(product.id)))
+  const uniqueRecommendations = recommendations.value.filter(
+    (product) => !baseIds.has(String(product.id))
+  )
+  if (!uniqueRecommendations.length) return base
+
+  return [...uniqueRecommendations, ...base]
+})
+
 const hasActiveFilters = computed(
   () =>
     Boolean(giftSearchNormalized.value)
@@ -859,6 +880,55 @@ const openFilterDrawer = () => {
 const handleRetry = () => {
   void fetchValentinesProducts()
 }
+
+const fetchSearchResultsRecommendations = async () => {
+  if (pending.value) return
+  if (visibleProductIds.value.length === 0) {
+    recommendations.value = []
+    recommendationsKey = ''
+    return
+  }
+
+  const nextKey = visibleProductIds.value.join(',')
+  if (nextKey === recommendationsKey) return
+  recommendationsKey = nextKey
+
+  const requestId = ++recommendationsRequestId
+  recommendationsLoading.value = true
+  try {
+    const response = await $fetch<{ items?: Array<{ product: Product }> }>('/api/reco-search-results', {
+      method: 'POST',
+      body: {
+        itemIds: visibleProductIds.value
+      }
+    })
+    if (requestId !== recommendationsRequestId) return
+    const items = Array.isArray(response?.items) ? response.items : []
+    recommendations.value = items
+      .map((item) => item.product)
+      .filter(Boolean)
+      .map((product) => ({
+        ...product,
+        tag: product.tag ?? 'Recommended'
+      }))
+  } catch (recoError) {
+    console.error('Failed to load Valentines recommendations', recoError)
+    if (requestId === recommendationsRequestId) {
+      recommendations.value = []
+    }
+  } finally {
+    if (requestId === recommendationsRequestId) {
+      recommendationsLoading.value = false
+    }
+  }
+}
+
+watch(
+  () => visibleProductIds.value.join(','),
+  () => {
+    void fetchSearchResultsRecommendations()
+  }
+)
 
 const closeFilterDrawer = () => {
   isFilterDrawerOpen.value = false

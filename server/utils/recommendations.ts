@@ -35,6 +35,9 @@ export type RecommendationResponse = {
 
 const PLACEHOLDER_IMAGE = 'https://assets-manager.abtasty.com/placeholder.png'
 
+const BAD_VIEWED_ITEMS_PLACEMENT_TTL_MS = 1000 * 60 * 10
+const badViewedItemsPlacements = new Map<string, number>()
+
 type RecommendationFilter = {
   field: 'brand' | 'homepage' | 'category' | 'category_level2' | 'category_level3' | 'category_level4' | 'cart_products' | 'viewed_items'
   value?: string | string[]
@@ -143,7 +146,7 @@ const buildRecommendationUrl = (
         Array.isArray(filter?.cartProductIds)
           ? filter.cartProductIds.map((id) => String(id))
           : []
-      if (!variables.cart_products && cartContextIds.length > 0) {
+      if (filter.field === 'cart_products' && !variables.cart_products && cartContextIds.length > 0) {
         variables.cart_products = cartContextIds
       }
     } else {
@@ -160,6 +163,7 @@ const buildRecommendationUrl = (
 
     if (
       filter?.field !== 'cart_products'
+      && filter?.field !== 'viewed_items'
       && Array.isArray(filter?.cartProductIds)
       && filter.cartProductIds.length > 0
     ) {
@@ -405,17 +409,28 @@ export const fetchRecommendations = async (
     | Partial<StrategyNameMap>
     | undefined
 
-  let baseEndpoint: string | undefined = endpoint
+  let baseEndpointRaw: string | undefined = endpoint
   if (filter?.field === 'category') {
-    baseEndpoint = categoryEndpoint || endpoint
+    baseEndpointRaw = categoryEndpoint || endpoint
   } else if (filter?.field === 'cart_products') {
-    baseEndpoint = cartEndpoint || endpoint
+    baseEndpointRaw = cartEndpoint || endpoint
   } else if (filter?.field === 'viewed_items') {
-    baseEndpoint = viewedItemsEndpoint || endpoint
+    baseEndpointRaw = viewedItemsEndpoint || endpoint
   } else if (filter?.field === 'homepage') {
-    baseEndpoint = homepageEndpoint || endpoint
+    baseEndpointRaw = homepageEndpoint || endpoint
   }
-  baseEndpoint = overrideRecommendationId(baseEndpoint, filter?.placementId)
+  const placementId = filter?.placementId?.trim() || ''
+  const now = Date.now()
+  const placementBlockedUntil = placementId ? badViewedItemsPlacements.get(placementId) : undefined
+  const isDev = process.env.NODE_ENV !== 'production'
+  const allowPlacementOverride =
+    Boolean(placementId)
+    && (!placementBlockedUntil || placementBlockedUntil < now)
+    && !isDev
+
+  const baseEndpoint = allowPlacementOverride
+    ? (overrideRecommendationId(baseEndpointRaw, placementId) || baseEndpointRaw)
+    : baseEndpointRaw
 
   if (!apiKey || !baseEndpoint) {
     throw createError({
@@ -428,8 +443,11 @@ export const fetchRecommendations = async (
   let lastRequestUrl: string | null = null
   const selectedVendor = await getSelectedVendor(event)
 
-  const performFetch = async (activeFilter?: RecommendationFilter) => {
-    const requestUrl = buildRecommendationUrl(baseEndpoint, activeFilter, selectedVendor)
+  const performFetch = async (
+    activeFilter: RecommendationFilter | undefined,
+    endpointOverride?: string
+  ) => {
+    const requestUrl = buildRecommendationUrl(endpointOverride || baseEndpoint, activeFilter, selectedVendor)
     lastRequestUrl = requestUrl
     const strategyField = activeFilter?.field ?? filter?.field ?? 'brand'
     const recommendationName = resolveStrategyTitle(strategyField, strategyNames)
@@ -489,7 +507,56 @@ export const fetchRecommendations = async (
 
   try {
     const resolvedFilter = await withViewingSku(filter, event)
-    return await performFetch(resolvedFilter)
+    const shouldRetryViewedItems = resolvedFilter?.field === 'viewed_items' && Boolean(baseEndpointRaw)
+    const attempts: Array<{
+      filter: RecommendationFilter | undefined
+      endpointOverride?: string
+      label: string
+    }> = [{ filter: resolvedFilter, label: 'viewed_items:default' }]
+
+    if (shouldRetryViewedItems) {
+      const hasViewingSku =
+        resolvedFilter.viewingItemSku !== null && resolvedFilter.viewingItemSku !== undefined
+      if (hasViewingSku) {
+        attempts.push({
+          filter: { ...resolvedFilter, viewingItemSku: null },
+          label: 'viewed_items:no_viewing_sku'
+        })
+      }
+
+      if (filter?.placementId) {
+        attempts.push({
+          filter: resolvedFilter,
+          endpointOverride: baseEndpointRaw,
+          label: 'viewed_items:no_placement_override'
+        })
+        if (hasViewingSku) {
+          attempts.push({
+            filter: { ...resolvedFilter, viewingItemSku: null },
+            endpointOverride: baseEndpointRaw,
+            label: 'viewed_items:no_placement_override_no_viewing_sku'
+          })
+        }
+      }
+    }
+
+    let lastError: unknown = null
+    for (const attempt of attempts) {
+      try {
+        if (attempt.label !== 'viewed_items:default') {
+          console.debug('Viewed_items recommendation retry', { attempt: attempt.label })
+        }
+        return await performFetch(attempt.filter, attempt.endpointOverride)
+      } catch (error) {
+        lastError = error
+        const statusCode = (error as { statusCode?: number })?.statusCode
+        if (!statusCode || statusCode < 400) {
+          break
+        }
+      }
+    }
+
+    throw lastError
   } catch (error) {
     const statusCode = (error as { statusCode?: number })?.statusCode
     const failedRecommendationName = resolveStrategyTitle(filter?.field, strategyNames)
@@ -551,6 +618,84 @@ export const fetchRecommendations = async (
       title: resolveStrategyTitle(filter?.field, strategyNames),
       items: []
     }
+  }
+}
+
+export const fetchSearchResultsRecommendations = async (
+  params: { placementId: string; searchResultIds: Array<string | number> },
+  event?: H3Event
+): Promise<RecommendationResponse> => {
+  const config = useRuntimeConfig()
+  const apiKey = config.recommendations?.apiKey
+  const endpoint = config.recommendations?.endpoint
+  const siteUrl = config.recommendations?.siteUrl
+
+  const placementId = params.placementId?.trim()
+  const searchResultIds = Array.isArray(params.searchResultIds)
+    ? params.searchResultIds.map((id) => String(id).trim()).filter(Boolean)
+    : []
+
+  if (!apiKey || !endpoint || !placementId) {
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Recommendation credentials are missing. Please configure runtimeConfig.recommendations.'
+    })
+  }
+
+  const selectedVendor = await getSelectedVendor(event)
+  const baseEndpoint = overrideRecommendationId(endpoint, placementId) || endpoint
+
+  const requestUrl = (() => {
+    try {
+      const url = new URL(baseEndpoint)
+      url.searchParams.set(
+        'variables',
+        JSON.stringify({
+          ...(selectedVendor ? { vendor: selectedVendor } : {}),
+          search_results: searchResultIds
+        })
+      )
+      return url.toString()
+    } catch {
+      return baseEndpoint
+    }
+  })()
+
+  logRecommendationEvent('INFO', 'Fetching AB Tasty recommendations feed (search_results)', {
+    endpoint: requestUrl,
+    field: 'search_results',
+    placementId,
+    vendor: selectedVendor || null,
+    search_results: searchResultIds.slice(0, 50)
+  })
+
+  const response = await $fetch<{ name?: string; items?: RawRecommendation[] }>(requestUrl, {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      Accept: 'application/json'
+    }
+  })
+
+  if (!response?.items || !Array.isArray(response.items)) {
+    throw createError({
+      statusCode: 502,
+      statusMessage: 'Recommendations payload is invalid.'
+    })
+  }
+
+  const catalog = await fetchProducts(event)
+  let fallbackSeed = 910000
+  const fallbackIdSeed = () => fallbackSeed++
+
+  const normalizedItems = response.items
+    .map((item, index) => normalizeItem(item, index, catalog, fallbackIdSeed, siteUrl))
+    .filter(
+      (item, index, self) => self.findIndex((candidate) => candidate.id === item.id) === index
+    )
+
+  return {
+    title: response.name?.trim() || 'Recommended for you',
+    items: normalizedItems
   }
 }
 

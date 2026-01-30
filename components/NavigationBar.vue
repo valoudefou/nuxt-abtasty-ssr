@@ -344,10 +344,10 @@
                     class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
                     :class="{ 'pt-16': autocompleteSuggestions.length }"
                   >
-                    <article
-                      v-for="product in searchResults"
-                      :key="product.id"
-                      class="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+	                    <article
+	                      v-for="product in blendedSearchResults"
+	                      :key="product.id"
+	                      class="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
 	                    >
 	                      <div class="relative overflow-hidden rounded-xl bg-slate-100">
 	                        <span
@@ -567,6 +567,10 @@ const isFilterPanelOpen = ref(true)
 const viewportWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024)
 const searchQuery = ref('')
 const searchResults = ref<SearchHit[]>([])
+const searchRecommendations = ref<SearchHit[]>([])
+const searchRecommendationsLoading = ref(false)
+let searchRecoKey = ''
+let searchRecoRequestId = 0
 const searchError = ref('')
 const isSearching = ref(false)
 const isLoadingMore = ref(false)
@@ -580,6 +584,15 @@ const autocompleteSuggestions = ref<string[]>([])
 const currentPage = ref(0)
 const totalPages = ref(0)
 const totalHits = ref(0)
+
+const blendedSearchResults = computed(() => {
+  if (!searchRecommendations.value.length) return searchResults.value
+
+  const resultIds = new Set(searchResults.value.map((hit) => hit.id))
+  const uniqueRecos = searchRecommendations.value.filter((hit) => !resultIds.has(hit.id))
+  if (!uniqueRecos.length) return searchResults.value
+  return [...uniqueRecos, ...searchResults.value]
+})
 
 const hasMinimumQuery = computed(() => searchQuery.value.trim().length >= 2)
 const isDesktop = computed(() => viewportWidth.value >= 1024)
@@ -684,6 +697,55 @@ const normalizeHit = (hit: ApiSearchHit): SearchHit => ({
       ? [hit.category_id.trim()].filter(Boolean)
       : []
 })
+
+const fetchSearchRecommendations = async (itemIds: string[]) => {
+  if (!import.meta.client) return
+  if (itemIds.length === 0) {
+    searchRecommendations.value = []
+    searchRecoKey = ''
+    return
+  }
+
+  const nextKey = itemIds.join(',')
+  if (nextKey === searchRecoKey) return
+  searchRecoKey = nextKey
+
+  const requestId = ++searchRecoRequestId
+  searchRecommendationsLoading.value = true
+  try {
+    const response = await $fetch<{ items?: Array<{ product: Product }> }>('/api/reco-search-results', {
+      method: 'POST',
+      body: { itemIds }
+    })
+    if (requestId !== searchRecoRequestId) return
+    const items = Array.isArray(response?.items) ? response.items : []
+    const normalized = items
+      .map((item) => item.product)
+      .filter(Boolean)
+      .map((product) => ({
+        id: String(product.id),
+        name: product.name,
+        image: product.image || FALLBACK_IMAGE,
+        link: product.link || `/products/${product.id}`,
+        price: typeof product.price === 'number' ? product.price : null,
+        sku: product.sku ? String(product.sku) : null,
+        sizes: Array.isArray(product.sizes) ? product.sizes : [],
+        brand: product.brand?.trim() || null,
+        tag: product.tag?.trim() || 'Recommended',
+        categories: Array.isArray(product.categoryIds) ? product.categoryIds : []
+      } satisfies SearchHit))
+    searchRecommendations.value = normalized
+  } catch (error) {
+    console.error('Failed to load search recommendations', error)
+    if (requestId === searchRecoRequestId) {
+      searchRecommendations.value = []
+    }
+  } finally {
+    if (requestId === searchRecoRequestId) {
+      searchRecommendationsLoading.value = false
+    }
+  }
+}
 
 const isAddingToCart = ref<Record<string, boolean>>({})
 
@@ -796,6 +858,11 @@ const performSearch = async (query: string, options: { page?: number; append?: b
       searchResults.value = [...searchResults.value, ...normalizedHits]
     } else {
       searchResults.value = normalizedHits
+    }
+
+    if (!shouldAppend) {
+      const ids = normalizedHits.map((hit) => hit.id).filter(Boolean)
+      void fetchSearchRecommendations(ids)
     }
     currentPage.value = Number.isFinite(data.page) ? Number(data.page) : requestedPage
     totalPages.value = Number.isFinite(data.totalPages) ? Number(data.totalPages) : 0
