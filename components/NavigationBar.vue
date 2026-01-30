@@ -372,15 +372,6 @@
 	                          <span class="font-mono">{{ product.sku }}</span>
 	                        </CopyToClipboard>
 	                      </p>
-	                      <div v-if="product.sizes.length" class="mt-2 flex flex-wrap gap-2 text-[11px] font-medium text-slate-500">
-	                        <span
-	                          v-for="size in product.sizes"
-	                          :key="size"
-	                          class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-slate-600"
-	                        >
-	                          {{ size }}
-	                        </span>
-	                      </div>
 	                      <div class="mt-4">
 	                        <p class="text-sm font-semibold text-slate-900">
 	                          {{ product.name }}

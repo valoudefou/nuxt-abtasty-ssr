@@ -26,15 +26,6 @@
         <span class="font-mono">{{ product.sku }}</span>
       </CopyToClipboard>
     </div>
-    <div v-if="product.sizes.length" class="mt-2 flex flex-wrap gap-2 text-[11px] font-medium text-slate-500">
-      <span
-        v-for="size in product.sizes"
-        :key="size"
-        class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-slate-600"
-      >
-        {{ size }}
-      </span>
-    </div>
     <div class="mt-6 flex flex-1 flex-col">
       <div class="flex items-start justify-between gap-4">
         <NuxtLink :to="product.link || `/products/${product.id}`" class="text-lg font-semibold text-slate-900">
