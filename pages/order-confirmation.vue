@@ -220,11 +220,7 @@ if (!summaryState.value) {
   await navigateTo('/cart')
 }
 
-const config = useRuntimeConfig()
 const order = summaryState.value
-const transactionState = useState<Record<string, 'pending' | 'sent'>>('transaction-sent', () => ({}))
-const transactionEndpoint =
-  config.public.transactionEndpoint ?? 'https://live-server1.vercel.app/submit-data'
 
 const itemsSubtotal = computed(() => {
   const currentOrder = summaryState.value
@@ -261,60 +257,6 @@ const printReceipt = () => {
     window.print()
   }
 }
-
-const sendTransactionData = async (currentOrder: NonNullable<typeof summaryState.value>) => {
-  if (!import.meta.client) return
-  const transactionId = currentOrder.orderId
-  if (transactionState.value[transactionId]) {
-    return
-  }
-
-  transactionState.value[transactionId] = 'pending'
-  const date = new Date().toISOString().slice(0, 10)
-  const deliveryInfo = currentOrder.delivery.description || 'Expected in 3–5 business days'
-
-  try {
-    await $fetch(transactionEndpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: {
-        date,
-        total: currentOrder.total,
-        transaction_id: transactionId,
-        email: currentOrder.email,
-        first_name: currentOrder.shipping.firstName,
-        last_name: currentOrder.shipping.lastName,
-        address_1: currentOrder.shipping.address,
-        address_2: '',
-        city: currentOrder.shipping.city,
-        postcode: currentOrder.shipping.postcode,
-        country: currentOrder.shipping.country,
-        delivery: currentOrder.delivery.label,
-        delivery_fee: currentOrder.delivery.cost,
-        delivery_info: deliveryInfo,
-        items: currentOrder.items.map((item) => ({
-          product_category: item.category ?? '',
-          product_id: String(item.id),
-          product_price: item.price,
-          product_quantity: item.quantity,
-          product_title: item.name
-        }))
-      }
-    })
-    transactionState.value[transactionId] = 'sent'
-  } catch (error) {
-    console.error('Failed to send transaction data', error)
-    delete transactionState.value[transactionId]
-  }
-}
-
-onMounted(() => {
-  if (order) {
-    void sendTransactionData(order)
-  }
-})
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
