@@ -105,6 +105,7 @@ declare global {
   const useCart: typeof import('../../composables/useCart').useCart
   const useCategoryProducts: typeof import('../../composables/useCategoryProducts').useCategoryProducts
   const useCookie: typeof import('../../node_modules/nuxt/dist/app/composables/cookie').useCookie
+  const useCreateOrder: typeof import('../../composables/useCreateOrder').useCreateOrder
   const useCssModule: typeof import('../../node_modules/vue').useCssModule
   const useCssVars: typeof import('../../node_modules/vue').useCssVars
   const useError: typeof import('../../node_modules/nuxt/dist/app/composables/error').useError
@@ -307,6 +308,7 @@ declare module 'vue' {
     readonly useCart: UnwrapRef<typeof import('../../composables/useCart')['useCart']>
     readonly useCategoryProducts: UnwrapRef<typeof import('../../composables/useCategoryProducts')['useCategoryProducts']>
     readonly useCookie: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/cookie')['useCookie']>
+    readonly useCreateOrder: UnwrapRef<typeof import('../../composables/useCreateOrder')['useCreateOrder']>
     readonly useCssModule: UnwrapRef<typeof import('../../node_modules/vue')['useCssModule']>
     readonly useCssVars: UnwrapRef<typeof import('../../node_modules/vue')['useCssVars']>
     readonly useError: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/error')['useError']>

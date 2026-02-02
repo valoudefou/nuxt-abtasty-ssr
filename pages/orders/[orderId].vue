@@ -56,10 +56,10 @@
       <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <p class="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Status history</p>
         <ul v-if="normalizedHistory.length" class="mt-4 space-y-2 text-sm text-slate-700">
-          <li v-for="(entry, index) in normalizedHistory" :key="`${entry.status}:${entry.timestamp ?? index}`">
+          <li v-for="(entry, index) in normalizedHistory" :key="`${entry.status}:${entry.createdAt ?? index}`">
             <span class="font-semibold text-slate-900">{{ entry.status }}</span>
-            <span v-if="entry.timestamp" class="text-slate-500">
-              — {{ formatTimestamp(entry.timestamp) }}
+            <span v-if="entry.createdAt" class="text-slate-500">
+              — {{ formatTimestamp(entry.createdAt) }}
             </span>
           </li>
         </ul>
@@ -128,15 +128,19 @@ const latestForOrder = ref<LiveEvent | null>(null)
 
 onMounted(() => {
   const unsubscribe = socket.subscribe((message) => {
-    if (message.orderId !== orderId.value) return
+    if (String(message.orderId) !== orderId.value) return
     const receivedAt = new Date().toISOString()
     latestForOrder.value = { ...message, receivedAt }
     liveEvents.value = [{ ...message, receivedAt }, ...liveEvents.value].slice(0, 25)
 
     if (order.value) {
-      order.value.status = message.status
+      if (message.order && typeof message.order === 'object') {
+        order.value = message.order
+      } else {
+        order.value.status = message.status
+      }
       const existing = Array.isArray(order.value.statusHistory) ? order.value.statusHistory : []
-      order.value.statusHistory = [...existing, { status: message.status, timestamp: receivedAt }]
+      order.value.statusHistory = [...existing, { status: message.status, createdAt: receivedAt }]
     }
   })
 

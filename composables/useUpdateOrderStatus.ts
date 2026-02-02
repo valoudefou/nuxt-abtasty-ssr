@@ -6,12 +6,11 @@ export const useUpdateOrderStatus = (
   orderId: MaybeRefOrGetter<string>,
   status: MaybeRefOrGetter<OrderStatus>
 ) => {
-  const config = useRuntimeConfig()
   const resolvedOrderId = computed(() => encodeURIComponent(toValue(orderId)))
   const body = computed(() => ({ status: toValue(status) }))
 
   return useFetch<Order>(() => `/orders/${resolvedOrderId.value}/status`, {
-    baseURL: config.public.ordersApiBase,
+    baseURL: '/api',
     method: 'POST',
     body,
     immediate: false,

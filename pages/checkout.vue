@@ -265,11 +265,14 @@
           <button
             class="mt-6 w-full rounded-full bg-primary-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-300"
             type="button"
-            :disabled="!canConfirm"
+            :disabled="!canConfirm || creatingOrder"
             @click="confirmAndPay"
           >
-            Confirm and pay
+            {{ creatingOrder ? 'Placing order…' : 'Confirm and pay' }}
           </button>
+          <p v-if="createOrderErrorMessage" class="mt-3 text-sm text-red-600">
+            {{ createOrderErrorMessage }}
+          </p>
         </div>
         <p class="text-xs text-slate-500">All transactions are secured with industry-standard encryption.</p>
       </aside>
@@ -278,12 +281,18 @@
 </template>
 
 <script setup lang="ts">
+import type { CreateOrderRequest } from '@/types/order'
+import { useCreateOrder } from '@/composables/useCreateOrder'
+
 const { items, subtotal, clear } = useCart()
 const config = useRuntimeConfig()
 const router = useRouter()
+const { create: createOrder, creating: creatingOrder, error: createOrderError } = useCreateOrder()
+const createOrderErrorMessage = computed(() => createOrderError.value)
 const checkoutSummary = useState<
   {
     orderId: string
+    remoteOrderId?: number
     items: Array<{
       id: string | number
       name: string
@@ -464,6 +473,29 @@ const confirmAndPay = () => {
   }
   const orderId = `VC-${Date.now().toString(36).toUpperCase()}`
   const selectedDelivery = deliveryOptions.find((option) => option.id === selectedDeliveryId.value)
+
+  const customerAddress = [addressInput.value, cityInput.value, postcodeInput.value, countryInput.value]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(', ')
+
+  const payload: CreateOrderRequest = {
+    idempotencyKey: (import.meta.client && globalThis.crypto?.randomUUID) ? globalThis.crypto.randomUUID() : orderId,
+    customer: {
+      name: `${firstName.value} ${lastName.value}`.trim(),
+      email: derivedEmail.value,
+      address: customerAddress
+    },
+    items: items.value.map((item) => ({
+      product: {
+        sku: item.sku?.trim() || String(item.id),
+        name: item.name,
+        price: item.price
+      },
+      quantity: item.quantity
+    }))
+  }
+
   checkoutSummary.value = {
     orderId,
     items: items.value.map((item) => ({
@@ -497,8 +529,19 @@ const confirmAndPay = () => {
       country: useShippingForBilling.value ? countryInput.value : billingCountry.value
     }
   }
-  void router.push('/order-confirmation')
-  clear()
+
+  void (async () => {
+    try {
+      const created = await createOrder(payload)
+      if (checkoutSummary.value) {
+        checkoutSummary.value.remoteOrderId = created.id
+      }
+      await router.push('/order-confirmation')
+      clear()
+    } catch (error) {
+      console.error('Failed to create order', error)
+    }
+  })()
 }
 
 if (import.meta.client) {

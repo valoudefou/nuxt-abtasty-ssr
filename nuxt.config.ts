@@ -146,10 +146,6 @@ export default defineNuxtConfig({
         || env.NUXT_PRODUCTS_VENDOR_ID
         || 'karkkainen',
       productsDisableRemote: env.NUXT_PRODUCTS_DISABLE_REMOTE === 'true',
-      transactionEndpoint:
-        env.NUXT_PUBLIC_TRANSACTION_ENDPOINT
-        || env.NUXT_TRANSACTION_ENDPOINT
-        || 'https://live-server1.vercel.app/submit-data',
       flagship: {
         envId: env.NUXT_FLAGSHIP_ENV_ID || '',
         apiKey: env.NUXT_FLAGSHIP_API_KEY || ''

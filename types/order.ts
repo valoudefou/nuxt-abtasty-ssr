@@ -10,17 +10,35 @@ export type OrderStatus = (typeof orderStatuses)[number]
 
 export type OrderStatusHistoryItem = {
   status: OrderStatus
-  timestamp?: string
+  createdAt?: string
 }
 
 export type Order = {
-  orderId: string
+  id: number
   status: OrderStatus
   statusHistory?: OrderStatusHistoryItem[]
 } & Record<string, unknown>
 
 export type OrderStatusSocketMessage = {
-  orderId: string
+  orderId: number
   status: OrderStatus
+  event?: string
+  order?: Order
 }
 
+export type CreateOrderRequest = {
+  idempotencyKey?: string
+  customer: {
+    name: string
+    email: string
+    address: string
+  }
+  items: Array<{
+    product: {
+      sku: string
+      name: string
+      price: number
+    }
+    quantity: number
+  }>
+}

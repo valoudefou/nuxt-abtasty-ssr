@@ -1,4 +1,4 @@
-import { orderStatuses, type OrderStatus, type OrderStatusSocketMessage } from '@/types/order'
+import { orderStatuses, type Order, type OrderStatus, type OrderStatusSocketMessage } from '@/types/order'
 
 type OrderStatusCallback = (message: OrderStatusSocketMessage) => void
 
@@ -52,11 +52,24 @@ export const useOrderStatusSocket = () => {
 
     socket.addEventListener('message', (event) => {
       try {
-        const parsed = JSON.parse(String(event.data)) as Partial<OrderStatusSocketMessage> | null
+        const parsed = JSON.parse(String(event.data)) as
+          | Partial<OrderStatusSocketMessage>
+          | { event?: string; orderId?: number | string; status?: string; order?: unknown }
+          | null
         if (!parsed || typeof parsed !== 'object') return
-        if (typeof parsed.orderId !== 'string' || typeof parsed.status !== 'string') return
-        if (!orderStatuses.includes(parsed.status as OrderStatus)) return
-        const message: OrderStatusSocketMessage = { orderId: parsed.orderId, status: parsed.status as OrderStatus }
+        const orderIdRaw = (parsed as { orderId?: number | string }).orderId
+        const statusRaw = (parsed as { status?: string }).status
+        const orderId = typeof orderIdRaw === 'number' ? orderIdRaw : Number(orderIdRaw)
+        if (!Number.isFinite(orderId)) return
+        if (typeof statusRaw !== 'string') return
+        if (!orderStatuses.includes(statusRaw as OrderStatus)) return
+
+        const message: OrderStatusSocketMessage = {
+          orderId,
+          status: statusRaw as OrderStatus,
+          event: (parsed as { event?: string }).event,
+          order: ((parsed as { order?: unknown }).order as Order | undefined)
+        }
 
         latestStatus.value = message
         for (const callback of callbacks) {

@@ -12,6 +12,15 @@ declare module "nitropack/types" {
     '/api/image': {
       'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/image.get').default>>>>
     }
+    '/api/orders/:orderId': {
+      'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/orders/[orderId].get').default>>>>
+    }
+    '/api/orders/:orderId/status': {
+      'post': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/orders/[orderId]/status.post').default>>>>
+    }
+    '/api/orders': {
+      'post': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/orders/index.post').default>>>>
+    }
     '/api/products/:id': {
       'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/products/[id].get').default>>>>
     }

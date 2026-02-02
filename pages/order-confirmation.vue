@@ -12,7 +12,10 @@
         <div class="rounded-2xl border border-white/20 bg-white/10 px-6 py-4 backdrop-blur">
           <p class="text-xs uppercase tracking-[0.3em] text-white/70">Order ID</p>
           <p class="mt-2 text-2xl font-semibold">{{ order.orderId }}</p>
-          <p class="mt-1 text-xs text-white/80">Placed just now</p>
+          <p v-if="order.remoteOrderId" class="mt-1 text-xs text-white/80">
+            Service ID: {{ order.remoteOrderId }}
+          </p>
+          <p v-else class="mt-1 text-xs text-white/80">Placed just now</p>
         </div>
       </div>
       <div class="mt-8 flex flex-wrap gap-4 text-sm text-white/80">
@@ -168,6 +171,13 @@
       >
         Continue shopping
       </NuxtLink>
+      <NuxtLink
+        v-if="order?.remoteOrderId"
+        :to="`/orders/${order.remoteOrderId}`"
+        class="inline-flex items-center rounded-full border border-white/30 bg-white/10 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-white/15"
+      >
+        Track order
+      </NuxtLink>
       <button
         type="button"
         class="inline-flex items-center rounded-full border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-900"
@@ -183,6 +193,7 @@
 const summaryState = useState<
   {
     orderId: string
+    remoteOrderId?: number
     items: Array<{
       id: string | number
       name: string
