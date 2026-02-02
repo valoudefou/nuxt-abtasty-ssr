@@ -129,6 +129,8 @@ export default defineNuxtConfig({
     public: {
       companyName: 'Commerce Demo',
       supportEmail: 'hello@commerce.demo',
+      ordersApiBase: 'https://order.live-server1.com',
+      ordersWsBase: 'wss://order.live-server1.com/ws/orders',
       apiBase:
         env.NUXT_PUBLIC_API_BASE
         || env.NUXT_API_BASE

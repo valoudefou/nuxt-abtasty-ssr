@@ -122,6 +122,8 @@ declare global {
   const useNuxtApp: typeof import('../../node_modules/nuxt/dist/app/nuxt').useNuxtApp
   const useNuxtData: typeof import('../../node_modules/nuxt/dist/app/composables/asyncData').useNuxtData
   const useNuxtDevTools: typeof import('../../node_modules/@nuxt/devtools/dist/runtime/use-nuxt-devtools').useNuxtDevTools
+  const useOrder: typeof import('../../composables/useOrder').useOrder
+  const useOrderStatusSocket: typeof import('../../composables/useOrderStatusSocket').useOrderStatusSocket
   const usePreviewMode: typeof import('../../node_modules/nuxt/dist/app/composables/preview').usePreviewMode
   const useProducts: typeof import('../../composables/useProducts').useProducts
   const useRecommendations: typeof import('../../composables/useRecommendations').useRecommendations
@@ -175,6 +177,7 @@ declare global {
   const useState: typeof import('../../node_modules/nuxt/dist/app/composables/state').useState
   const useTemplateRef: typeof import('../../node_modules/vue').useTemplateRef
   const useTransitionState: typeof import('../../node_modules/vue').useTransitionState
+  const useUpdateOrderStatus: typeof import('../../composables/useUpdateOrderStatus').useUpdateOrderStatus
   const useViewedProducts: typeof import('../../composables/useViewedProducts').useViewedProducts
   const watch: typeof import('../../node_modules/vue').watch
   const watchEffect: typeof import('../../node_modules/vue').watchEffect
@@ -321,6 +324,8 @@ declare module 'vue' {
     readonly useNuxtApp: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/nuxt')['useNuxtApp']>
     readonly useNuxtData: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/asyncData')['useNuxtData']>
     readonly useNuxtDevTools: UnwrapRef<typeof import('../../node_modules/@nuxt/devtools/dist/runtime/use-nuxt-devtools')['useNuxtDevTools']>
+    readonly useOrder: UnwrapRef<typeof import('../../composables/useOrder')['useOrder']>
+    readonly useOrderStatusSocket: UnwrapRef<typeof import('../../composables/useOrderStatusSocket')['useOrderStatusSocket']>
     readonly usePreviewMode: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/preview')['usePreviewMode']>
     readonly useProducts: UnwrapRef<typeof import('../../composables/useProducts')['useProducts']>
     readonly useRecommendations: UnwrapRef<typeof import('../../composables/useRecommendations')['useRecommendations']>
@@ -374,6 +379,7 @@ declare module 'vue' {
     readonly useState: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/state')['useState']>
     readonly useTemplateRef: UnwrapRef<typeof import('../../node_modules/vue')['useTemplateRef']>
     readonly useTransitionState: UnwrapRef<typeof import('../../node_modules/vue')['useTransitionState']>
+    readonly useUpdateOrderStatus: UnwrapRef<typeof import('../../composables/useUpdateOrderStatus')['useUpdateOrderStatus']>
     readonly useViewedProducts: UnwrapRef<typeof import('../../composables/useViewedProducts')['useViewedProducts']>
     readonly watch: UnwrapRef<typeof import('../../node_modules/vue')['watch']>
     readonly watchEffect: UnwrapRef<typeof import('../../node_modules/vue')['watchEffect']>

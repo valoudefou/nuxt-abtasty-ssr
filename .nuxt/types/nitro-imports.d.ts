@@ -105,6 +105,8 @@ declare global {
   const readRawBody: typeof import('../../node_modules/h3').readRawBody
   const readValidatedBody: typeof import('../../node_modules/h3').readValidatedBody
   const removeResponseHeader: typeof import('../../node_modules/h3').removeResponseHeader
+  const repairMojibake: typeof import('../../server/utils/text').repairMojibake
+  const repairMojibakeNullable: typeof import('../../server/utils/text').repairMojibakeNullable
   const runTask: typeof import('../../node_modules/nitropack/dist/runtime/internal/task').runTask
   const sanitizeStatusCode: typeof import('../../node_modules/h3').sanitizeStatusCode
   const sanitizeStatusMessage: typeof import('../../node_modules/h3').sanitizeStatusMessage
@@ -174,5 +176,6 @@ export { initializeFlagship } from '/Users/valerian.karsenty/Documents/App/val-c
 export { flagshipLogStore } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/flagship/logStore';
 export { normalizeRemoteProduct, fetchProducts, findProductBySlug, findProductById, fetchProductBrands, findProductsByBrand } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/products';
 export { fetchRecommendations, fetchSearchResultsRecommendations, handleRecommendationsRequest } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/recommendations';
+export { repairMojibake, repairMojibakeNullable } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/text';
 export { fetchUpstreamJson } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/upstreamFetch';
 export { fetchVendors, getSelectedVendor, DEFAULT_VENDOR, VENDOR_COOKIE_NAME } from '/Users/valerian.karsenty/Documents/App/val-commerce-demo-v2/server/utils/vendors';

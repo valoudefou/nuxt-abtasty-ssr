@@ -148,6 +148,10 @@ declare module 'nuxt/schema' {
 
    supportEmail: string,
 
+   ordersApiBase: string,
+
+   ordersWsBase: string,
+
    apiBase: string,
 
    productsApiBase: string,
