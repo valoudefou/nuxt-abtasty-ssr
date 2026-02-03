@@ -52,3 +52,4 @@ if (publicOrderId) {
 
 useHead({ title: 'Order confirmation – Commerce Demo' })
 </script>
+
