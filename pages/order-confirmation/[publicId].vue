@@ -13,7 +13,7 @@
           <p class="text-xs uppercase tracking-[0.3em] text-white/70">Order ID</p>
           <p class="mt-2 text-2xl font-semibold">{{ displayOrder.publicId }}</p>
           <p v-if="displayOrder.status" class="mt-1 text-xs text-white/80">
-            Status: {{ displayOrder.status }}
+            Status: {{ formatStatus(displayOrder.status) }}
           </p>
           <p v-else class="mt-1 text-xs text-white/80">Placed just now</p>
         </div>
@@ -44,31 +44,83 @@
               v-if="displayOrder.status"
               class="rounded-full border border-primary-100 bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-600"
             >
-              {{ displayOrder.status }}
+              {{ formatStatus(displayOrder.status) }}
             </span>
           </div>
-          <div v-if="displayOrder.statusHistory?.length" class="mt-6 space-y-4">
-            <div
-              v-for="(item, index) in displayOrder.statusHistory"
-              :key="`${item.status}-${item.createdAt ?? index}`"
-              class="flex items-start gap-4"
-            >
-              <span
-                class="flex h-10 w-10 items-center justify-center rounded-full bg-primary-50 text-sm font-semibold text-primary-700 ring-1 ring-primary-100"
-              >
-                {{ index + 1 }}
-              </span>
-              <div class="min-w-0">
-                <p class="font-semibold text-slate-900">{{ item.status }}</p>
-                <p v-if="item.createdAt" class="text-sm text-slate-600">
-                  {{ formatTimestamp(item.createdAt) }}
-                </p>
+
+          <div class="mt-6">
+            <div class="flex items-start justify-between gap-4">
+              <p class="text-sm font-medium text-slate-700">
+                {{ currentStepCopy }}
+              </p>
+              <p v-if="displayOrder.updatedAt" class="text-xs text-slate-500">
+                Updated {{ formatTimestamp(displayOrder.updatedAt) }}
+              </p>
+            </div>
+
+            <div class="mt-4">
+              <div class="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                <div
+                  class="h-full rounded-full bg-primary-600 transition-all"
+                  :style="{ width: `${progressPercent}%` }"
+                />
+              </div>
+              <div class="mt-2 flex items-center justify-between text-xs text-slate-500">
+                <span>Placed</span>
+                <span>Delivered</span>
               </div>
             </div>
+
+            <ol v-if="timelineSteps.length" class="mt-6 space-y-4">
+              <li
+                v-for="(step, index) in timelineSteps"
+                :key="step.key"
+                class="relative flex gap-4"
+              >
+                <div class="relative flex w-10 flex-col items-center">
+                  <div
+                    class="flex h-10 w-10 items-center justify-center rounded-full ring-1"
+                    :class="{
+                      'bg-primary-600 text-white ring-primary-200 shadow-sm': step.state === 'current',
+                      'bg-emerald-50 text-emerald-700 ring-emerald-200': step.state === 'complete',
+                      'bg-slate-100 text-slate-400 ring-slate-200': step.state === 'upcoming'
+                    }"
+                  >
+                    <span v-if="step.state === 'complete'" class="text-sm font-semibold">✓</span>
+                    <span v-else class="text-sm font-semibold">{{ index + 1 }}</span>
+                  </div>
+                  <div
+                    v-if="index !== timelineSteps.length - 1"
+                    class="mt-1 w-px flex-1"
+                    :class="step.state === 'complete' ? 'bg-emerald-200' : 'bg-slate-200'"
+                  />
+                </div>
+
+                <div class="min-w-0 flex-1 rounded-2xl border border-slate-100 bg-slate-50 px-5 py-4">
+                  <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <p class="truncate font-semibold text-slate-900">
+                        {{ step.title }}
+                      </p>
+                      <p v-if="step.description" class="mt-1 text-sm text-slate-600">
+                        {{ step.description }}
+                      </p>
+                    </div>
+                    <span
+                      v-if="step.timestamp"
+                      class="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200"
+                    >
+                      {{ formatTimestamp(step.timestamp) }}
+                    </span>
+                  </div>
+                </div>
+              </li>
+            </ol>
+
+            <p v-else class="mt-6 text-sm text-slate-600">
+              We’re processing your order. You can revisit this page anytime using your confirmation link.
+            </p>
           </div>
-          <p v-else class="mt-6 text-sm text-slate-600">
-            We’re processing your order. You can revisit this page anytime using your confirmation link.
-          </p>
         </section>
 
         <div class="grid gap-6 md:grid-cols-2">
@@ -378,6 +430,109 @@ const statusError = computed(() => {
 const itemsSubtotal = computed(() => {
   const items = displayOrder.value?.items ?? []
   return items.reduce((total, item) => total + item.price * item.quantity, 0)
+})
+
+type TimelineStep = {
+  key: string
+  status: string
+  title: string
+  description?: string
+  timestamp?: string
+  state: 'complete' | 'current' | 'upcoming'
+}
+
+const formatStatus = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .split('_')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+
+const STATUS_FLOW = ['PLACED', 'PACKED', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'] as const
+
+const timelineSteps = computed<TimelineStep[]>(() => {
+  const order = displayOrder.value
+  if (!order) return []
+
+  const history = Array.isArray(order.statusHistory) ? order.statusHistory : []
+  const byStatus = new Map<string, string | undefined>()
+  for (const entry of history) {
+    const status = String(entry.status ?? '').trim()
+    if (!status) continue
+    if (!byStatus.has(status)) {
+      byStatus.set(status, entry.createdAt)
+    }
+  }
+
+  const currentStatusRaw = String(order.status ?? '').trim()
+  const currentStatus = currentStatusRaw || (history.length ? String(history[history.length - 1]?.status ?? '').trim() : '')
+  const currentIndex = STATUS_FLOW.includes(currentStatus as (typeof STATUS_FLOW)[number])
+    ? STATUS_FLOW.indexOf(currentStatus as (typeof STATUS_FLOW)[number])
+    : -1
+
+  const getCopy = (status: string) => {
+    if (status === 'PLACED') {
+      return { title: 'Order placed', description: 'We’ve received your order and started processing it.' }
+    }
+    if (status === 'PACKED') {
+      return { title: 'Packed and ready', description: 'Your items are packed and waiting for pickup.' }
+    }
+    if (status === 'SHIPPED') {
+      return { title: 'Shipped', description: 'Your parcel is on the move to your address.' }
+    }
+    if (status === 'OUT_FOR_DELIVERY') {
+      return { title: 'Out for delivery', description: 'Courier is delivering your parcel today.' }
+    }
+    if (status === 'DELIVERED') {
+      return { title: 'Delivered', description: 'Your order has been delivered. Enjoy!' }
+    }
+    return { title: formatStatus(status) }
+  }
+
+  return STATUS_FLOW.map((status) => {
+    const copy = getCopy(status)
+    const index = STATUS_FLOW.indexOf(status)
+    const state: TimelineStep['state'] =
+      currentIndex === -1
+        ? (byStatus.has(status) ? 'complete' : 'upcoming')
+        : index < currentIndex
+          ? 'complete'
+          : index === currentIndex
+            ? 'current'
+            : 'upcoming'
+
+    return {
+      key: status,
+      status,
+      title: copy.title,
+      description: copy.description,
+      timestamp: byStatus.get(status),
+      state
+    }
+  })
+})
+
+const progressPercent = computed(() => {
+  const current = displayOrder.value?.status ? String(displayOrder.value.status).trim() : ''
+  const idx = STATUS_FLOW.includes(current as (typeof STATUS_FLOW)[number])
+    ? STATUS_FLOW.indexOf(current as (typeof STATUS_FLOW)[number])
+    : -1
+  if (idx <= 0) return 5
+  const denom = Math.max(STATUS_FLOW.length - 1, 1)
+  return Math.min(100, Math.max(5, Math.round((idx / denom) * 100)))
+})
+
+const currentStepCopy = computed(() => {
+  const status = String(displayOrder.value?.status ?? '').trim()
+  if (!status) return 'We’re preparing your order.'
+  if (status === 'PLACED') return 'We’ve received your order and are preparing it.'
+  if (status === 'PACKED') return 'Your order is packed and ready to ship.'
+  if (status === 'SHIPPED') return 'Your order is on the way.'
+  if (status === 'OUT_FOR_DELIVERY') return 'Your order is out for delivery.'
+  if (status === 'DELIVERED') return 'Delivered. Thanks again for shopping with us.'
+  return `Status: ${formatStatus(status)}`
 })
 
 const normalizedRemote = computed<DisplayOrder | null>(() => {
