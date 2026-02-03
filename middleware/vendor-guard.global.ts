@@ -24,6 +24,15 @@ const resetVendorScopedState = () => {
 }
 
 export default defineNuxtRouteMiddleware((to) => {
+  if (
+    to.path === '/order-confirmation'
+    || to.path.startsWith('/order-confirmation/')
+    || to.path === '/orders'
+    || to.path.startsWith('/orders/')
+  ) {
+    return
+  }
+
   const paramVendor = typeof to.params.companyId === 'string' ? to.params.companyId.trim() : ''
   if (paramVendor) {
     const vendorCookie = useCookie<string | null>('abt_vendor')
