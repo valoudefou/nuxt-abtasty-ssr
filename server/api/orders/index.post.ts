@@ -7,11 +7,22 @@ export default defineEventHandler(async (event) => {
   const body = await readBody<CreateOrderRequest>(event)
 
   try {
-    return await $fetch<Order>('/orders', {
+    const upstream = await $fetch.raw<Order>('/orders', {
       baseURL: config.public.ordersApiBase,
       method: 'POST',
       body
     })
+
+    const location = upstream.headers?.get?.('location') ?? upstream.headers?.get?.('Location')
+    if (location) {
+      setHeader(event, 'Location', location)
+    }
+
+    if (typeof upstream.status === 'number') {
+      setResponseStatus(event, upstream.status, upstream.statusText)
+    }
+
+    return upstream._data
   } catch (error) {
     const statusCode =
       (error as { statusCode?: number; status?: number })?.statusCode
@@ -23,4 +34,3 @@ export default defineEventHandler(async (event) => {
     })
   }
 })
-

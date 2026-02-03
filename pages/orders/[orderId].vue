@@ -1,160 +1,140 @@
 <template>
-  <div class="mt-10 space-y-6">
-    <div class="flex flex-wrap items-center justify-between gap-3">
+  <div class="mx-auto mt-10 max-w-2xl space-y-6 px-4 sm:px-6 lg:px-8">
+    <header class="space-y-1">
+      <p class="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Order confirmation</p>
       <h1 class="text-2xl font-semibold text-slate-900">Order {{ orderId }}</h1>
-      <button
-        type="button"
-        class="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300 hover:text-slate-900"
-        :disabled="pending"
-        @click="() => refresh()"
-      >
-        Refresh
-      </button>
-    </div>
+    </header>
 
-    <p v-if="orderErrorMessage" class="text-sm text-red-600">{{ orderErrorMessage }}</p>
-
-    <div v-else-if="pending" class="text-sm text-slate-600">Loading order…</div>
-
-    <div v-else-if="order" class="space-y-6">
-      <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <p class="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Current status</p>
-        <p class="mt-2 text-lg font-semibold text-slate-900">{{ order.status }}</p>
-        <p v-if="latestForOrder" class="mt-2 text-xs text-slate-500">
-          Live update: {{ latestForOrder.status }} ({{ formatTimestamp(latestForOrder.receivedAt) }})
+    <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div v-if="missingConfig" class="space-y-2">
+        <p class="text-sm font-semibold text-red-700">Configuration error</p>
+        <p class="text-sm text-slate-700">
+          <code class="rounded bg-slate-100 px-1 py-0.5">runtimeConfig.public.apiBase</code> is not set.
         </p>
-      </section>
+      </div>
 
-      <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div class="flex flex-wrap items-end justify-between gap-4">
+      <div v-else-if="pending" class="text-sm text-slate-600">Loading…</div>
+
+      <div v-else-if="errorMessage" class="space-y-3">
+        <p class="text-sm font-semibold text-red-700">We couldn’t load this order.</p>
+        <p class="text-sm text-slate-700">{{ errorMessage }}</p>
+        <button
+          type="button"
+          class="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300 hover:text-slate-900"
+          @click="() => refresh()"
+        >
+          Try again
+        </button>
+      </div>
+
+      <div v-else-if="order" class="space-y-6">
+        <div class="grid gap-4 sm:grid-cols-2">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Update status</p>
-            <p class="mt-1 text-sm text-slate-600">Sends a POST to the orders service.</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Status</p>
+            <p class="mt-2 text-lg font-semibold text-slate-900">{{ order.status }}</p>
           </div>
-          <div class="flex flex-wrap items-center gap-3">
-            <select
-              v-model="selectedStatus"
-              class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
-            >
-              <option v-for="status in orderStatuses" :key="status" :value="status">
-                {{ status }}
-              </option>
-            </select>
-            <button
-              type="button"
-              class="rounded-full bg-primary-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500 disabled:opacity-60"
-              :disabled="updating"
-              @click="submitStatus"
-            >
-              {{ updating ? 'Updating…' : 'Update' }}
-            </button>
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Total</p>
+            <p class="mt-2 text-lg font-semibold text-slate-900">{{ formatTotal(order.total) }}</p>
           </div>
         </div>
-        <p v-if="updateErrorMessage" class="mt-3 text-sm text-red-600">{{ updateErrorMessage }}</p>
-      </section>
 
-      <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <p class="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Status history</p>
-        <ul v-if="normalizedHistory.length" class="mt-4 space-y-2 text-sm text-slate-700">
-          <li v-for="(entry, index) in normalizedHistory" :key="`${entry.status}:${entry.createdAt ?? index}`">
-            <span class="font-semibold text-slate-900">{{ entry.status }}</span>
-            <span v-if="entry.createdAt" class="text-slate-500">
-              — {{ formatTimestamp(entry.createdAt) }}
-            </span>
-          </li>
-        </ul>
-        <p v-else class="mt-3 text-sm text-slate-600">No status history available.</p>
-      </section>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Customer</p>
+            <p class="mt-2 text-sm font-semibold text-slate-900">
+              {{ customerName ?? '—' }}
+            </p>
+            <p v-if="customerEmail" class="mt-1 text-sm text-slate-700">{{ customerEmail }}</p>
+          </div>
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Last updated</p>
+            <p class="mt-2 text-sm text-slate-700">{{ formatTimestamp(order.updatedAt) }}</p>
+          </div>
+        </div>
+      </div>
 
-      <section class="rounded-3xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
-        <p class="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Live updates (WebSocket)</p>
-        <ul v-if="liveEvents.length" class="mt-4 space-y-2 text-sm text-slate-700">
-          <li v-for="(event, index) in liveEvents" :key="`${event.status}:${event.receivedAt}:${index}`">
-            <span class="font-semibold text-slate-900">{{ event.status }}</span>
-            <span class="text-slate-500">— {{ formatTimestamp(event.receivedAt) }}</span>
-          </li>
-        </ul>
-        <p v-else class="mt-3 text-sm text-slate-600">Waiting for live updates…</p>
-      </section>
-
-      <details class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <summary class="cursor-pointer text-sm font-semibold text-slate-900">Raw order payload</summary>
-        <pre class="mt-4 overflow-auto rounded-2xl bg-slate-950 p-4 text-xs text-slate-100">{{ JSON.stringify(order, null, 2) }}</pre>
-      </details>
-    </div>
+      <div v-else class="text-sm text-slate-600">No order found.</div>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { orderStatuses, type OrderStatus, type OrderStatusHistoryItem, type OrderStatusSocketMessage } from '@/types/order'
-
-type LiveEvent = OrderStatusSocketMessage & { receivedAt: string }
-
 const route = useRoute()
-const orderId = computed(() => String(route.params.orderId ?? ''))
-
-const { data: order, pending, error, refresh } = useOrder(orderId)
-
-const orderErrorMessage = computed(() => {
-  if (!error.value) return null
-  const status = (error.value as { statusCode?: number; status?: number })?.statusCode
-    ?? (error.value as { status?: number })?.status
-  return status ? `Failed to load order (HTTP ${status}).` : 'Failed to load order.'
+const orderId = computed(() => {
+  const value = route.params.orderId
+  if (Array.isArray(value)) return String(value[0] ?? '')
+  return String(value ?? '')
 })
 
-const selectedStatus = ref<OrderStatus>('PACKED')
+type OrderResponse = {
+  id: string | number
+  publicId: string
+  status: string
+  updatedAt: string
+  total: number | string | { amount: number; currency?: string }
+  customer?: {
+    firstName?: string
+    lastName?: string
+    name?: string
+    email?: string
+  } | null
+  items?: Array<unknown>
+  statusHistory?: Array<unknown>
+}
+
+const { public: publicConfig } = useRuntimeConfig()
+const apiBase = computed(() => (publicConfig?.apiBase ? String(publicConfig.apiBase) : ''))
+const missingConfig = computed(() => !apiBase.value)
+
+const orderUrl = computed(() => `/orders/${encodeURIComponent(orderId.value)}`)
+const canFetch = computed(() => Boolean(orderId.value && apiBase.value))
+
 const {
-  execute: updateStatus,
-  pending: updating,
-  error: updateError
-} = useUpdateOrderStatus(orderId, selectedStatus)
-
-const updateErrorMessage = computed(() => {
-  if (!updateError.value) return null
-  const status = (updateError.value as { statusCode?: number; status?: number })?.statusCode
-    ?? (updateError.value as { status?: number })?.status
-  return status ? `Failed to update status (HTTP ${status}).` : 'Failed to update status.'
+  data: order,
+  pending,
+  error,
+  refresh
+} = await useFetch<OrderResponse>(orderUrl, {
+  baseURL: apiBase,
+  key: `order:${orderId.value}`,
+  immediate: false,
+  watch: false
 })
 
-const submitStatus = async () => {
-  await updateStatus()
-  if (updateError.value) return
+if (canFetch.value) {
   await refresh()
 }
 
-const socket = useOrderStatusSocket()
-const liveEvents = ref<LiveEvent[]>([])
-const latestForOrder = ref<LiveEvent | null>(null)
+watch([canFetch, orderId, apiBase], async ([enabled], [_prevEnabled, prevOrderId, prevApiBase]) => {
+  if (!enabled) {
+    order.value = null
+    return
+  }
 
-onMounted(() => {
-  const unsubscribe = socket.subscribe((message) => {
-    if (String(message.orderId) !== orderId.value) return
-    const receivedAt = new Date().toISOString()
-    latestForOrder.value = { ...message, receivedAt }
-    liveEvents.value = [{ ...message, receivedAt }, ...liveEvents.value].slice(0, 25)
+  if (orderId.value !== prevOrderId || apiBase.value !== prevApiBase) {
+    order.value = null
+  }
 
-    if (order.value) {
-      if (message.order && typeof message.order === 'object') {
-        order.value = message.order
-      } else {
-        order.value.status = message.status
-      }
-      const existing = Array.isArray(order.value.statusHistory) ? order.value.statusHistory : []
-      order.value.statusHistory = [...existing, { status: message.status, createdAt: receivedAt }]
-    }
-  })
-
-  onBeforeUnmount(() => {
-    unsubscribe()
-  })
+  await refresh()
 })
 
-const normalizedHistory = computed<OrderStatusHistoryItem[]>(() => {
-  const history = order.value?.statusHistory
-  if (Array.isArray(history) && history.length > 0) return history
-  if (order.value?.status) return [{ status: order.value.status }]
-  return []
+const errorMessage = computed(() => {
+  if (!error.value) return null
+  const status = (error.value as { statusCode?: number; status?: number })?.statusCode
+    ?? (error.value as { status?: number })?.status
+  return status ? `Request failed (HTTP ${status}).` : 'Request failed.'
 })
+
+const customerName = computed(() => {
+  const customer = order.value?.customer
+  if (!customer) return null
+  const fromParts = [customer.firstName, customer.lastName].filter(Boolean).join(' ').trim()
+  if (fromParts) return fromParts
+  return customer.name?.trim() || null
+})
+
+const customerEmail = computed(() => order.value?.customer?.email?.trim() || null)
 
 const formatTimestamp = (value: string) => {
   const date = new Date(value)
@@ -162,5 +142,26 @@ const formatTimestamp = (value: string) => {
   return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(date)
 }
 
-useHead(() => ({ title: `Order ${orderId.value} – Commerce Demo` }))
+const formatTotal = (value: OrderResponse['total']) => {
+  if (value === null || value === undefined) return '—'
+  if (typeof value === 'string') return value
+  if (typeof value === 'number') {
+    return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)
+  }
+  const amount = typeof value.amount === 'number' ? value.amount : null
+  if (amount === null) return '—'
+  const currency = value.currency
+  if (currency) {
+    try {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount)
+    } catch {
+      // noop
+    }
+  }
+  return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)
+}
+
+useHead(() => ({
+  title: orderId.value ? `Order ${orderId.value} – Commerce Demo` : 'Order confirmation – Commerce Demo'
+}))
 </script>

@@ -15,7 +15,9 @@ export type OrderStatusHistoryItem = {
 
 export type Order = {
   id: number
+  publicId: string
   status: OrderStatus
+  updatedAt?: string
   statusHistory?: OrderStatusHistoryItem[]
 } & Record<string, unknown>
 
@@ -24,6 +26,10 @@ export type OrderStatusSocketMessage = {
   status: OrderStatus
   event?: string
   order?: Order
+}
+
+export type CreateOrderResponse = Order & {
+  confirmationUrl?: string
 }
 
 export type CreateOrderRequest = {

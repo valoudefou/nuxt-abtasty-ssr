@@ -287,12 +287,14 @@ import { useCreateOrder } from '@/composables/useCreateOrder'
 const { items, subtotal, clear } = useCart()
 const config = useRuntimeConfig()
 const router = useRouter()
+const route = useRoute()
 const { create: createOrder, creating: creatingOrder, error: createOrderError } = useCreateOrder()
 const createOrderErrorMessage = computed(() => createOrderError.value)
 const checkoutSummary = useState<
   {
     orderId: string
     remoteOrderId?: number
+    publicOrderId?: string
     items: Array<{
       id: string | number
       name: string
@@ -534,10 +536,43 @@ const confirmAndPay = () => {
     try {
       const created = await createOrder(payload)
       if (checkoutSummary.value) {
-        checkoutSummary.value.remoteOrderId = created.id
+        if (typeof (created as { id?: unknown }).id === 'number') {
+          checkoutSummary.value.remoteOrderId = (created as { id: number }).id
+        }
+        if (typeof (created as { publicId?: unknown }).publicId === 'string') {
+          checkoutSummary.value.publicOrderId = (created as { publicId: string }).publicId
+        }
       }
-      await router.push('/order-confirmation')
+      if (import.meta.client && checkoutSummary.value) {
+        sessionStorage.setItem('checkout-summary', JSON.stringify(checkoutSummary.value))
+      }
+
+      const confirmationUrl =
+        (created && typeof created === 'object' && typeof (created as { confirmationUrl?: unknown }).confirmationUrl === 'string')
+          ? String((created as { confirmationUrl: string }).confirmationUrl)
+          : (() => {
+            const publicId = typeof (created as { publicId?: unknown }).publicId === 'string'
+              ? String((created as { publicId: string }).publicId)
+              : ''
+            if (!publicId) return '/order-confirmation'
+            const encodedPublicId = encodeURIComponent(publicId)
+            const companyIdParam = route.params.companyId
+            const companyId = Array.isArray(companyIdParam) ? String(companyIdParam[0] ?? '') : String(companyIdParam ?? '')
+            if (route.path.startsWith('/v/companyId/') && companyId) {
+              return `/v/companyId/${encodeURIComponent(companyId)}/order-confirmation/${encodedPublicId}`
+            }
+            if (route.path.startsWith('/v/') && companyId) {
+              return `/v/${encodeURIComponent(companyId)}/order-confirmation/${encodedPublicId}`
+            }
+            return `/order-confirmation/${encodedPublicId}`
+          })()
+
       clear()
+      if (import.meta.client) {
+        window.location.href = confirmationUrl
+        return
+      }
+      await router.push(confirmationUrl)
     } catch (error) {
       console.error('Failed to create order', error)
     }

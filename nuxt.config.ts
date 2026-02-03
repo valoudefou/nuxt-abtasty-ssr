@@ -131,11 +131,7 @@ export default defineNuxtConfig({
       supportEmail: 'hello@commerce.demo',
       ordersApiBase: 'https://order.live-server1.com',
       ordersWsBase: 'wss://order.live-server1.com/ws/orders',
-      apiBase:
-        env.NUXT_PUBLIC_API_BASE
-        || env.NUXT_API_BASE
-        || env.NUXT_PRODUCTS_API_BASE
-        || 'https://api.live-server1.com',
+      apiBase: env.NUXT_PUBLIC_API_BASE || '',
       productsApiBase:
         env.NUXT_PRODUCTS_API_BASE
         || env.NUXT_PUBLIC_API_BASE
