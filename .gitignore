@@ -5,3 +5,5 @@ node_modules
 *.log
 package-lock.json
 data/products-cache.json
+.vercel
+.env*.local
