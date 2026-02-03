@@ -33,6 +33,7 @@ type RecommendationPayload = {
     product: Product
     detailUrl?: string
     externalUrl?: string
+    absoluteLink?: string
   }[]
 }
 

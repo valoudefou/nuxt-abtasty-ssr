@@ -40,6 +40,8 @@ export { useProducts } from '../composables/useProducts';
 export { useRecommendations, RecommendationParams } from '../composables/useRecommendations';
 export { useUpdateOrderStatus } from '../composables/useUpdateOrderStatus';
 export { useViewedProducts } from '../composables/useViewedProducts';
+export { default as appManifestStub } from '../utils/appManifestStub';
 export { default as asyncStorageShim } from '../utils/asyncStorageShim';
 export { slugifyBrand } from '../utils/brand';
 export { getSelectedVendorClient, VENDOR_STORAGE, DEFAULT_VENDOR_CLIENT } from '../utils/vendorsClient';
+export { useNuxtDevTools } from '../node_modules/@nuxt/devtools/dist/runtime/use-nuxt-devtools';

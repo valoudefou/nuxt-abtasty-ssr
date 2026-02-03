@@ -5,6 +5,7 @@ declare global {
   const VENDOR_STORAGE: typeof import('../../utils/vendorsClient').VENDOR_STORAGE
   const abortNavigation: typeof import('../../node_modules/nuxt/dist/app/composables/router').abortNavigation
   const addRouteMiddleware: typeof import('../../node_modules/nuxt/dist/app/composables/router').addRouteMiddleware
+  const appManifestStub: typeof import('../../utils/appManifestStub').default
   const asyncStorageShim: typeof import('../../utils/asyncStorageShim').default
   const callOnce: typeof import('../../node_modules/nuxt/dist/app/composables/once').callOnce
   const cancelIdleCallback: typeof import('../../node_modules/nuxt/dist/app/compat/idle-callback').cancelIdleCallback
@@ -122,6 +123,7 @@ declare global {
   const useNotifications: typeof import('../../composables/useNotifications').useNotifications
   const useNuxtApp: typeof import('../../node_modules/nuxt/dist/app/nuxt').useNuxtApp
   const useNuxtData: typeof import('../../node_modules/nuxt/dist/app/composables/asyncData').useNuxtData
+  const useNuxtDevTools: typeof import('../../node_modules/@nuxt/devtools/dist/runtime/use-nuxt-devtools').useNuxtDevTools
   const useOrder: typeof import('../../composables/useOrder').useOrder
   const useOrderStatusSocket: typeof import('../../composables/useOrderStatusSocket').useOrderStatusSocket
   const usePreviewMode: typeof import('../../node_modules/nuxt/dist/app/composables/preview').usePreviewMode
@@ -207,6 +209,7 @@ declare module 'vue' {
     readonly VENDOR_STORAGE: UnwrapRef<typeof import('../../utils/vendorsClient')['VENDOR_STORAGE']>
     readonly abortNavigation: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/router')['abortNavigation']>
     readonly addRouteMiddleware: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/router')['addRouteMiddleware']>
+    readonly appManifestStub: UnwrapRef<typeof import('../../utils/appManifestStub')['default']>
     readonly asyncStorageShim: UnwrapRef<typeof import('../../utils/asyncStorageShim')['default']>
     readonly callOnce: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/once')['callOnce']>
     readonly cancelIdleCallback: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/compat/idle-callback')['cancelIdleCallback']>
@@ -324,6 +327,7 @@ declare module 'vue' {
     readonly useNotifications: UnwrapRef<typeof import('../../composables/useNotifications')['useNotifications']>
     readonly useNuxtApp: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/nuxt')['useNuxtApp']>
     readonly useNuxtData: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/asyncData')['useNuxtData']>
+    readonly useNuxtDevTools: UnwrapRef<typeof import('../../node_modules/@nuxt/devtools/dist/runtime/use-nuxt-devtools')['useNuxtDevTools']>
     readonly useOrder: UnwrapRef<typeof import('../../composables/useOrder')['useOrder']>
     readonly useOrderStatusSocket: UnwrapRef<typeof import('../../composables/useOrderStatusSocket')['useOrderStatusSocket']>
     readonly usePreviewMode: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/preview')['usePreviewMode']>

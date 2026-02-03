@@ -111,6 +111,7 @@ export default defineNuxtConfig({
       apiKey: env.NUXT_GETADDRESS_KEY || ''
     },
     recommendations: {
+      debug: env.NUXT_RECOMMENDATIONS_DEBUG || '',
       apiKey:
         env.NUXT_RECOMMENDATIONS_API_KEY
         || env.NUXT_ABTASTY_KEY
@@ -148,6 +149,7 @@ export default defineNuxtConfig({
       },
       siteUrl: env.NUXT_PUBLIC_SITE_URL || 'https://val-commerce-demo.vercel.app',
       recommendations: {
+        debug: env.NUXT_RECOMMENDATIONS_DEBUG || '',
         strategyNames: defaultStrategyNames,
         strategyIds: defaultStrategyIds
       },
@@ -162,6 +164,7 @@ export default defineNuxtConfig({
   vite: {
     resolve: {
       alias: {
+        '#app-manifest': new URL('./utils/appManifestStub.ts', import.meta.url).pathname,
         // Stub React Native AsyncStorage for web builds to avoid optional dependency resolution errors
         '@react-native-async-storage/async-storage': new URL(
           './utils/asyncStorageShim.ts',

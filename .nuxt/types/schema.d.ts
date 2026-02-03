@@ -98,6 +98,8 @@ declare module 'nuxt/schema' {
    },
 
    recommendations: {
+      debug: string,
+
       apiKey: string,
 
       endpoint: string,
@@ -169,6 +171,8 @@ declare module 'nuxt/schema' {
    siteUrl: string,
 
    recommendations: {
+      debug: string,
+
       strategyNames: {
          brand: string,
 

@@ -32,6 +32,7 @@ export type RecommendationProduct = {
   product: Product
   detailUrl?: string
   externalUrl?: string
+  absoluteLink?: string
 }
 
 export type RecommendationResponse = {
@@ -424,8 +425,9 @@ const ensureAbsoluteLink = (link: string | undefined, siteUrl?: string) => {
   }
 
   if (trimmed.startsWith('/')) {
-    const base = siteUrl?.replace(/\/+$/, '')
-    return base ? `${base}${trimmed}` : undefined
+    // Keep AB Tasty "absolute_link" as a path so navigation stays on the current origin
+    // (e.g. global-demo-account.vercel.app) instead of being forced to `siteUrl`.
+    return trimmed
   }
 
   return undefined
@@ -483,12 +485,15 @@ const normalizeItem = (
         ? { ...productWithSkuAndSizes, price_before_discount: beforePriceValue, discountPercentage: discountValue }
         : productWithSkuAndSizes
     const productWithSource = { ...productWithDiscount, recoSource: 'abtasty' as const }
+    const productWithSourceAndLink =
+      absoluteLink ? { ...productWithSource, link: absoluteLink } : productWithSource
 
     return {
       id: String(recommendationId ?? matchingProduct.slug),
-      product: productWithSource,
+      product: productWithSourceAndLink,
       detailUrl: detailId ? `/products/${detailId}` : `/products/${matchingProduct.slug}`,
-      externalUrl: absoluteLink
+      externalUrl: absoluteLink,
+      absoluteLink
     }
   }
 
@@ -523,7 +528,8 @@ const normalizeItem = (
     id: String(recommendationId ?? fallbackProduct.slug),
     product: fallbackProduct,
     detailUrl: `/products/${detailId ?? fallbackProduct.slug}`,
-    externalUrl: absoluteLink
+    externalUrl: absoluteLink,
+    absoluteLink
   }
 }
 
@@ -532,6 +538,11 @@ export const fetchRecommendations = async (
   event?: H3Event
 ): Promise<RecommendationResponse> => {
   const config = useRuntimeConfig()
+  const debugMode = String((config as { recommendations?: { debug?: unknown } })?.recommendations?.debug ?? '')
+    .trim()
+    .toLowerCase()
+  const debugSummary = debugMode === 'true' || debugMode === '1' || debugMode === 'yes' || debugMode === 'summary' || debugMode === 'raw'
+  const debugRaw = debugMode === 'raw'
   const apiKey = config.recommendations?.apiKey
   const endpoint = config.recommendations?.endpoint
   const categoryEndpoint = config.recommendations?.categoryEndpoint
@@ -647,6 +658,21 @@ export const fetchRecommendations = async (
 	        statusMessage: 'Recommendations payload is invalid.'
 	      })
 	    }
+
+      if (debugSummary) {
+        console.log('[Recommendations] AB Tasty response', {
+          endpoint: lastRequestUrl,
+          name: response.name ?? null,
+          itemCount: response.items.length,
+          firstItem: response.items[0] ?? null
+        })
+      }
+      if (debugRaw) {
+        console.log('[Recommendations] AB Tasty response (raw)', {
+          endpoint: lastRequestUrl,
+          response
+        })
+      }
 
     const catalog = await fetchProducts(event)
     let fallbackSeed = 900000
