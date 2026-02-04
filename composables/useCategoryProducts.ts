@@ -127,7 +127,10 @@ export const useCategoryProducts = () => {
         }
 
         response = await $fetch<PagedResponse>('/api/products/paged', {
-          params
+          params,
+          // Avoid sending potentially huge third-party cookies (AB Tasty / Klaviyo, etc.)
+          // which can cause 413/headers-too-large errors on Vercel.
+          credentials: 'omit'
         })
         break
       } catch (err) {
