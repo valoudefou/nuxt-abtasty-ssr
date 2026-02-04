@@ -67,6 +67,12 @@ declare module "nitropack/types" {
     '/api/vendors': {
       'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/vendors.get').default>>>>
     }
+    '/v/:companyId/api/receipt/:publicId': {
+      'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/routes/v/[companyId]/api/receipt/[publicId].get').default>>>>
+    }
+    '/v/companyId/:companyId/api/receipt/:publicId': {
+      'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/routes/v/companyId/[companyId]/api/receipt/[publicId].get').default>>>>
+    }
     '/__nuxt_error': {
       'default': Simplify<Serialize<Awaited<ReturnType<typeof import('../../node_modules/@nuxt/nitro-server/dist/runtime/handlers/renderer').default>>>>
     }

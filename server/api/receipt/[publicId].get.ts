@@ -4,25 +4,44 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Missing publicId' })
   }
 
-  const upstreamUrl = `http://127.0.0.1:8082/receipt/${encodeURIComponent(publicId)}`
+  const config = useRuntimeConfig()
+  const base =
+    String(config.receiptApiBase || config.public.receiptApiBase || config.public.ordersApiBase || '').trim()
 
-  let response: Response
+  if (!base) {
+    throw createError({ statusCode: 501, statusMessage: 'Receipt service is not configured' })
+  }
+
+  const upstreamUrl = new URL(
+    `/receipt/${encodeURIComponent(publicId)}`,
+    base.endsWith('/') ? base : `${base}/`
+  ).toString()
+
   try {
-    response = await fetch(upstreamUrl)
-  } catch {
-    throw createError({ statusCode: 502, statusMessage: 'Receipt fetch failed' })
-  }
-
-  if (!response.ok) {
-    throw createError({
-      statusCode: response.status || 502,
-      statusMessage: 'Receipt fetch failed'
+    const upstream = await $fetch.raw<ArrayBuffer>(upstreamUrl, {
+      method: 'GET',
+      responseType: 'arrayBuffer',
+      headers: { accept: 'application/pdf' }
     })
+
+    setHeader(event, 'Cache-Control', 'private, no-store')
+    setHeader(event, 'Content-Type', upstream.headers?.get?.('content-type') || 'application/pdf')
+    setHeader(event, 'Content-Disposition', `inline; filename="receipt-${publicId}.pdf"`)
+    setHeader(event, 'X-Receipt-Upstream', upstreamUrl)
+
+    if (typeof upstream.status === 'number') {
+      setResponseStatus(event, upstream.status, upstream.statusText)
+    }
+
+    const data = upstream._data
+    if (!data) {
+      throw createError({ statusCode: 502, statusMessage: 'Receipt fetch returned an empty response' })
+    }
+    return Buffer.from(data)
+  } catch (error) {
+    const statusCode =
+      (error as { statusCode?: number; status?: number })?.statusCode
+      ?? (error as { status?: number })?.status
+    throw createError({ statusCode: statusCode ?? 502, statusMessage: 'Receipt fetch failed' })
   }
-
-  const buffer = Buffer.from(await response.arrayBuffer())
-  setHeader(event, 'Content-Type', 'application/pdf')
-  setHeader(event, 'Content-Disposition', `inline; filename="receipt-${publicId}.pdf"`)
-  return buffer
 })
-

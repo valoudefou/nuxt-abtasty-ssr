@@ -87,6 +87,8 @@ declare module 'nuxt/schema' {
       cdnURL: string,
    },
 
+   receiptApiBase: string,
+
    flagship: {
       envId: string,
 
@@ -153,6 +155,8 @@ declare module 'nuxt/schema' {
    ordersApiBase: string,
 
    ordersWsBase: string,
+
+   receiptApiBase: string,
 
    apiBase: string,
 

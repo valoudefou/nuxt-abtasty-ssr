@@ -415,10 +415,14 @@ const summaryOrder = computed(() => {
   return summary
 })
 
-const { data: remoteOrder, pending, error } = await useFetch<RemoteOrder>(() => `/api/orders/${encodeURIComponent(publicId.value)}`, {
-  key: `order-confirmation:${publicId.value}`,
-  immediate: Boolean(publicId.value)
-})
+const { data: remoteOrder, pending, error } = useFetch<RemoteOrder>(
+  () => `/api/orders/${encodeURIComponent(publicId.value)}`,
+  {
+    key: `order-confirmation:${publicId.value}`,
+    immediate: Boolean(publicId.value),
+    server: false
+  }
+)
 
 const statusError = computed(() => {
   if (!error.value) return null
