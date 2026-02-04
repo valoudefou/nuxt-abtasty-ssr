@@ -102,6 +102,7 @@ const buildFallbackResponse = async (
 }
 
 export default defineEventHandler(async (event) => {
+  setResponseHeader(event, 'Cache-Control', 'private, no-store')
   const query = getQuery(event)
   const page = parseNumberParam(query.page, 1)
   const pageSize = Math.min(parseNumberParam(query.pageSize, DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE)

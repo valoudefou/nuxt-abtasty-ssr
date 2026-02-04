@@ -136,8 +136,8 @@ export default defineNuxtConfig({
     '/order-confirmation': { ssr: false, headers: { 'cache-control': 'private, no-store' } },
     '/order-confirmation/**': { ssr: false, headers: { 'cache-control': 'private, no-store' } },
 
-    // Cache upstream-backed product APIs (safe for public use) to cut serverless invocations.
-    '/api/products/**': { swr: 300 },
+    // Product APIs are cached server-side (see server/utils/products.ts).
+    // Avoid edge caching here to prevent caching oversized-header errors (413) across users.
     '/api/vendors': { swr: 3600 },
     '/api/valentines-products': { swr: 300 },
     '/api/recommendations': { swr: 120 },

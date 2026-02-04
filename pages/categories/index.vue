@@ -177,7 +177,9 @@ const {
   loadMore
 } = useCategoryProducts()
 
-await fetchProducts()
+onMounted(() => {
+  void fetchProducts()
+})
 
 onMounted(() => {
   const existingVendor = readCookie(VENDOR_COOKIE_NAME)

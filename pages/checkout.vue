@@ -386,7 +386,9 @@ const fetchAddressSuggestions = async (query: string) => {
     const data = await $fetch<{ suggestions?: Array<{ id: string; address: string }> }>(
       '/api/getaddress/autocomplete',
       {
-        params: { q: query }
+        params: { q: query },
+        // Avoid sending large third-party cookies (AB Tasty / Klaviyo, etc.) to Vercel functions.
+        credentials: 'omit'
       }
     )
     addressSuggestions.value = data?.suggestions ?? []
@@ -419,7 +421,10 @@ const fetchAddressDetails = async (id: string, displayAddress: string) => {
         postcode?: string
       }>
       postcode?: string
-    }>(`/api/getaddress/get/${encodeURIComponent(id)}`)
+    }>(`/api/getaddress/get/${encodeURIComponent(id)}`, {
+      // Avoid sending large third-party cookies (AB Tasty / Klaviyo, etc.) to Vercel functions.
+      credentials: 'omit'
+    })
 
     const first = detail?.addresses?.[0]
     const derivedCity = displayAddress.split(',').slice(1)[0]?.trim() || cityInput.value
