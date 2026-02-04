@@ -111,9 +111,6 @@ export default defineNuxtConfig({
     '/valentines-day': { swr: 300 },
     '/trial': { swr: 300 },
 
-    // Company-scoped storefront pages.
-    '/v/**': { swr: 120 },
-
     // Never cache user-specific flows.
     '/cart': { headers: { 'cache-control': 'private, no-store' } },
     '/checkout': { headers: { 'cache-control': 'private, no-store' } },
@@ -122,14 +119,6 @@ export default defineNuxtConfig({
     '/order-confirmation': { ssr: false, headers: { 'cache-control': 'private, no-store' } },
     '/order-confirmation/**': { ssr: false, headers: { 'cache-control': 'private, no-store' } },
 
-    '/v/**/cart': { headers: { 'cache-control': 'private, no-store' } },
-    '/v/**/checkout': { headers: { 'cache-control': 'private, no-store' } },
-    '/v/**/orders': { headers: { 'cache-control': 'private, no-store' } },
-    '/v/**/orders/**': { headers: { 'cache-control': 'private, no-store' } },
-    '/v/**/order-confirmation': { ssr: false, headers: { 'cache-control': 'private, no-store' } },
-    '/v/**/order-confirmation/**': { ssr: false, headers: { 'cache-control': 'private, no-store' } },
-    '/v/**/api/receipt/**': { headers: { 'cache-control': 'private, no-store' } },
-
     // Cache upstream-backed product APIs (safe for public use) to cut serverless invocations.
     '/api/products/**': { swr: 300 },
     '/api/vendors': { swr: 3600 },
@@ -137,7 +126,40 @@ export default defineNuxtConfig({
     '/api/recommendations': { swr: 120 },
 
     // Receipts can contain personal/order info; never cache.
-    '/api/receipt/**': { headers: { 'cache-control': 'private, no-store' } }
+    '/api/receipt/**': { headers: { 'cache-control': 'private, no-store' } },
+
+    // Company-scoped storefront pages.
+    // Use `*` for the companyId segment and keep `**` only at the end to produce valid Vercel route regexes.
+    '/v/*': { swr: 120 },
+    '/v/*/products/**': { swr: 300 },
+    '/v/*/categories': { swr: 300 },
+    '/v/*/brands/**': { swr: 300 },
+    '/v/*/valentines-day': { swr: 300 },
+    '/v/*/trial': { swr: 300 },
+
+    '/v/companyId/*': { swr: 120 },
+    '/v/companyId/*/products/**': { swr: 300 },
+    '/v/companyId/*/categories': { swr: 300 },
+    '/v/companyId/*/brands/**': { swr: 300 },
+    '/v/companyId/*/valentines-day': { swr: 300 },
+    '/v/companyId/*/trial': { swr: 300 },
+
+    // Company-scoped user-specific flows.
+    '/v/*/cart': { headers: { 'cache-control': 'private, no-store' } },
+    '/v/*/checkout': { headers: { 'cache-control': 'private, no-store' } },
+    '/v/*/orders': { headers: { 'cache-control': 'private, no-store' } },
+    '/v/*/orders/**': { headers: { 'cache-control': 'private, no-store' } },
+    '/v/*/order-confirmation': { ssr: false, headers: { 'cache-control': 'private, no-store' } },
+    '/v/*/order-confirmation/**': { ssr: false, headers: { 'cache-control': 'private, no-store' } },
+    '/v/*/api/receipt/**': { headers: { 'cache-control': 'private, no-store' } },
+
+    '/v/companyId/*/cart': { headers: { 'cache-control': 'private, no-store' } },
+    '/v/companyId/*/checkout': { headers: { 'cache-control': 'private, no-store' } },
+    '/v/companyId/*/orders': { headers: { 'cache-control': 'private, no-store' } },
+    '/v/companyId/*/orders/**': { headers: { 'cache-control': 'private, no-store' } },
+    '/v/companyId/*/order-confirmation': { ssr: false, headers: { 'cache-control': 'private, no-store' } },
+    '/v/companyId/*/order-confirmation/**': { ssr: false, headers: { 'cache-control': 'private, no-store' } },
+    '/v/companyId/*/api/receipt/**': { headers: { 'cache-control': 'private, no-store' } }
   },
   runtimeConfig: {
     receiptApiBase:
@@ -205,7 +227,7 @@ export default defineNuxtConfig({
     }
   },
   nitro: {
-    compatibilityDate: '2025-11-04'
+    compatibilityDate: '2026-02-04'
   },
   vite: {
     resolve: {
