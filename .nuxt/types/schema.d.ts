@@ -203,7 +203,7 @@ declare module 'nuxt/schema' {
    },
 
    getAddress: {
-      apiKey: string,
+      enabled: boolean,
    },
   }
 }

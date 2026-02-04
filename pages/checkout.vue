@@ -375,8 +375,8 @@ const grandTotal = computed(() => subtotal.value + deliveryCost.value)
 
 const fetchAddressSuggestions = async (query: string) => {
   if (!import.meta.client) return
-  const apiKey = config.public.getAddress?.apiKey
-  if (!apiKey || query.trim().length < 3) {
+  const enabled = Boolean(config.public.getAddress?.enabled)
+  if (!enabled || query.trim().length < 3) {
     addressSuggestions.value = []
     return
   }
@@ -384,12 +384,9 @@ const fetchAddressSuggestions = async (query: string) => {
   addressLoading.value = true
   try {
     const data = await $fetch<{ suggestions?: Array<{ id: string; address: string }> }>(
-      `https://api.getaddress.io/autocomplete/${encodeURIComponent(query)}`,
+      '/api/getaddress/autocomplete',
       {
-        params: {
-          'api-key': apiKey,
-          all: 'true'
-        }
+        params: { q: query }
       }
     )
     addressSuggestions.value = data?.suggestions ?? []
@@ -408,8 +405,8 @@ const parsePostcode = (value?: string | string[]) => {
 }
 
 const fetchAddressDetails = async (id: string, displayAddress: string) => {
-  const apiKey = config.public.getAddress?.apiKey
-  if (!apiKey) return
+  const enabled = Boolean(config.public.getAddress?.enabled)
+  if (!enabled) return
   try {
     const detail = await $fetch<{
       addresses?: Array<{
@@ -422,11 +419,7 @@ const fetchAddressDetails = async (id: string, displayAddress: string) => {
         postcode?: string
       }>
       postcode?: string
-    }>(`https://api.getaddress.io/get/${id}`, {
-      params: {
-        'api-key': apiKey
-      }
-    })
+    }>(`/api/getaddress/get/${encodeURIComponent(id)}`)
 
     const first = detail?.addresses?.[0]
     const derivedCity = displayAddress.split(',').slice(1)[0]?.trim() || cityInput.value

@@ -425,12 +425,34 @@ const ensureAbsoluteLink = (link: string | undefined, siteUrl?: string) => {
   }
 
   if (trimmed.startsWith('/')) {
-    // Keep AB Tasty "absolute_link" as a path so navigation stays on the current origin
-    // (e.g. global-demo-account.vercel.app) instead of being forced to `siteUrl`.
+    // Keep AB Tasty "absolute_link" as an internal path so navigation stays on the current origin.
     return trimmed
   }
 
   return undefined
+}
+
+const extractProductIdFromLink = (link?: string) => {
+  if (!link) return null
+  const trimmed = link.trim()
+  if (!trimmed) return null
+
+  // Accept relative or absolute URLs.
+  let pathname = trimmed
+  try {
+    if (/^https?:\/\//i.test(trimmed)) {
+      pathname = new URL(trimmed).pathname
+    }
+  } catch {
+    // Ignore parse errors; fallback to raw string.
+  }
+
+  // Supported shapes:
+  // - /products/93212
+  // - /v/<vendor>/products/93212
+  // - /v/companyId/<vendor>/products/93212
+  const match = pathname.match(/\/products\/(\d+)(?:\/|$)/)
+  return match?.[1] ?? null
 }
 
 const normalizeItem = (
@@ -438,7 +460,8 @@ const normalizeItem = (
   index: number,
   catalog: Product[],
   fallbackIdSeed: () => number,
-  siteUrl?: string
+  siteUrl?: string,
+  vendorId?: string | null
 ): RecommendationProduct => {
   const name = item.name?.trim() || `Recommended product ${index + 1}`
   const normalizedName = name.toLowerCase()
@@ -463,9 +486,31 @@ const normalizeItem = (
     ?? normalizeOptionalNumber(item.discount_percent)
   const beforePriceValue = beforePrice !== null && beforePrice > 0 ? beforePrice : null
   const discountValue = discountPercentage !== null && discountPercentage > 0 ? discountPercentage : null
-  const matchingProduct =
-    catalog.find((product) => product.name.toLowerCase() === normalizedName) ?? null
-  const detailId = recommendationId ?? (matchingProduct ? String(matchingProduct.id) : null)
+  const linkedProductId =
+    extractProductIdFromLink(absoluteLink)
+    || extractProductIdFromLink(item.link)
+    || extractProductIdFromLink(item.absolute_link)
+    || null
+  const matchingProduct = (
+    (linkedProductId
+      ? (catalog.find((product) => String(product.id) === linkedProductId) ?? null)
+      : null)
+    ?? (sku
+      ? (catalog.find((product) => String(product.sku ?? '').trim() === sku) ?? null)
+      : null)
+    ?? (catalog.find((product) => product.name.toLowerCase() === normalizedName) ?? null)
+  )
+
+  // Link to internal product pages if we can resolve an id from the catalog
+  // OR the recommendation link already points to a product id.
+  const detailProductId = matchingProduct ? String(matchingProduct.id) : linkedProductId
+  const detailPathSuffix = detailProductId ? encodeURIComponent(detailProductId) : null
+  const normalizedVendorId = typeof vendorId === 'string' ? vendorId.trim() : ''
+  const detailUrl = detailPathSuffix
+    ? (normalizedVendorId ? `/v/${encodeURIComponent(normalizedVendorId)}/products/${detailPathSuffix}` : `/products/${detailPathSuffix}`)
+    : null
+
+  const externalUrl = absoluteLink && /^https?:\/\//i.test(absoluteLink) ? absoluteLink : undefined
 
   if (matchingProduct) {
     const remotePrice = normalizePrice(item.price)
@@ -491,8 +536,8 @@ const normalizeItem = (
     return {
       id: String(recommendationId ?? matchingProduct.slug),
       product: productWithSourceAndLink,
-      detailUrl: detailId ? `/products/${detailId}` : `/products/${matchingProduct.slug}`,
-      externalUrl: absoluteLink,
+      detailUrl: detailUrl ?? `/products/${encodeURIComponent(String(matchingProduct.id))}`,
+      externalUrl,
       absoluteLink
     }
   }
@@ -527,8 +572,8 @@ const normalizeItem = (
   return {
     id: String(recommendationId ?? fallbackProduct.slug),
     product: fallbackProduct,
-    detailUrl: `/products/${detailId ?? fallbackProduct.slug}`,
-    externalUrl: absoluteLink,
+    detailUrl: detailUrl ?? undefined,
+    externalUrl,
     absoluteLink
   }
 }
@@ -679,7 +724,7 @@ export const fetchRecommendations = async (
     const fallbackIdSeed = () => fallbackSeed++
 
     const normalizedItems = response.items
-      .map((item, index) => normalizeItem(item, index, catalog, fallbackIdSeed, siteUrl))
+      .map((item, index) => normalizeItem(item, index, catalog, fallbackIdSeed, siteUrl, selectedVendor))
       .filter(
         (item, index, self) => self.findIndex((candidate) => candidate.id === item.id) === index
       )
@@ -914,7 +959,7 @@ export const fetchSearchResultsRecommendations = async (
   const fallbackIdSeed = () => fallbackSeed++
 
   const normalizedItems = response.items
-    .map((item, index) => normalizeItem(item, index, catalog, fallbackIdSeed, siteUrl))
+    .map((item, index) => normalizeItem(item, index, catalog, fallbackIdSeed, siteUrl, selectedVendor))
     .filter(
       (item, index, self) => self.findIndex((candidate) => candidate.id === item.id) === index
     )

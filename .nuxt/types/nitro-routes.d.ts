@@ -9,6 +9,12 @@ declare module "nitropack/types" {
     '/api/features/apple-pay': {
       'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/features/apple-pay.get').default>>>>
     }
+    '/api/getaddress/autocomplete': {
+      'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/getaddress/autocomplete.get').default>>>>
+    }
+    '/api/getaddress/get/:id': {
+      'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/getaddress/get/[id].get').default>>>>
+    }
     '/api/image': {
       'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/image.get').default>>>>
     }

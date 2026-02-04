@@ -14,6 +14,12 @@ const extractRecommendationId = (input?: string) => {
   }
 }
 
+const normalizeEnvBool = (value?: string) => {
+  if (!value) return false
+  const normalized = value.trim().toLowerCase()
+  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on'
+}
+
 const recommendationEndpoints = {
   brand:
     env.NUXT_RECOMMENDATIONS_ENDPOINT
@@ -71,6 +77,15 @@ const defaultStrategyIds = {
   viewed_items: extractRecommendationId(recommendationEndpoints.viewed)
 } as const
 
+const abTastyScriptSrc = String(
+  env.NUXT_ABTASTY_SCRIPT_SRC
+  || env.NUXT_PUBLIC_ABTASTY_SCRIPT_SRC
+  || ''
+).trim()
+const abTastyEnabled = abTastyScriptSrc
+  ? !normalizeEnvBool(env.NUXT_ABTASTY_DISABLED || env.NUXT_PUBLIC_ABTASTY_DISABLED)
+  : false
+
 export default defineNuxtConfig({
   app: {
     head: {
@@ -93,10 +108,12 @@ export default defineNuxtConfig({
         }
       ],
       script: [
-        {
-          src: 'https://try.abtasty.com/1ceff369b6cd9aceaa9ee318e6498167.js',
-          type: 'text/javascript'
-        }
+        ...(abTastyEnabled
+          ? [{
+            src: abTastyScriptSrc,
+            type: 'text/javascript'
+          }]
+          : [])
       ]
     }
   },
@@ -222,7 +239,7 @@ export default defineNuxtConfig({
         strategyIds: defaultStrategyIds
       },
       getAddress: {
-        apiKey: env.NUXT_GETADDRESS_KEY || ''
+        enabled: Boolean(env.NUXT_GETADDRESS_KEY)
       }
     }
   },
