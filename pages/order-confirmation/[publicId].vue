@@ -167,7 +167,7 @@
             <button
               type="button"
               class="text-sm font-semibold text-primary-600 hover:text-primary-500"
-              @click="printReceipt"
+              @click="downloadReceipt"
             >
               Download receipt
             </button>
@@ -601,9 +601,53 @@ const displayOrder = computed<DisplayOrder | null>(() => {
   return remote
 })
 
-const printReceipt = () => {
-  if (import.meta.client) {
-    window.print()
+const fetchReceiptBlob = async (id: string) => {
+  const response = await fetch(`/api/receipt/${encodeURIComponent(id)}`)
+  if (!response.ok) {
+    throw new Error(`Receipt fetch failed (HTTP ${response.status}).`)
+  }
+  return await response.blob()
+}
+
+const downloadReceipt = async () => {
+  if (!import.meta.client) return
+  const id = displayOrder.value?.publicId?.trim() || publicId.value.trim()
+  if (!id) return
+
+  try {
+    const blob = await fetchReceiptBlob(id)
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `receipt-${id}.pdf`
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (error) {
+    console.error('Failed to download receipt', error)
+  }
+}
+
+const printReceipt = async () => {
+  if (!import.meta.client) return
+  const id = displayOrder.value?.publicId?.trim() || publicId.value.trim()
+  if (!id) return
+
+  try {
+    const blob = await fetchReceiptBlob(id)
+    const url = URL.createObjectURL(blob)
+    const iframe = document.createElement('iframe')
+    iframe.style.display = 'none'
+    iframe.src = url
+    document.body.appendChild(iframe)
+    iframe.onload = () => {
+      iframe.contentWindow?.print()
+      setTimeout(() => {
+        URL.revokeObjectURL(url)
+        iframe.remove()
+      }, 1000)
+    }
+  } catch (error) {
+    console.error('Failed to print receipt', error)
   }
 }
 
