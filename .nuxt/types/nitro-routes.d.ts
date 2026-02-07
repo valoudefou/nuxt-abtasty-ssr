@@ -76,6 +76,9 @@ declare module "nitropack/types" {
     '/checkouts/:checkoutId/abandon': {
       'post': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/routes/checkouts/[checkoutId]/abandon.post').default>>>>
     }
+    '/checkouts/:checkoutId': {
+      'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/routes/checkouts/[checkoutId]/index.get').default>>>>
+    }
     '/checkouts': {
       'post': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/routes/checkouts/index.post').default>>>>
     }

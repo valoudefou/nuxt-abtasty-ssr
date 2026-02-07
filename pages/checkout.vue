@@ -37,7 +37,6 @@
                 inputmode="email"
                 class="mt-1 w-full rounded-2xl border px-4 py-2 text-sm outline-none focus:ring-2"
                 :class="emailError ? 'border-red-300 focus:border-red-500 focus:ring-red-100' : 'border-slate-200 focus:border-primary-500 focus:ring-primary-100'"
-                @input="emailTouched = true"
                 @blur="startCheckout()"
               />
               <p v-if="emailError" class="mt-1 text-xs text-red-600">{{ emailError }}</p>
@@ -353,6 +352,10 @@ const checkoutSummary = useState<
 
 const CHECKOUT_SESSION_STORAGE_KEY = 'checkout-session'
 const CHECKOUT_RESTORE_URL_KEY = 'checkout-restore-url'
+const CHECKOUT_RESTORE_EMAIL_KEY = 'checkout-restore-email'
+const CHECKOUT_DRAFT_KEY = 'checkout-draft'
+const CHECKOUT_DRAFT_LAST_KEY = 'checkout-draft:last'
+const checkoutDraftByIdKey = (id: string) => `checkout-draft:${id}`
 
 const firstName = ref('')
 const lastName = ref('')
@@ -380,22 +383,7 @@ const isOrderCompleted = ref(false)
 
 const { sendAbandon: sendCheckoutAbandon } = useCheckoutAbandonment(checkoutId, checkoutToken, isOrderCompleted)
 
-const normalizeEmailPart = (value: string) =>
-  value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-
-const derivedEmail = computed(() => {
-  const first = normalizeEmailPart(firstName.value)
-  const last = normalizeEmailPart(lastName.value)
-  if (!first || !last) return ''
-  return `${first}.${last}@commerce-demo.com`
-})
-
 const emailInput = ref('')
-const emailTouched = ref(false)
 const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
 const emailError = computed(() => {
   const value = emailInput.value.trim()
@@ -405,6 +393,89 @@ const emailError = computed(() => {
 })
 
 let emailSignalDebounce: ReturnType<typeof setTimeout> | null = null
+let checkoutDraftDebounce: ReturnType<typeof setTimeout> | null = null
+
+type CheckoutDraft = {
+  firstName?: string
+  lastName?: string
+  email?: string
+  shipping?: { address?: string; city?: string; postcode?: string; country?: string }
+  useShippingForBilling?: boolean
+  billing?: { address?: string; city?: string; postcode?: string; country?: string }
+}
+
+const loadDraft = () => {
+  if (!import.meta.client) return null
+  try {
+    let checkoutIdFromSession = ''
+    try {
+      const sessionRaw = sessionStorage.getItem(CHECKOUT_SESSION_STORAGE_KEY)
+      if (sessionRaw) {
+        const parsedSession = JSON.parse(sessionRaw) as { checkoutId?: unknown } | null
+        if (typeof parsedSession?.checkoutId === 'string') {
+          checkoutIdFromSession = parsedSession.checkoutId.trim()
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    const tryParse = (raw: string | null) => {
+      if (!raw) return null
+      const parsed = JSON.parse(raw) as CheckoutDraft | null
+      return parsed && typeof parsed === 'object' ? parsed : null
+    }
+
+    const byId =
+      checkoutIdFromSession
+        ? tryParse(localStorage.getItem(checkoutDraftByIdKey(checkoutIdFromSession)))
+        : null
+    if (byId) return byId
+
+    const inSession = tryParse(sessionStorage.getItem(CHECKOUT_DRAFT_KEY))
+    if (inSession) return inSession
+
+    const last = tryParse(localStorage.getItem(CHECKOUT_DRAFT_LAST_KEY))
+    if (last) return last
+
+    return null
+  } catch {
+    return null
+  }
+}
+
+const saveDraft = () => {
+  if (!import.meta.client) return
+  try {
+    const next: CheckoutDraft = {
+      firstName: firstName.value.trim() || undefined,
+      lastName: lastName.value.trim() || undefined,
+      email: emailInput.value.trim() || undefined,
+      shipping: {
+        address: addressInput.value.trim() || undefined,
+        city: cityInput.value.trim() || undefined,
+        postcode: postcodeInput.value.trim() || undefined,
+        country: countryInput.value.trim() || undefined
+      },
+      useShippingForBilling: useShippingForBilling.value,
+      billing: {
+        address: billingAddress.value.trim() || undefined,
+        city: billingCity.value.trim() || undefined,
+        postcode: billingPostcode.value.trim() || undefined,
+        country: billingCountry.value.trim() || undefined
+      }
+    }
+    const serialized = JSON.stringify(next)
+    sessionStorage.setItem(CHECKOUT_DRAFT_KEY, serialized)
+    localStorage.setItem(CHECKOUT_DRAFT_LAST_KEY, serialized)
+    const id = checkoutId.value.trim()
+    if (id) {
+      localStorage.setItem(checkoutDraftByIdKey(id), serialized)
+    }
+  } catch {
+    // ignore
+  }
+}
 
 const getRestoreUrlTemplate = () => {
   if (!import.meta.client) return ''
@@ -452,6 +523,15 @@ const readStoredCheckoutSession = () => {
   }
 }
 
+const hydrateCheckoutSessionRefs = () => {
+  if (!import.meta.client) return
+  if (checkoutId.value.trim() && checkoutToken.value.trim()) return
+  const stored = readStoredCheckoutSession()
+  if (!stored) return
+  checkoutId.value = stored.checkoutId
+  checkoutToken.value = stored.checkoutToken
+}
+
 const storeCheckoutSession = (id: string, token: string) => {
   if (!import.meta.client) return
   try {
@@ -470,6 +550,35 @@ const clearStoredCheckoutSession = () => {
     sessionStorage.removeItem(CHECKOUT_SESSION_STORAGE_KEY)
   } catch {
     // ignore storage errors
+  }
+}
+
+const clearCheckoutDraft = () => {
+  if (!import.meta.client) return
+  try {
+    sessionStorage.removeItem(CHECKOUT_DRAFT_KEY)
+    sessionStorage.removeItem(CHECKOUT_RESTORE_EMAIL_KEY)
+  } catch {
+    // ignore
+  }
+  try {
+    localStorage.removeItem(CHECKOUT_DRAFT_LAST_KEY)
+    const id = checkoutId.value.trim()
+    if (id) {
+      localStorage.removeItem(checkoutDraftByIdKey(id))
+    }
+  } catch {
+    // ignore
+  }
+}
+
+const clearCartStorage = () => {
+  if (!import.meta.client) return
+  try {
+    // Keep in sync with `composables/useCart.ts`
+    localStorage.removeItem('val-commerce-cart')
+  } catch {
+    // ignore
   }
 }
 
@@ -704,6 +813,7 @@ const confirmAndPay = () => {
       const created = await createOrder(payload)
       isOrderCompleted.value = true
       clearStoredCheckoutSession()
+      clearCheckoutDraft()
       if (checkoutSummary.value) {
         if (typeof (created as { id?: unknown }).id === 'number') {
           checkoutSummary.value.remoteOrderId = (created as { id: number }).id
@@ -737,6 +847,7 @@ const confirmAndPay = () => {
           })()
 
       clear()
+      clearCartStorage()
       if (import.meta.client) {
         window.location.href = confirmationUrl
         return
@@ -776,16 +887,40 @@ const formatCurrency = (value: number) =>
 
 useHead({ title: 'Checkout – Commerce Demo' })
 
-watch(
-  () => derivedEmail.value,
-  (next) => {
-    if (emailTouched.value) return
-    emailInput.value = next
-  },
-  { immediate: true }
-)
-
 onMounted(() => {
+  if (import.meta.client) {
+    // Load checkoutId/token early so loadDraft() can resolve the correct localStorage key.
+    hydrateCheckoutSessionRefs()
+
+    const draft = loadDraft()
+    if (draft) {
+      if (!firstName.value.trim() && typeof draft.firstName === 'string') firstName.value = draft.firstName
+      if (!lastName.value.trim() && typeof draft.lastName === 'string') lastName.value = draft.lastName
+      if (!emailInput.value.trim() && typeof draft.email === 'string') emailInput.value = draft.email
+      if (!addressInput.value.trim() && typeof draft.shipping?.address === 'string') addressInput.value = draft.shipping.address
+      if (!cityInput.value.trim() && typeof draft.shipping?.city === 'string') cityInput.value = draft.shipping.city
+      if (!postcodeInput.value.trim() && typeof draft.shipping?.postcode === 'string') postcodeInput.value = draft.shipping.postcode
+      if (!countryInput.value.trim() && typeof draft.shipping?.country === 'string') countryInput.value = draft.shipping.country
+
+      if (typeof draft.useShippingForBilling === 'boolean') useShippingForBilling.value = draft.useShippingForBilling
+      if (!billingAddress.value.trim() && typeof draft.billing?.address === 'string') billingAddress.value = draft.billing.address
+      if (!billingCity.value.trim() && typeof draft.billing?.city === 'string') billingCity.value = draft.billing.city
+      if (!billingPostcode.value.trim() && typeof draft.billing?.postcode === 'string') billingPostcode.value = draft.billing.postcode
+      if (!billingCountry.value.trim() && typeof draft.billing?.country === 'string') billingCountry.value = draft.billing.country
+    }
+
+    try {
+      const restored = sessionStorage.getItem(CHECKOUT_RESTORE_EMAIL_KEY)
+      if (restored && typeof restored === 'string') {
+        const trimmed = restored.trim()
+        if (trimmed) {
+          emailInput.value = trimmed
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
   void startCheckout()
 })
 
@@ -818,10 +953,41 @@ watch(
   }
 )
 
+watch(
+  () => [
+    firstName.value,
+    lastName.value,
+    emailInput.value,
+    addressInput.value,
+    cityInput.value,
+    postcodeInput.value,
+    countryInput.value,
+    useShippingForBilling.value,
+    billingAddress.value,
+    billingCity.value,
+    billingPostcode.value,
+    billingCountry.value
+  ],
+  () => {
+    if (!import.meta.client) return
+    if (checkoutDraftDebounce) {
+      clearTimeout(checkoutDraftDebounce)
+      checkoutDraftDebounce = null
+    }
+    checkoutDraftDebounce = setTimeout(() => {
+      saveDraft()
+    }, 250)
+  }
+)
+
 onBeforeUnmount(() => {
   if (emailSignalDebounce) {
     clearTimeout(emailSignalDebounce)
     emailSignalDebounce = null
+  }
+  if (checkoutDraftDebounce) {
+    clearTimeout(checkoutDraftDebounce)
+    checkoutDraftDebounce = null
   }
 })
 </script>
