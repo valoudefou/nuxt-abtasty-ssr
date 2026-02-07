@@ -73,6 +73,12 @@ declare module "nitropack/types" {
     '/api/vendors': {
       'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/vendors.get').default>>>>
     }
+    '/checkouts/:checkoutId/abandon': {
+      'post': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/routes/checkouts/[checkoutId]/abandon.post').default>>>>
+    }
+    '/checkouts': {
+      'post': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/routes/checkouts/index.post').default>>>>
+    }
     '/v/:companyId/api/receipt/:publicId': {
       'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/routes/v/[companyId]/api/receipt/[publicId].get').default>>>>
     }

@@ -218,6 +218,15 @@ export default defineNuxtConfig({
         || env.NUXT_RECEIPT_API_BASE
         || 'https://receipt.live-server1.com',
       apiBase: env.NUXT_PUBLIC_API_BASE || '',
+      // Checkout lifecycle (start/abandon) endpoint. Set this to your Java service base URL if needed.
+      // Example: NUXT_PUBLIC_CHECKOUTS_API_BASE="https://checkout-java.yourdomain.com"
+      checkoutsApiBase:
+        env.NUXT_PUBLIC_CHECKOUTS_API_BASE
+        || env.NUXT_CHECKOUTS_API_BASE
+        || 'https://order.live-server1.com'
+        || env.NUXT_PUBLIC_API_BASE
+        || env.NUXT_API_BASE
+        || 'https://api.live-server1.com',
       productsApiBase:
         env.NUXT_PRODUCTS_API_BASE
         || env.NUXT_PUBLIC_API_BASE

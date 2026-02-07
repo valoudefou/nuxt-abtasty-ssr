@@ -160,6 +160,8 @@ declare module 'nuxt/schema' {
 
    apiBase: string,
 
+   checkoutsApiBase: string,
+
    productsApiBase: string,
 
    productsVendorId: string,

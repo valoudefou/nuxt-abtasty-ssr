@@ -29,6 +29,20 @@
               </label>
             </div>
             <label class="text-sm font-medium text-slate-700">
+              Email address
+              <input
+                v-model="emailInput"
+                type="email"
+                autocomplete="email"
+                inputmode="email"
+                class="mt-1 w-full rounded-2xl border px-4 py-2 text-sm outline-none focus:ring-2"
+                :class="emailError ? 'border-red-300 focus:border-red-500 focus:ring-red-100' : 'border-slate-200 focus:border-primary-500 focus:ring-primary-100'"
+                @input="emailTouched = true"
+                @blur="startCheckout()"
+              />
+              <p v-if="emailError" class="mt-1 text-xs text-red-600">{{ emailError }}</p>
+            </label>
+            <label class="text-sm font-medium text-slate-700">
               Address
               <div class="relative mt-1">
                 <input
@@ -270,6 +284,14 @@
           >
             {{ creatingOrder ? 'Placing order…' : 'Confirm and pay' }}
           </button>
+          <button
+            v-if="isDev"
+            class="mt-3 w-full rounded-full border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+            type="button"
+            @click="sendCheckoutAbandon"
+          >
+            Simulate abandonment
+          </button>
           <p v-if="createOrderErrorMessage" class="mt-3 text-sm text-red-600">
             {{ createOrderErrorMessage }}
           </p>
@@ -290,6 +312,7 @@ const router = useRouter()
 const route = useRoute()
 const { create: createOrder, creating: creatingOrder, error: createOrderError } = useCreateOrder()
 const createOrderErrorMessage = computed(() => createOrderError.value)
+const isDev = import.meta.dev
 const checkoutSummary = useState<
   {
     orderId: string
@@ -328,6 +351,9 @@ const checkoutSummary = useState<
   } | null
 >('checkout-summary', () => null)
 
+const CHECKOUT_SESSION_STORAGE_KEY = 'checkout-session'
+const CHECKOUT_RESTORE_URL_KEY = 'checkout-restore-url'
+
 const firstName = ref('')
 const lastName = ref('')
 const addressInput = ref('')
@@ -348,6 +374,12 @@ const cardName = ref('John Smith')
 const suppressAutocomplete = ref(false)
 let addressDebounce: ReturnType<typeof setTimeout> | null = null
 
+const checkoutId = ref('')
+const checkoutToken = ref('')
+const isOrderCompleted = ref(false)
+
+const { sendAbandon: sendCheckoutAbandon } = useCheckoutAbandonment(checkoutId, checkoutToken, isOrderCompleted)
+
 const normalizeEmailPart = (value: string) =>
   value
     .trim()
@@ -361,6 +393,140 @@ const derivedEmail = computed(() => {
   if (!first || !last) return ''
   return `${first}.${last}@commerce-demo.com`
 })
+
+const emailInput = ref('')
+const emailTouched = ref(false)
+const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
+const emailError = computed(() => {
+  const value = emailInput.value.trim()
+  if (!value) return 'Email address is required.'
+  if (!isValidEmail(value)) return 'Enter a valid email address.'
+  return ''
+})
+
+let emailSignalDebounce: ReturnType<typeof setTimeout> | null = null
+
+const getRestoreUrlTemplate = () => {
+  if (!import.meta.client) return ''
+
+  try {
+    const stored = sessionStorage.getItem(CHECKOUT_RESTORE_URL_KEY)
+    if (stored && stored.includes('{checkoutId}')) {
+      return stored
+    }
+  } catch {
+    // ignore
+  }
+
+  const origin = window.location.origin
+  const path = route.path?.trim() || '/checkout'
+  const basePath = path.endsWith('/checkout') ? path : '/checkout'
+  const template = `${origin}${basePath}/restore/{checkoutId}`
+  try {
+    sessionStorage.setItem(CHECKOUT_RESTORE_URL_KEY, template)
+  } catch {
+    // ignore
+  }
+  return template
+}
+
+type CheckoutStartResponse = {
+  checkoutId?: unknown
+  checkoutToken?: unknown
+  id?: unknown
+  token?: unknown
+}
+
+const readStoredCheckoutSession = () => {
+  if (!import.meta.client) return null
+  try {
+    const raw = sessionStorage.getItem(CHECKOUT_SESSION_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { checkoutId?: unknown; checkoutToken?: unknown } | null
+    const id = typeof parsed?.checkoutId === 'string' ? parsed.checkoutId.trim() : ''
+    const token = typeof parsed?.checkoutToken === 'string' ? parsed.checkoutToken.trim() : ''
+    if (!id || !token) return null
+    return { checkoutId: id, checkoutToken: token }
+  } catch {
+    return null
+  }
+}
+
+const storeCheckoutSession = (id: string, token: string) => {
+  if (!import.meta.client) return
+  try {
+    sessionStorage.setItem(
+      CHECKOUT_SESSION_STORAGE_KEY,
+      JSON.stringify({ checkoutId: id, checkoutToken: token, createdAt: Date.now() })
+    )
+  } catch {
+    // ignore storage errors
+  }
+}
+
+const clearStoredCheckoutSession = () => {
+  if (!import.meta.client) return
+  try {
+    sessionStorage.removeItem(CHECKOUT_SESSION_STORAGE_KEY)
+  } catch {
+    // ignore storage errors
+  }
+}
+
+const normalizeCheckoutStart = (value: unknown) => {
+  const data = (value && typeof value === 'object') ? (value as CheckoutStartResponse) : null
+  const id =
+    typeof data?.checkoutId === 'string'
+      ? data.checkoutId.trim()
+      : (typeof data?.id === 'string' ? data.id.trim() : '')
+  const token =
+    typeof data?.checkoutToken === 'string'
+      ? data.checkoutToken.trim()
+      : (typeof data?.token === 'string' ? data.token.trim() : '')
+  if (!id || !token) return null
+  return { checkoutId: id, checkoutToken: token }
+}
+
+const startCheckout = async () => {
+  if (!import.meta.client) return
+  if (isOrderCompleted.value) return
+  if (!items.value.length) return
+  if (checkoutId.value && checkoutToken.value) return
+  if (emailError.value) return
+
+  const stored = readStoredCheckoutSession()
+  if (stored) {
+    checkoutId.value = stored.checkoutId
+    checkoutToken.value = stored.checkoutToken
+    return
+  }
+
+  try {
+    const restoreUrl = getRestoreUrlTemplate()
+    const payload = {
+      email: emailInput.value.trim(),
+      restoreUrl,
+      items: items.value.map((item) => ({
+        sku: item.sku?.trim() || String(item.id),
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price
+      }))
+    }
+
+    const response = await $fetch<unknown>('/checkouts', { method: 'POST', body: payload, credentials: 'omit' })
+    const normalized = normalizeCheckoutStart(response)
+    if (!normalized) {
+      console.warn('Checkout start returned an unexpected payload.')
+      return
+    }
+    checkoutId.value = normalized.checkoutId
+    checkoutToken.value = normalized.checkoutToken
+    storeCheckoutSession(normalized.checkoutId, normalized.checkoutToken)
+  } catch (error) {
+    console.error('Failed to start checkout session', error)
+  }
+}
 
 const deliveryOptions = [
   { id: 'evri', label: 'Evri (Standard)', description: 'Arrives within 3-5 days', cost: 2.99 },
@@ -442,10 +608,10 @@ const fetchAddressDetails = async (id: string, displayAddress: string) => {
 const requiredFields = computed(() => [
   firstName.value,
   lastName.value,
+  emailInput.value,
   addressInput.value,
   cityInput.value,
   postcodeInput.value,
-  derivedEmail.value,
   cardNumber.value,
   cardExpiry.value,
   cardCvc.value,
@@ -456,7 +622,10 @@ const requiredFields = computed(() => [
 ])
 
 const canConfirm = computed(
-  () => items.value.length > 0 && requiredFields.value.every((value) => value.trim().length > 0)
+  () =>
+    items.value.length > 0 &&
+    requiredFields.value.every((value) => value.trim().length > 0) &&
+    !emailError.value
 )
 
 const selectAddressSuggestion = (suggestion: { id: string; address: string }) => {
@@ -483,7 +652,7 @@ const confirmAndPay = () => {
     idempotencyKey: (import.meta.client && globalThis.crypto?.randomUUID) ? globalThis.crypto.randomUUID() : orderId,
     customer: {
       name: `${firstName.value} ${lastName.value}`.trim(),
-      email: derivedEmail.value,
+      email: emailInput.value.trim(),
       address: customerAddress
     },
     items: items.value.map((item) => ({
@@ -507,7 +676,7 @@ const confirmAndPay = () => {
       category: item.category
     })),
     total: grandTotal.value,
-    email: derivedEmail.value,
+    email: emailInput.value.trim(),
     shipping: {
       firstName: firstName.value,
       lastName: lastName.value,
@@ -533,6 +702,8 @@ const confirmAndPay = () => {
   void (async () => {
     try {
       const created = await createOrder(payload)
+      isOrderCompleted.value = true
+      clearStoredCheckoutSession()
       if (checkoutSummary.value) {
         if (typeof (created as { id?: unknown }).id === 'number') {
           checkoutSummary.value.remoteOrderId = (created as { id: number }).id
@@ -604,4 +775,53 @@ const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
 
 useHead({ title: 'Checkout – Commerce Demo' })
+
+watch(
+  () => derivedEmail.value,
+  (next) => {
+    if (emailTouched.value) return
+    emailInput.value = next
+  },
+  { immediate: true }
+)
+
+onMounted(() => {
+  void startCheckout()
+})
+
+watch(
+  () => items.value.length,
+  (len) => {
+    if (!import.meta.client) return
+    if (isOrderCompleted.value) return
+    if (len > 0) {
+      void startCheckout()
+      return
+    }
+    checkoutId.value = ''
+    checkoutToken.value = ''
+    clearStoredCheckoutSession()
+  }
+)
+
+watch(
+  () => emailInput.value,
+  () => {
+    if (!import.meta.client) return
+    if (emailSignalDebounce) {
+      clearTimeout(emailSignalDebounce)
+      emailSignalDebounce = null
+    }
+    emailSignalDebounce = setTimeout(() => {
+      void startCheckout()
+    }, 800)
+  }
+)
+
+onBeforeUnmount(() => {
+  if (emailSignalDebounce) {
+    clearTimeout(emailSignalDebounce)
+    emailSignalDebounce = null
+  }
+})
 </script>
