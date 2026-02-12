@@ -5,6 +5,7 @@
   "private": true,
   "dependencies": {
     "@babel/parser": "7.28.5",
+    "@flagship.io/js-sdk": "5.1.6",
     "@heroicons/vue": "2.2.0",
     "@vue/compiler-core": "3.5.22",
     "@vue/compiler-dom": "3.5.22",
@@ -19,11 +20,16 @@
     "entities": "4.5.0",
     "estree-walker": "2.0.2",
     "hookable": "5.5.3",
+    "node-fetch": "2.7.0",
+    "perfect-debounce": "2.0.0",
     "source-map-js": "1.2.1",
+    "tr46": "0.0.3",
     "ufo": "1.6.1",
     "unhead": "2.0.19",
     "vue": "3.5.22",
     "vue-bundle-renderer": "2.2.0",
-    "vue-router": "4.6.3"
+    "vue-router": "4.6.3",
+    "webidl-conversions": "3.0.1",
+    "whatwg-url": "5.0.0"
   }
 }

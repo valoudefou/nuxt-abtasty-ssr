@@ -1,5 +1,5 @@
-import process from 'node:process';globalThis._importMeta_=globalThis._importMeta_||{url:"file:///_entry.js",env:process.env};import { hasInjectionContext, inject, toRef, isRef, getCurrentInstance, defineComponent, defineAsyncComponent, h, computed, unref, shallowRef, provide, shallowReactive, ref, Suspense, Fragment, useSSRContext, createApp, reactive, createVNode, resolveDynamicComponent, mergeProps, withCtx, onErrorCaptured, onServerPrefetch, effectScope, isReadonly, isShallow, isReactive, toRaw, nextTick, getCurrentScope } from 'vue';
-import { c as createError$1, k as hasProtocol, l as isScriptProtocol, m as joinURL, w as withQuery, s as sanitizeStatusCode, n as getContext, $ as $fetch, o as createHooks, p as executeAsync, t as toRouteMatcher, q as createRouter$1, r as defu } from '../nitro/nitro.mjs';
+import process from 'node:process';globalThis._importMeta_=globalThis._importMeta_||{url:"file:///_entry.js",env:process.env};import { toRef, isRef, hasInjectionContext, inject, getCurrentInstance, defineComponent, defineAsyncComponent, h, computed, unref, shallowRef, provide, shallowReactive, ref, Suspense, Fragment, useSSRContext, createApp, reactive, createVNode, resolveDynamicComponent, mergeProps, withCtx, Transition, createBlock, createCommentVNode, openBlock, onErrorCaptured, onServerPrefetch, effectScope, isReadonly, isShallow, isReactive, toRaw, nextTick, getCurrentScope } from 'vue';
+import { c as createError$1, w as hasProtocol, x as isScriptProtocol, y as joinURL, z as withQuery, A as sanitizeStatusCode, B as getContext, $ as $fetch, C as createHooks, D as executeAsync, E as toRouteMatcher, F as createRouter$1, G as defu, H as destr, I as klona, m as getRequestHeader, J as isEqual, b as setCookie, a as getCookie, K as deleteCookie } from '../nitro/nitro.mjs';
 import { u as useHead$1, h as headSymbol, b as baseURL } from '../routes/renderer.mjs';
 import { useRoute as useRoute$1, RouterView, createMemoryHistory, createRouter, START_LOCATION } from 'vue-router';
 import { ssrRenderList, ssrRenderVNode, ssrInterpolate, ssrRenderComponent, ssrRenderSuspense } from 'vue/server-renderer';
@@ -18,6 +18,53 @@ import 'devalue';
 import 'unhead/utils';
 import 'unhead/plugins';
 
+function parse(str, options) {
+  if (typeof str !== "string") {
+    throw new TypeError("argument str must be a string");
+  }
+  const obj = {};
+  const opt = options || {};
+  const dec = opt.decode || decode;
+  let index = 0;
+  while (index < str.length) {
+    const eqIdx = str.indexOf("=", index);
+    if (eqIdx === -1) {
+      break;
+    }
+    let endIdx = str.indexOf(";", index);
+    if (endIdx === -1) {
+      endIdx = str.length;
+    } else if (endIdx < eqIdx) {
+      index = str.lastIndexOf(";", eqIdx - 1) + 1;
+      continue;
+    }
+    const key = str.slice(index, eqIdx).trim();
+    if (opt?.filter && !opt?.filter(key)) {
+      index = endIdx + 1;
+      continue;
+    }
+    if (void 0 === obj[key]) {
+      let val = str.slice(eqIdx + 1, endIdx).trim();
+      if (val.codePointAt(0) === 34) {
+        val = val.slice(1, -1);
+      }
+      obj[key] = tryDecode(val, dec);
+    }
+    index = endIdx + 1;
+  }
+  return obj;
+}
+function decode(str) {
+  return str.includes("%") ? decodeURIComponent(str) : str;
+}
+function tryDecode(str, decode2) {
+  try {
+    return decode2(str);
+  } catch {
+    return str;
+  }
+}
+
 if (!globalThis.$fetch) {
   globalThis.$fetch = $fetch.create({
     baseURL: baseURL()
@@ -28,6 +75,8 @@ if (!("global" in globalThis)) {
 }
 const appLayoutTransition = false;
 const nuxtLinkDefaults = { "componentName": "NuxtLink" };
+const asyncDataDefaults = { "value": null, "errorValue": null, "deep": true };
+const fetchDefaults = {};
 const appId = "nuxt-app";
 function getNuxtAppCtx(id = appId) {
   return getContext(id, {
@@ -384,21 +433,166 @@ async function getRouteRules(arg) {
     return defu({}, ..._routeRulesMatcher.matchAll(path).reverse());
   }
 }
+const __nuxt_page_meta = {
+  layout: "blank"
+};
 const _routes = [
   {
     name: "cart",
     path: "/cart",
-    component: () => import('./cart-g_w76Njl.mjs')
+    component: () => import('./cart-Bq5z6El9.mjs')
   },
   {
-    name: "index",
-    path: "/",
-    component: () => import('./index-KvPAzM8g.mjs')
+    name: "trial",
+    path: "/trial",
+    meta: __nuxt_page_meta || {},
+    component: () => import('./trial-BJlfjMl7.mjs')
   },
   {
-    name: "products-slug",
-    path: "/products/:slug()",
-    component: () => import('./_slug_-BdB1TUFi.mjs')
+    name: "checkout",
+    path: "/checkout",
+    component: () => import('./checkout-BdZLc6iN.mjs'),
+    children: [
+      {
+        name: "checkout-restore-checkoutId",
+        path: "restore/:checkoutId()",
+        component: () => import('./_checkoutId_-CrAJLtrg.mjs')
+      }
+    ]
+  },
+  {
+    name: "brand",
+    path: "/:brand?",
+    component: () => import('./_brand_-C8UH8YoA.mjs')
+  },
+  {
+    name: "products-id",
+    path: "/products/:id()",
+    component: () => import('./_id_-DneebrMd.mjs')
+  },
+  {
+    name: "valentines-day",
+    path: "/valentines-day",
+    component: () => import('./valentines-day-Dxuffkyf.mjs')
+  },
+  {
+    name: "categories",
+    path: "/categories",
+    component: () => import('./index-CalXzcpz.mjs')
+  },
+  {
+    name: "orders-orderId",
+    path: "/orders/:orderId()",
+    component: () => import('./_orderId_-B1Id2MUR.mjs')
+  },
+  {
+    name: "v-companyId-cart",
+    path: "/v/:companyId()/cart",
+    component: () => import('./cart-Bf0RMUs8.mjs')
+  },
+  {
+    name: "v-companyId",
+    path: "/v/:companyId()",
+    component: () => import('./index-BAE5Inxk.mjs')
+  },
+  {
+    name: "v-companyId-checkout",
+    path: "/v/:companyId()/checkout",
+    component: () => import('./checkout-CT-_hR9e.mjs'),
+    children: [
+      {
+        name: "v-companyId-checkout-restore-checkoutId",
+        path: "restore/:checkoutId()",
+        component: () => import('./_checkoutId_-BngDw0ht.mjs')
+      }
+    ]
+  },
+  {
+    name: "order-confirmation",
+    path: "/order-confirmation",
+    component: () => import('./index-BNFlaVHk.mjs')
+  },
+  {
+    name: "v-companyId-categories",
+    path: "/v/:companyId()/categories",
+    component: () => import('./categories-BSOv3YZ9.mjs')
+  },
+  {
+    name: "v-companyId-products-id",
+    path: "/v/:companyId()/products/:id()",
+    component: () => import('./_id_-BmuRICz0.mjs')
+  },
+  {
+    name: "v-companyId-valentines-day",
+    path: "/v/:companyId()/valentines-day",
+    component: () => import('./valentines-day-DyNK9qEy.mjs')
+  },
+  {
+    name: "v-companyId-companyId-cart",
+    path: "/v/companyId/:companyId()/cart",
+    component: () => import('./cart-cSkZ8u5I.mjs')
+  },
+  {
+    name: "order-confirmation-publicId",
+    path: "/order-confirmation/:publicId()",
+    component: () => import('./_publicId_-De9eLYcN.mjs')
+  },
+  {
+    name: "v-companyId-companyId",
+    path: "/v/companyId/:companyId()",
+    component: () => import('./index-Cuy4JvSu.mjs')
+  },
+  {
+    name: "v-companyId-orders-orderId",
+    path: "/v/:companyId()/orders/:orderId()",
+    component: () => import('./_orderId_-BJUKR0M2.mjs')
+  },
+  {
+    name: "v-companyId-companyId-checkout",
+    path: "/v/companyId/:companyId()/checkout",
+    component: () => import('./checkout-DSowhoTA.mjs'),
+    children: [
+      {
+        name: "v-companyId-companyId-checkout-restore-checkoutId",
+        path: "restore/:checkoutId()",
+        component: () => import('./_checkoutId_-DlzD0wnj.mjs')
+      }
+    ]
+  },
+  {
+    name: "v-companyId-companyId-categories",
+    path: "/v/companyId/:companyId()/categories",
+    component: () => import('./categories-BJ--tkDQ.mjs')
+  },
+  {
+    name: "v-companyId-companyId-products-id",
+    path: "/v/companyId/:companyId()/products/:id()",
+    component: () => import('./_id_-yHAuTdhG.mjs')
+  },
+  {
+    name: "v-companyId-order-confirmation",
+    path: "/v/:companyId()/order-confirmation",
+    component: () => import('./index-DNHmalBH.mjs')
+  },
+  {
+    name: "v-companyId-companyId-valentines-day",
+    path: "/v/companyId/:companyId()/valentines-day",
+    component: () => import('./valentines-day-Bjudedj9.mjs')
+  },
+  {
+    name: "v-companyId-order-confirmation-publicId",
+    path: "/v/:companyId()/order-confirmation/:publicId()",
+    component: () => import('./_publicId_-DhxBiH6d.mjs')
+  },
+  {
+    name: "v-companyId-companyId-order-confirmation",
+    path: "/v/companyId/:companyId()/order-confirmation",
+    component: () => import('./index-BlEPedOq.mjs')
+  },
+  {
+    name: "v-companyId-companyId-order-confirmation-publicId",
+    path: "/v/companyId/:companyId()/order-confirmation/:publicId()",
+    component: () => import('./_publicId_-CdkoifJk.mjs')
   }
 ];
 const _wrapInTransition = (props, children) => {
@@ -482,13 +676,23 @@ function _calculatePosition(to, from, savedPosition, defaultHashScrollBehaviour)
     top: 0
   };
 }
+const routerOptions1 = {
+  scrollBehavior(_to, _from, savedPosition) {
+    if (savedPosition) {
+      return savedPosition;
+    }
+    return { top: 0, left: 0 };
+  }
+};
 const configRouterOptions = {
   hashMode: false,
   scrollBehaviorType: "auto"
 };
+const hashMode = routerOptions1.hashMode ?? false;
 const routerOptions = {
   ...configRouterOptions,
-  ...routerOptions0
+  ...routerOptions0,
+  ...routerOptions1
 };
 const validate = /* @__PURE__ */ defineNuxtRouteMiddleware(async (to, from) => {
   let __temp, __restore;
@@ -509,6 +713,158 @@ const validate = /* @__PURE__ */ defineNuxtRouteMiddleware(async (to, from) => {
   });
   return error;
 });
+const product_45canonical_45global = /* @__PURE__ */ defineNuxtRouteMiddleware((to) => {
+  if (to.path.startsWith("/products/") || to.path.includes("/products/")) {
+    const param = Array.isArray(to.params.id) ? to.params.id.join("-") : String(to.params.id ?? "");
+    const match = param.match(/(\d+)(?!.*\d)/);
+    if (match && match[1] !== param) {
+      return navigateTo(`/products/${match[1]}`, { replace: true, redirectCode: 301 });
+    }
+  }
+});
+const useStateKeyPrefix = "$s";
+function useState(...args) {
+  const autoKey = typeof args[args.length - 1] === "string" ? args.pop() : void 0;
+  if (typeof args[0] !== "string") {
+    args.unshift(autoKey);
+  }
+  const [_key, init] = args;
+  if (!_key || typeof _key !== "string") {
+    throw new TypeError("[nuxt] [useState] key must be a string: " + _key);
+  }
+  if (init !== void 0 && typeof init !== "function") {
+    throw new Error("[nuxt] [useState] init must be a function: " + init);
+  }
+  const key = useStateKeyPrefix + _key;
+  const nuxtApp = useNuxtApp();
+  const state = toRef(nuxtApp.payload.state, key);
+  if (state.value === void 0 && init) {
+    const initialValue = init();
+    if (isRef(initialValue)) {
+      nuxtApp.payload.state[key] = initialValue;
+      return initialValue;
+    }
+    state.value = initialValue;
+  }
+  return state;
+}
+function injectHead(nuxtApp) {
+  const nuxt = nuxtApp || tryUseNuxtApp();
+  return nuxt?.ssrContext?.head || nuxt?.runWithContext(() => {
+    if (hasInjectionContext()) {
+      return inject(headSymbol);
+    }
+  });
+}
+function useHead(input, options = {}) {
+  const head = injectHead(options.nuxt);
+  if (head) {
+    return useHead$1(input, { head, ...options });
+  }
+}
+function useRequestEvent(nuxtApp) {
+  nuxtApp ||= useNuxtApp();
+  return nuxtApp.ssrContext?.event;
+}
+function useRequestFetch() {
+  return useRequestEvent()?.$fetch || globalThis.$fetch;
+}
+const CookieDefaults = {
+  path: "/",
+  watch: true,
+  decode: (val) => destr(decodeURIComponent(val)),
+  encode: (val) => encodeURIComponent(typeof val === "string" ? val : JSON.stringify(val))
+};
+function useCookie(name, _opts) {
+  const opts = { ...CookieDefaults, ..._opts };
+  opts.filter ??= (key) => key === name;
+  const cookies = readRawCookies(opts) || {};
+  let delay;
+  if (opts.maxAge !== void 0) {
+    delay = opts.maxAge * 1e3;
+  } else if (opts.expires) {
+    delay = opts.expires.getTime() - Date.now();
+  }
+  const hasExpired = delay !== void 0 && delay <= 0;
+  const cookieValue = klona(hasExpired ? void 0 : cookies[name] ?? opts.default?.());
+  const cookie = ref(cookieValue);
+  {
+    const nuxtApp = useNuxtApp();
+    const writeFinalCookieValue = () => {
+      if (opts.readonly || isEqual(cookie.value, cookies[name])) {
+        return;
+      }
+      nuxtApp._cookies ||= {};
+      if (name in nuxtApp._cookies) {
+        if (isEqual(cookie.value, nuxtApp._cookies[name])) {
+          return;
+        }
+      }
+      nuxtApp._cookies[name] = cookie.value;
+      writeServerCookie(useRequestEvent(nuxtApp), name, cookie.value, opts);
+    };
+    const unhook = nuxtApp.hooks.hookOnce("app:rendered", writeFinalCookieValue);
+    nuxtApp.hooks.hookOnce("app:error", () => {
+      unhook();
+      return writeFinalCookieValue();
+    });
+  }
+  return cookie;
+}
+function readRawCookies(opts = {}) {
+  {
+    return parse(getRequestHeader(useRequestEvent(), "cookie") || "", opts);
+  }
+}
+function writeServerCookie(event, name, value, opts = {}) {
+  if (event) {
+    if (value !== null && value !== void 0) {
+      return setCookie(event, name, value, opts);
+    }
+    if (getCookie(event, name) !== void 0) {
+      return deleteCookie(event, name, opts);
+    }
+  }
+}
+const DEFAULT_VENDOR = "";
+const vendor_45guard_45global = /* @__PURE__ */ defineNuxtRouteMiddleware((to) => {
+  if (to.path === "/order-confirmation" || to.path.startsWith("/order-confirmation/") || to.path === "/orders" || to.path.startsWith("/orders/")) {
+    return;
+  }
+  const paramVendor = typeof to.params.companyId === "string" ? to.params.companyId.trim() : "";
+  if (paramVendor) {
+    const vendorCookie = useCookie("abt_vendor");
+    if (vendorCookie.value !== paramVendor) {
+      vendorCookie.value = paramVendor;
+    }
+    const event = useRequestEvent();
+    if (event) {
+      event.context = {
+        ...event.context,
+        vendorId: paramVendor
+      };
+    }
+  }
+  if (to.path.startsWith("/trial")) {
+    return;
+  }
+  const cookieVendor = useCookie("abt_vendor").value;
+  const cookieValue = cookieVendor ? String(cookieVendor).trim() : "";
+  let localValue = "";
+  const currentVendor = paramVendor || cookieValue || localValue;
+  if (!currentVendor) {
+    return navigateTo("/trial");
+  }
+  if (!paramVendor && !to.path.startsWith("/v/")) {
+    const suffix = to.fullPath === "/" ? "" : to.fullPath;
+    return navigateTo(`/v/${encodeURIComponent(currentVendor)}${suffix}`);
+  }
+  const activeVendor = useState("active-vendor", () => currentVendor || DEFAULT_VENDOR);
+  const previousVendor = activeVendor.value;
+  if (previousVendor !== currentVendor) {
+    activeVendor.value = currentVendor;
+  }
+});
 const manifest_45route_45rule = /* @__PURE__ */ defineNuxtRouteMiddleware(async (to) => {
   {
     return;
@@ -516,6 +872,8 @@ const manifest_45route_45rule = /* @__PURE__ */ defineNuxtRouteMiddleware(async 
 });
 const globalMiddleware = [
   validate,
+  product_45canonical_45global,
+  vendor_45guard_45global,
   manifest_45route_45rule
 ];
 const namedMiddleware = {};
@@ -525,6 +883,9 @@ const plugin = /* @__PURE__ */ defineNuxtPlugin({
   async setup(nuxtApp) {
     let __temp, __restore;
     let routerBase = (/* @__PURE__ */ useRuntimeConfig()).app.baseURL;
+    if (hashMode && !routerBase.includes("#")) {
+      routerBase += "#";
+    }
     const history = routerOptions.history?.(routerBase) ?? createMemoryHistory(routerBase);
     const routes = routerOptions.routes ? ([__temp, __restore] = executeAsync(() => routerOptions.routes(_routes)), __temp = await __temp, __restore(), __temp) ?? _routes : _routes;
     let startPosition;
@@ -715,20 +1076,6 @@ const plugin = /* @__PURE__ */ defineNuxtPlugin({
     return { provide: { router } };
   }
 });
-function injectHead(nuxtApp) {
-  const nuxt = nuxtApp || tryUseNuxtApp();
-  return nuxt?.ssrContext?.head || nuxt?.runWithContext(() => {
-    if (hasInjectionContext()) {
-      return inject(headSymbol);
-    }
-  });
-}
-function useHead(input, options = {}) {
-  const head = injectHead(options.nuxt);
-  if (head) {
-    return useHead$1(input, { head, ...options });
-  }
-}
 function definePayloadReducer(name, reduce) {
   {
     useNuxtApp().ssrContext._payloadReducers[name] = reduce;
@@ -1040,7 +1387,8 @@ const Body = defineComponent({
   }
 });
 const layouts = {
-  default: defineAsyncComponent(() => import('./default-CyONSKWq.mjs').then((m) => m.default || m))
+  blank: defineAsyncComponent(() => import('./blank-Ie1nO5q-.mjs').then((m) => m.default || m)),
+  default: defineAsyncComponent(() => import('./default-DKd0BqDx.mjs').then((m) => m.default || m))
 };
 const LayoutLoader = defineComponent({
   name: "LayoutLoader",
@@ -1252,32 +1600,6 @@ function normalizeSlot(slot, data) {
   const slotContent = slot(data);
   return slotContent.length === 1 ? h(slotContent[0]) : h(Fragment, void 0, slotContent);
 }
-const useStateKeyPrefix = "$s";
-function useState(...args) {
-  const autoKey = typeof args[args.length - 1] === "string" ? args.pop() : void 0;
-  if (typeof args[0] !== "string") {
-    args.unshift(autoKey);
-  }
-  const [_key, init] = args;
-  if (!_key || typeof _key !== "string") {
-    throw new TypeError("[nuxt] [useState] key must be a string: " + _key);
-  }
-  if (init !== void 0 && typeof init !== "function") {
-    throw new Error("[nuxt] [useState] init must be a function: " + init);
-  }
-  const key = useStateKeyPrefix + _key;
-  const nuxtApp = useNuxtApp();
-  const state = toRef(nuxtApp.payload.state, key);
-  if (state.value === void 0 && init) {
-    const initialValue = init();
-    if (isRef(initialValue)) {
-      nuxtApp.payload.state[key] = initialValue;
-      return initialValue;
-    }
-    state.value = initialValue;
-  }
-  return state;
-}
 const useNotifications = () => {
   const notifications = useState("notifications", () => []);
   const show = (payload) => {
@@ -1332,11 +1654,23 @@ _sfc_main$3.setup = (props, ctx) => {
   (ssrContext.modules || (ssrContext.modules = /* @__PURE__ */ new Set())).add("components/UINotifications.vue");
   return _sfc_setup$3 ? _sfc_setup$3(props, ctx) : void 0;
 };
+const vwoScript = `window._vwo_code ||
+(function () {
+var w=window,
+d=document;
+var account_id=1146221,
+version=2.2,
+settings_tolerance=2000,
+hide_element='body',
+hide_element_style = 'opacity:0 !important;filter:alpha(opacity=0) !important;background:none !important';
+/* DO NOT EDIT BELOW THIS LINE */
+if(f=!1,v=d.querySelector('#vwoCode'),cc={},-1<d.URL.indexOf('__vwo_disable__')||w._vwo_code)return;try{var e=JSON.parse(localStorage.getItem('_vwo_'+account_id+'_config'));cc=e&&'object'==typeof e?e:{}}catch(e){}function r(t){try{return decodeURIComponent(t)}catch(e){return t}}var s=function(){var e={combination:[],combinationChoose:[],split:[],exclude:[],uuid:null,consent:null,optOut:null},t=d.cookie||'';if(!t)return e;for(var n,i,o=/(?:^|;\\s*)(?:(_vis_opt_exp_(\\d+)_combi=([^;]*))|(_vis_opt_exp_(\\d+)_combi_choose=([^;]*))|(_vis_opt_exp_(\\d+)_split=([^:;]*))|(_vis_opt_exp_(\\d+)_exclude=[^;]*)|(_vis_opt_out=([^;]*))|(_vwo_global_opt_out=[^;]*)|(_vwo_uuid=([^;]*))|(_vwo_consent=([^;]*)))/g;null!==(n=o.exec(t));)try{n[1]?e.combination.push({id:n[2],value:r(n[3])}):n[4]?e.combinationChoose.push({id:n[5],value:r(n[6])}):n[7]?e.split.push({id:n[8],value:r(n[9])}):n[10]?e.exclude.push({id:n[11]}):n[12]?e.optOut=r(n[13]):n[14]?e.optOut=!0:n[15]?e.uuid=r(n[16]):n[17]&&(i=r(n[18]),e.consent=i&&3<=i.length?i.substring(0,3):null)}catch(e){}return e}();function i(){var e=function(){if(w.VWO&&Array.isArray(w.VWO))for(var e=0;e<w.VWO.length;e++){var t=w.VWO[e];if(Array.isArray(t)&&('setVisitorId'===t[0]||'setSessionId'===t[0]))return!0}return!1}(),t='a='+account_id+'&u='+encodeURIComponent(w._vis_opt_url||d.URL)+'&vn='+version+'&ph=1'+('undefined'!=typeof platform?'&p='+platform:'')+'&st='+w.performance.now();e||((n=function(){var e,t=[],n={},i=w.VWO&&w.VWO.appliedCampaigns||{};for(e in i){var o=i[e]&&i[e].v;o&&(t.push(e+'-'+o+'-1'),n[e]=!0)}if(s&&s.combination)for(var r=0;r<s.combination.length;r++){var a=s.combination[r];n[a.id]||t.push(a.id+'-'+a.value)}return t.join('|')}())&&(t+='&c='+n),(n=function(){var e=[],t={};if(s&&s.combinationChoose)for(var n=0;n<s.combinationChoose.length;n++){var i=s.combinationChoose[n];e.push(i.id+'-'+i.value),t[i.id]=!0}if(s&&s.split)for(var o=0;o<s.split.length;o++)t[(i=s.split[o]).id]||e.push(i.id+'-'+i.value);return e.join('|')}())&&(t+='&cc='+n),(n=function(){var e={},t=[];if(w.VWO&&Array.isArray(w.VWO))for(var n=0;n<w.VWO.length;n++){var i=w.VWO[n];if(Array.isArray(i)&&'setVariation'===i[0]&&i[1]&&Array.isArray(i[1]))for(var o=0;o<i[1].length;o++){var r,a=i[1][o];a&&'object'==typeof a&&(r=a.e,a=a.v,r&&a&&(e[r]=a))}}for(r in e)t.push(r+'-'+e[r]);return t.join('|')}())&&(t+='&sv='+n)),s&&s.optOut&&(t+='&o='+s.optOut);var n=function(){var e=[],t={};if(s&&s.exclude)for(var n=0;n<s.exclude.length;n++){var i=s.exclude[n];t[i.id]||(e.push(i.id),t[i.id]=!0)}return e.join('|')}();return n&&(t+='&e='+n),s&&s.uuid&&(t+='&id='+s.uuid),s&&s.consent&&(t+='&consent='+s.consent),w.name&&-1<w.name.indexOf('_vis_preview')&&(t+='&pM=true'),w.VWO&&w.VWO.ed&&(t+='&ed='+w.VWO.ed),t}code={nonce:v&&v.nonce,library_tolerance:function(){return'undefined'!=typeof library_tolerance?library_tolerance:void 0},settings_tolerance:function(){return cc.sT||settings_tolerance},hide_element_style:function(){return'{'+(cc.hES||hide_element_style)+'}'},hide_element:function(){return performance.getEntriesByName('first-contentful-paint')[0]?'':'string'==typeof cc.hE?cc.hE:hide_element},getVersion:function(){return version},finish:function(e){var t;f||(f=!0,(t=d.getElementById('_vis_opt_path_hides'))&&t.parentNode.removeChild(t),e&&((new Image).src='https://dev.visualwebsiteoptimizer.com/ee.gif?a='+account_id+e))},finished:function(){return f},addScript:function(e){var t=d.createElement('script');t.type='text/javascript',e.src?t.src=e.src:t.text=e.text,v&&t.setAttribute('nonce',v.nonce),d.getElementsByTagName('head')[0].appendChild(t)},load:function(e,t){t=t||{};var n=new XMLHttpRequest;n.open('GET',e,!0),n.withCredentials=!t.dSC,n.responseType=t.responseType||'text',n.onload=function(){if(t.onloadCb)return t.onloadCb(n,e);200===n.status?_vwo_code.addScript({text:n.responseText}):_vwo_code.finish('&e=loading_failure:'+e)},n.onerror=function(){if(t.onerrorCb)return t.onerrorCb(e);_vwo_code.finish('&e=loading_failure:'+e)},n.send()},init:function(){var e,t=this.settings_tolerance();w._vwo_settings_timer=setTimeout(function(){_vwo_code.finish()},t),'body'!==this.hide_element()?(n=d.createElement('style'),e=(t=this.hide_element())?t+this.hide_element_style():'',t=d.getElementsByTagName('head')[0],n.setAttribute('id','_vis_opt_path_hides'),v&&n.setAttribute('nonce',v.nonce),n.setAttribute('type','text/css'),n.styleSheet?n.styleSheet.cssText=e:n.appendChild(d.createTextNode(e)),t.appendChild(n)):(n=d.getElementsByTagName('head')[0],(e=d.createElement('div')).style.cssText='z-index: 2147483647 !important;position: fixed !important;left: 0 !important;top: 0 !important;width: 100% !important;height: 100% !important;background: white !important;',e.setAttribute('id','_vis_opt_path_hides'),e.classList.add('_vis_hide_layer'),n.parentNode.insertBefore(e,n.nextSibling));var n='https://dev.visualwebsiteoptimizer.com/j.php?'+i();-1!==w.location.search.indexOf('_vwo_xhr')?this.addScript({src:n}):this.load(n+'&x=true',{l:1})}};w._vwo_code=code;code.init();})();`;
 const _sfc_main$2 = /* @__PURE__ */ defineComponent({
   __name: "app",
   __ssrInlineRender: true,
   setup(__props) {
     const appConfig = /* @__PURE__ */ useRuntimeConfig();
+    const isNavigating = ref(false);
     useHead({
       bodyAttrs: {
         class: "antialiased font-sans"
@@ -1346,7 +1680,17 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
           name: "keywords",
           content: `nuxt, ecommerce, ${appConfig.public.companyName}`
         }
-      ]
+      ],
+      script: [
+        {
+          id: "vwoCode",
+          type: "text/javascript",
+          innerHTML: vwoScript
+        }
+      ],
+      __dangerouslyDisableSanitizersByTagID: {
+        vwoCode: ["innerHTML"]
+      }
     });
     return (_ctx, _push, _parent, _attrs) => {
       const _component_Html = Html;
@@ -1360,6 +1704,12 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
             _push2(ssrRenderComponent(_component_Body, { class: "min-h-screen bg-slate-50" }, {
               default: withCtx((_2, _push3, _parent3, _scopeId2) => {
                 if (_push3) {
+                  _push3(``);
+                  if (isNavigating.value) {
+                    _push3(`<div class="fixed inset-0 z-50 flex items-center justify-center bg-white/70 px-6 py-10 backdrop-blur-sm" data-v-2f39ce1e${_scopeId2}><div class="w-full max-w-md rounded-3xl border border-sky-100 bg-white p-6 shadow-xl" data-v-2f39ce1e${_scopeId2}><div class="flex items-center gap-4" data-v-2f39ce1e${_scopeId2}><div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50" data-v-2f39ce1e${_scopeId2}><div class="flex items-center gap-1" data-v-2f39ce1e${_scopeId2}><span class="page-loader-dot h-2 w-2 rounded-full bg-sky-500" data-v-2f39ce1e${_scopeId2}></span><span class="page-loader-dot h-2 w-2 rounded-full bg-emerald-500" data-v-2f39ce1e${_scopeId2}></span><span class="page-loader-dot h-2 w-2 rounded-full bg-amber-500" data-v-2f39ce1e${_scopeId2}></span></div></div><div data-v-2f39ce1e${_scopeId2}><p class="text-sm font-semibold text-slate-900" data-v-2f39ce1e${_scopeId2}>Loading next page</p><p class="mt-1 text-sm text-slate-600" data-v-2f39ce1e${_scopeId2}> Fetching the latest demo catalog data. Thanks for your patience. </p></div></div><div class="mt-6 h-1 w-full overflow-hidden rounded-full bg-slate-100" data-v-2f39ce1e${_scopeId2}><div class="page-loader-bar h-full w-1/2 bg-gradient-to-r from-sky-400 via-emerald-400 to-amber-400" data-v-2f39ce1e${_scopeId2}></div></div></div></div>`);
+                  } else {
+                    _push3(`<!---->`);
+                  }
                   _push3(ssrRenderComponent(_component_NuxtLayout, null, {
                     default: withCtx((_3, _push4, _parent4, _scopeId3) => {
                       if (_push4) {
@@ -1375,6 +1725,34 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
                   _push3(ssrRenderComponent(_component_UINotifications, null, null, _parent3, _scopeId2));
                 } else {
                   return [
+                    createVNode(Transition, { name: "page-loader" }, {
+                      default: withCtx(() => [
+                        isNavigating.value ? (openBlock(), createBlock("div", {
+                          key: 0,
+                          class: "fixed inset-0 z-50 flex items-center justify-center bg-white/70 px-6 py-10 backdrop-blur-sm"
+                        }, [
+                          createVNode("div", { class: "w-full max-w-md rounded-3xl border border-sky-100 bg-white p-6 shadow-xl" }, [
+                            createVNode("div", { class: "flex items-center gap-4" }, [
+                              createVNode("div", { class: "flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50" }, [
+                                createVNode("div", { class: "flex items-center gap-1" }, [
+                                  createVNode("span", { class: "page-loader-dot h-2 w-2 rounded-full bg-sky-500" }),
+                                  createVNode("span", { class: "page-loader-dot h-2 w-2 rounded-full bg-emerald-500" }),
+                                  createVNode("span", { class: "page-loader-dot h-2 w-2 rounded-full bg-amber-500" })
+                                ])
+                              ]),
+                              createVNode("div", null, [
+                                createVNode("p", { class: "text-sm font-semibold text-slate-900" }, "Loading next page"),
+                                createVNode("p", { class: "mt-1 text-sm text-slate-600" }, " Fetching the latest demo catalog data. Thanks for your patience. ")
+                              ])
+                            ]),
+                            createVNode("div", { class: "mt-6 h-1 w-full overflow-hidden rounded-full bg-slate-100" }, [
+                              createVNode("div", { class: "page-loader-bar h-full w-1/2 bg-gradient-to-r from-sky-400 via-emerald-400 to-amber-400" })
+                            ])
+                          ])
+                        ])) : createCommentVNode("", true)
+                      ]),
+                      _: 1
+                    }),
                     createVNode(_component_NuxtLayout, null, {
                       default: withCtx(() => [
                         createVNode(_component_NuxtPage)
@@ -1391,6 +1769,34 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
             return [
               createVNode(_component_Body, { class: "min-h-screen bg-slate-50" }, {
                 default: withCtx(() => [
+                  createVNode(Transition, { name: "page-loader" }, {
+                    default: withCtx(() => [
+                      isNavigating.value ? (openBlock(), createBlock("div", {
+                        key: 0,
+                        class: "fixed inset-0 z-50 flex items-center justify-center bg-white/70 px-6 py-10 backdrop-blur-sm"
+                      }, [
+                        createVNode("div", { class: "w-full max-w-md rounded-3xl border border-sky-100 bg-white p-6 shadow-xl" }, [
+                          createVNode("div", { class: "flex items-center gap-4" }, [
+                            createVNode("div", { class: "flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50" }, [
+                              createVNode("div", { class: "flex items-center gap-1" }, [
+                                createVNode("span", { class: "page-loader-dot h-2 w-2 rounded-full bg-sky-500" }),
+                                createVNode("span", { class: "page-loader-dot h-2 w-2 rounded-full bg-emerald-500" }),
+                                createVNode("span", { class: "page-loader-dot h-2 w-2 rounded-full bg-amber-500" })
+                              ])
+                            ]),
+                            createVNode("div", null, [
+                              createVNode("p", { class: "text-sm font-semibold text-slate-900" }, "Loading next page"),
+                              createVNode("p", { class: "mt-1 text-sm text-slate-600" }, " Fetching the latest demo catalog data. Thanks for your patience. ")
+                            ])
+                          ]),
+                          createVNode("div", { class: "mt-6 h-1 w-full overflow-hidden rounded-full bg-slate-100" }, [
+                            createVNode("div", { class: "page-loader-bar h-full w-1/2 bg-gradient-to-r from-sky-400 via-emerald-400 to-amber-400" })
+                          ])
+                        ])
+                      ])) : createCommentVNode("", true)
+                    ]),
+                    _: 1
+                  }),
                   createVNode(_component_NuxtLayout, null, {
                     default: withCtx(() => [
                       createVNode(_component_NuxtPage)
@@ -1409,12 +1815,20 @@ const _sfc_main$2 = /* @__PURE__ */ defineComponent({
     };
   }
 });
+const _export_sfc = (sfc, props) => {
+  const target = sfc.__vccOpts || sfc;
+  for (const [key, val] of props) {
+    target[key] = val;
+  }
+  return target;
+};
 const _sfc_setup$2 = _sfc_main$2.setup;
 _sfc_main$2.setup = (props, ctx) => {
   const ssrContext = useSSRContext();
   (ssrContext.modules || (ssrContext.modules = /* @__PURE__ */ new Set())).add("app.vue");
   return _sfc_setup$2 ? _sfc_setup$2(props, ctx) : void 0;
 };
+const AppComponent = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["__scopeId", "data-v-2f39ce1e"]]);
 const _sfc_main$1 = {
   __name: "nuxt-error-page",
   __ssrInlineRender: true,
@@ -1436,8 +1850,8 @@ const _sfc_main$1 = {
     const statusMessage = _error.statusMessage ?? (is404 ? "Page Not Found" : "Internal Server Error");
     const description = _error.message || _error.toString();
     const stack = void 0;
-    const _Error404 = defineAsyncComponent(() => import('./error-404-DePov_3y.mjs'));
-    const _Error = defineAsyncComponent(() => import('./error-500-9WZNcJyV.mjs'));
+    const _Error404 = defineAsyncComponent(() => import('./error-404-ntTFXai1.mjs'));
+    const _Error = defineAsyncComponent(() => import('./error-500-C6dfPovX.mjs'));
     const ErrorTemplate = is404 ? _Error404 : _Error;
     return (_ctx, _push, _parent, _attrs) => {
       _push(ssrRenderComponent(unref(ErrorTemplate), mergeProps({ statusCode: unref(statusCode), statusMessage: unref(statusMessage), description: unref(description), stack: unref(stack) }, _attrs), null, _parent));
@@ -1484,7 +1898,7 @@ const _sfc_main = {
           } else if (unref(SingleRenderer)) {
             ssrRenderVNode(_push, createVNode(resolveDynamicComponent(unref(SingleRenderer)), null, null), _parent);
           } else {
-            _push(ssrRenderComponent(unref(_sfc_main$2), null, null, _parent));
+            _push(ssrRenderComponent(unref(AppComponent), null, null, _parent));
           }
         },
         _: 1
@@ -1518,5 +1932,5 @@ let entry;
 }
 const entry$1 = (ssrContext) => entry(ssrContext);
 
-export { useRuntimeConfig as a, useRoute as b, useState as c, createError as d, entry$1 as default, useNotifications as e, useRouter as f, useNuxtApp as g, nuxtLinkDefaults as h, navigateTo as n, resolveRouteObject as r, useHead as u };
+export { _export_sfc as _, useRuntimeConfig as a, useRouter as b, useNuxtApp as c, nuxtLinkDefaults as d, entry$1 as default, useState as e, useRoute as f, useNotifications as g, hashMode as h, asyncDataDefaults as i, createError as j, fetchDefaults as k, useRequestFetch as l, navigateTo as n, resolveRouteObject as r, useHead as u };
 //# sourceMappingURL=server.mjs.map

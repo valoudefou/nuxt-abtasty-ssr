@@ -68,6 +68,8 @@ const { data } = await useAsyncData<{ data: Vendor[] }>(
   { server: true }
 )
 
+const vendorsLoaded = computed(() => (data.value?.data?.length ?? 0) > 0)
+
 const vendors = computed<Vendor[]>(() => {
   return data.value?.data ?? []
 })
@@ -98,15 +100,91 @@ onMounted(() => {
 
 const normalize = (value: string) => value.trim().toLowerCase()
 
-const findVendorMatch = (query: string) => {
-  const normalizedQuery = normalize(query)
-  if (!normalizedQuery) return null
+const safeDecode = (value: string) => {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
 
-  return (
-    vendors.value.find((vendor) => {
-      return normalize(vendor.id) === normalizedQuery || normalize(vendor.name) === normalizedQuery
-    }) || null
-  )
+const normalizeLoose = (value: string) =>
+  normalize(value)
+    .replace(/%[0-9a-f]{2}/gi, (encoded) => safeDecode(encoded))
+    .replace(/[’']/g, '')
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+const scoreVendorMatch = (vendor: Vendor, query: string) => {
+  const q = normalizeLoose(query)
+  const id = normalizeLoose(vendor.id)
+  const name = normalizeLoose(vendor.name)
+
+  if (!q) return 0
+
+  if (id === q || name === q) return 100
+  if (name.startsWith(q) || id.startsWith(q)) return 80
+  if (name.includes(q) || id.includes(q)) return 60
+  // Handle pasted URLs / longer strings like "vendors/Hawes%20%26%20Curtis/products".
+  if ((name.length >= 4 && q.includes(name)) || (id.length >= 4 && q.includes(id))) return 55
+
+  const stopwords = new Set([
+    'and',
+    'or',
+    'the',
+    'a',
+    'an',
+    'of',
+    'for',
+    'to',
+    'in',
+    'on',
+    'with',
+    'vendor',
+    'vendors',
+    'catalog',
+    'catalogs',
+    'product',
+    'products'
+  ])
+  const tokenize = (value: string) =>
+    value
+      .split(' ')
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .filter((entry) => !stopwords.has(entry))
+
+  const queryTokens = new Set(tokenize(q))
+  const vendorTokens = tokenize(name).length ? tokenize(name) : tokenize(id)
+  if (vendorTokens.length === 0 || queryTokens.size === 0) return 0
+
+  let overlap = 0
+  for (const token of vendorTokens) {
+    if (queryTokens.has(token)) overlap += 1
+  }
+
+  if (overlap === vendorTokens.length && overlap >= 2) return 50
+  if (vendorTokens.length >= 2 && overlap / vendorTokens.length >= 0.66) return 45
+
+  return 0
+}
+
+const findVendorMatches = (query: string) => {
+  const queries = [query, safeDecode(query)]
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+
+  const matches = vendors.value
+    .map((vendor) => {
+      const score = Math.max(...queries.map((q) => scoreVendorMatch(vendor, q)))
+      return { vendor, score }
+    })
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score || a.vendor.name.localeCompare(b.vendor.name))
+
+  return matches
 }
 
 const onVendorInput = () => {
@@ -118,12 +196,28 @@ const onVendorInput = () => {
 const onVendorSubmit = () => {
   if (!vendorQuery.value || pendingVendorId.value) return
 
-  const match = findVendorMatch(vendorQuery.value)
-  if (!match) {
+  if (!vendorsLoaded.value) {
+    vendorError.value = 'Loading catalogs...'
+    return
+  }
+
+  const matches = findVendorMatches(vendorQuery.value)
+  if (matches.length === 0) {
     vendorError.value = 'No catalog found'
     return
   }
 
+  const first = matches[0]
+  const second = matches[1]
+  if (second && first.score === second.score) {
+    vendorError.value = `Multiple catalogs found: ${matches
+      .slice(0, 3)
+      .map((entry) => entry.vendor.name)
+      .join(', ')}`
+    return
+  }
+
+  const match = first.vendor
   vendorError.value = ''
   vendorQuery.value = match.name
   void selectVendor(match.id)

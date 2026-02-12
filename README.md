@@ -54,6 +54,26 @@ NUXT_PRODUCTS_DISABLE_REMOTE=true
 
 Product data is fetched from the external API configured via `NUXT_PRODUCTS_API_BASE`, and the server routes under `server/api/products/` proxy those endpoints to keep the storefront API stable.
 
+### Checkout start + cart abandonment
+
+The checkout page emits two lifecycle signals that you can wire into an email/CRM provider:
+
+- **Checkout started**: `pages/checkout.vue` calls `POST /checkouts` (same-origin) once the cart has items and the shopper enters a valid email. The request includes `email`, `restoreUrl`, and `items`. The response must include a `checkoutId` and `checkoutToken` (or `id`/`token`), which are stored in `sessionStorage`.
+- **Checkout abandoned**: `composables/useCheckoutAbandonment.ts` sends a best-effort signal on `pagehide` / tab close (and when the page becomes hidden) by calling `POST /checkouts/:checkoutId/abandon?token=...` using `navigator.sendBeacon` (with a `fetch(..., { keepalive: true })` fallback).
+
+Both endpoints are implemented as Nitro server routes and proxy to your upstream service:
+
+- `server/routes/checkouts/index.post.ts` → `POST {CHECKOUTS_API_BASE}/checkouts`
+- `server/routes/checkouts/[checkoutId]/abandon.post.ts` → `POST {CHECKOUTS_API_BASE}/checkouts/:checkoutId/abandon`
+
+Configure the upstream base URL with:
+
+```
+NUXT_PUBLIC_CHECKOUTS_API_BASE=https://your-checkouts-service.example
+```
+
+In dev mode, the checkout sidebar also includes a **“Simulate abandonment”** button that calls the same abandon endpoint.
+
 ## Nuxt 3 architecture
 
 This project uses Nuxt 3’s hybrid rendering model:
