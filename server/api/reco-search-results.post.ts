@@ -60,7 +60,10 @@ export default defineEventHandler(async (event) => {
       searchResultIds: itemIds
     },
     event
-  )
+  ).catch((error) => {
+    console.error('[RecoSearchResults] failed to fetch recommendations', error)
+    return { title: 'Recommended for you', items: [] } satisfies RecommendationResponse
+  })
 
   if (shouldCache) {
     await storage.setItem(cacheKey, {
@@ -77,4 +80,3 @@ export default defineEventHandler(async (event) => {
   setResponseHeader(event, 'X-Reco-Cache', shouldCache ? 'MISS' : 'SKIP')
   return payload
 })
-

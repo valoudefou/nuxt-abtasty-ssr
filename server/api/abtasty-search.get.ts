@@ -1,6 +1,9 @@
-import { createError } from '#imports'
+import { createError, useRuntimeConfig } from '#imports'
 import { getQuery, setResponseStatus } from 'h3'
 import { getSelectedVendor } from '@/server/utils/vendors'
+import { fetchUpstreamJson } from '@/server/utils/upstreamFetch'
+import type { RemoteResponse } from '@/server/utils/products'
+import { normalizeRemoteProduct } from '@/server/utils/products'
 
 const SEARCH_ENDPOINT = 'https://search-api.abtasty.com/search'
 const SEARCH_INDEX = '47c5c9b4ee0a19c9859f47734c1e8200_Catalog'
@@ -43,9 +46,14 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const page = typeof query.page === 'string' ? query.page : String(query.page ?? '0')
-  const hitsPerPage =
+  const pageRaw = typeof query.page === 'string' ? query.page : String(query.page ?? '0')
+  const hitsPerPageRaw =
     typeof query.hitsPerPage === 'string' ? query.hitsPerPage : String(query.hitsPerPage ?? '24')
+  const requestedPage = Number.parseInt(pageRaw, 10)
+  const requestedHitsPerPage = Number.parseInt(hitsPerPageRaw, 10)
+  const page = Number.isFinite(requestedPage) && requestedPage >= 0 ? String(requestedPage) : '0'
+  const hitsPerPage =
+    Number.isFinite(requestedHitsPerPage) && requestedHitsPerPage > 0 ? String(requestedHitsPerPage) : '24'
   const categories = asArray(query.category).map((value) => value.trim()).filter(Boolean)
   const brands = asArray(query.brand).map((value) => value.trim()).filter(Boolean)
   const sizes = asArray(query.size).map((value) => value.trim()).filter(Boolean)
@@ -55,7 +63,7 @@ export default defineEventHandler(async (event) => {
   const vendorOverride = typeof query.vendor === 'string' ? query.vendor.trim() : ''
   const vendorId = vendorOverride ? vendorOverride : await getSelectedVendor(event)
   const normalizedVendor = vendorId.trim()
-  const brandFilters = brands.length ? brands : []
+  const normalizedVendorLower = normalizedVendor.toLowerCase()
 
   const url = new URL(SEARCH_ENDPOINT)
   url.searchParams.set('index', SEARCH_INDEX)
@@ -66,18 +74,9 @@ export default defineEventHandler(async (event) => {
   if (categoryField && categories.length) {
     appendListFilter(url, categoryField, categories)
   }
-  if (brands.length && normalizedVendor) {
-    for (const brand of brands) {
-      url.searchParams.append(`filters[brand][${normalizedVendor}]`, brand)
-    }
-  } else {
-    appendListFilter(url, 'brand', brandFilters)
-  }
+  appendListFilter(url, 'brand', brands)
   if (sizes.length) {
     appendListFilter(url, 'size', sizes)
-  }
-  if (normalizedVendor) {
-    appendListFilter(url, 'vendor', [normalizedVendor])
   }
 
   if (priceMin !== null || priceMax !== null) {
@@ -139,11 +138,75 @@ export default defineEventHandler(async (event) => {
     }
 
     const payload = await response.json()
+    if (normalizedVendor && Array.isArray(payload?.hits)) {
+      payload.hits = payload.hits.filter((hit: unknown) => {
+        if (!hit || typeof hit !== 'object') return false
+        const record = hit as Record<string, unknown>
+        const vendorValue =
+          typeof record.vendor === 'string'
+            ? record.vendor
+            : typeof record.vendorId === 'string'
+              ? record.vendorId
+              : ''
+        return vendorValue.trim().toLowerCase() === normalizedVendorLower
+      })
+    }
     const hitCount = Array.isArray(payload?.hits) ? payload.hits.length : 0
     console.log('[Search] AB Tasty search response', {
       endpoint: upstreamUrl,
       hits: hitCount
     })
+
+    if (normalizedVendor && hitCount === 0) {
+      const config = useRuntimeConfig()
+      const baseRaw = config.public?.productsApiBase || config.public?.apiBase || 'https://api.live-server1.com'
+      const base = String(baseRaw).replace(/\/+$/, '')
+
+      type RemotePagedResponse = RemoteResponse & { next_cursor?: string; nextCursor?: string }
+      try {
+        const remote = await fetchUpstreamJson<RemotePagedResponse>(
+          base,
+          `/vendors/${encodeURIComponent(normalizedVendor)}/products`,
+          {
+            params: {
+              limit: Number.isFinite(requestedHitsPerPage) && requestedHitsPerPage > 0 ? requestedHitsPerPage : 24,
+              ...(text !== '*' ? { q: text } : {}),
+              ...(brands.length ? { brandId: brands[0] } : {}),
+              ...(categories.length ? { categoryId: categories[0] } : {}),
+              includeRaw: 'true'
+            }
+          }
+        )
+
+        const items = (remote?.data ?? remote?.products ?? []).map(normalizeRemoteProduct)
+        const hits = items.map((product) => ({
+          id: String(product.id),
+          name: product.name,
+          img_link: product.image,
+          link: product.link || `/products/${encodeURIComponent(String(product.id))}`,
+          price: product.price,
+          price_before_discount: product.price_before_discount ?? null,
+          discountPercentage: product.discountPercentage ?? null,
+          sku: product.sku ?? null,
+          size: product.sizes ?? [],
+          brand: product.brand ?? null,
+          vendor: product.vendor ?? normalizedVendor,
+          category_id: product.category ?? null,
+          categories_ids: product.categoryIds ?? []
+        }))
+
+        return {
+          hits,
+          totalPages: hits.length > 0 && (remote?.nextCursor ?? remote?.next_cursor) ? requestedPage + 2 : requestedPage + 1,
+          totalHits: hits.length,
+          hitsPerPage: Number.isFinite(requestedHitsPerPage) && requestedHitsPerPage > 0 ? requestedHitsPerPage : 24,
+          page: Number.isFinite(requestedPage) && requestedPage >= 0 ? requestedPage : 0
+        }
+      } catch (fallbackError) {
+        console.error('[ABTastySearch] vendor fallback failed', fallbackError)
+      }
+    }
+
     return payload
   } catch (error) {
     console.error('[ABTastySearch] request failed', error)

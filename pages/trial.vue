@@ -196,14 +196,10 @@ const onVendorInput = () => {
 const onVendorSubmit = () => {
   if (!vendorQuery.value || pendingVendorId.value) return
 
-  if (!vendorsLoaded.value) {
-    vendorError.value = 'Loading catalogs...'
-    return
-  }
-
   const matches = findVendorMatches(vendorQuery.value)
   if (matches.length === 0) {
-    vendorError.value = 'No catalog found'
+    vendorError.value = ''
+    void selectVendor(safeDecode(vendorQuery.value))
     return
   }
 
@@ -226,6 +222,7 @@ const onVendorSubmit = () => {
 const selectVendor = async (vendorId: string) => {
   if (!vendorId || pendingVendorId.value) return
   pendingVendorId.value = vendorId
+  vendorError.value = ''
 
   try {
     const response = await $fetch<{ ok: boolean; vendor: string }>('/api/trial/select', {
@@ -234,14 +231,18 @@ const selectVendor = async (vendorId: string) => {
     })
 
     if (response?.ok) {
+      const selectedId = response.vendor || vendorId
       if (import.meta.client) {
-        localStorage.setItem(VENDOR_STORAGE, vendorId)
+        localStorage.setItem(VENDOR_STORAGE, selectedId)
       }
-      selectedVendorId.value = vendorId
-      await navigateTo(`/v/${encodeURIComponent(vendorId)}/categories`)
+      selectedVendorId.value = selectedId
+      vendorQuery.value = vendorNameById.value[selectedId] || selectedId
+      await navigateTo(`/v/${encodeURIComponent(selectedId)}/categories`)
     }
   } catch (error) {
     console.error('Failed to select vendor', error)
+    const errorCode = (error as { data?: { error?: string } })?.data?.error
+    vendorError.value = errorCode === 'invalid_vendor' ? 'No catalog found' : 'Unable to save selection'
   } finally {
     pendingVendorId.value = ''
   }

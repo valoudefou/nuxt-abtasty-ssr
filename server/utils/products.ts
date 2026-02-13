@@ -67,11 +67,16 @@ const PAGE_SIZE = 100
 const PAGE_RETRY_COUNT = 2
 const PAGE_RETRY_DELAY_MS = 300
 const PRELOAD_MAX_PAGES_PROD = 2
+const PRELOAD_MAX_PAGES_DEV = 2
 
-let cachedProducts: Product[] | null = null
-let lastFetch = 0
-let cachedVersion = 0
-let remoteBackoffUntil = 0
+type MemoryCacheEntry = {
+  products: Product[]
+  fetchedAt: number
+  version: number
+  remoteBackoffUntil: number
+}
+
+const memoryCache = new Map<string, MemoryCacheEntry>()
 
 const PLACEHOLDER_IMAGE = 'https://assets-manager.abtasty.com/placeholder.png'
 
@@ -177,6 +182,7 @@ const normalizeStringList = (value: unknown): string[] => {
 type ProductCacheFile = {
   version: number
   fetchedAt: number
+  vendorId?: string
   products: Product[]
 }
 
@@ -530,53 +536,56 @@ export const fetchProducts = async (event?: H3Event): Promise<Product[]> => {
   const now = Date.now()
   const { base, disableRemote, vendorId } = await getApiConfig(event)
   const vendorFilter = vendorId.trim().toLowerCase()
+  const vendorCacheKey = vendorId.trim()
   const filterByVendor = (items: Product[]) => {
     if (!vendorFilter) return items
     return items.filter((product) => product.vendor?.trim().toLowerCase() === vendorFilter)
   }
 
-  if (cachedProducts && cachedVersion === CACHE_VERSION && now - lastFetch < CACHE_TTL) {
-    return filterByVendor(cachedProducts)
+  const cached = memoryCache.get(vendorCacheKey)
+  if (cached && cached.version === CACHE_VERSION && now - cached.fetchedAt < CACHE_TTL) {
+    return filterByVendor(cached.products)
   }
 
-  if (now < remoteBackoffUntil) {
-    if (cachedProducts && cachedVersion === CACHE_VERSION) {
-      return filterByVendor(cachedProducts)
-    }
+  if (cached && now < cached.remoteBackoffUntil && cached.version === CACHE_VERSION) {
+    return filterByVendor(cached.products)
   }
 
   try {
-    if (!cachedProducts) {
-      const cached = await readCacheFile()
-      if (cached && cached.version === CACHE_VERSION) {
-        cachedProducts = cached.products
-        cachedVersion = cached.version
-        lastFetch = cached.fetchedAt
-        if (now - cached.fetchedAt < CACHE_TTL) {
-          return filterByVendor(cached.products)
+    if (!cached) {
+      const cachedFile = await readCacheFile()
+      const cachedVendorId = cachedFile?.vendorId ? String(cachedFile.vendorId).trim() : ''
+      if (
+        cachedFile
+        && cachedFile.version === CACHE_VERSION
+        && cachedVendorId === vendorCacheKey
+      ) {
+        memoryCache.set(vendorCacheKey, {
+          products: cachedFile.products,
+          fetchedAt: cachedFile.fetchedAt,
+          version: cachedFile.version,
+          remoteBackoffUntil: 0
+        })
+        if (now - cachedFile.fetchedAt < CACHE_TTL) {
+          return filterByVendor(cachedFile.products)
         }
       }
     }
 
     if (disableRemote) {
       console.warn(`${LOG_PREFIX} remote fetch disabled; using cache/fallback only.`)
-      if (cachedProducts && cachedVersion === CACHE_VERSION) {
-        return filterByVendor(cachedProducts)
+      const fallbackCached = memoryCache.get(vendorCacheKey)
+      if (fallbackCached && fallbackCached.version === CACHE_VERSION) {
+        return filterByVendor(fallbackCached.products)
       }
       return filterByVendor(fallbackCatalog)
     }
-    if (process.dev) {
-      console.warn(`${LOG_PREFIX} skipping remote preload in dev; using cache/fallback only.`)
-      if (cachedProducts && cachedVersion === CACHE_VERSION) {
-        return filterByVendor(cachedProducts)
-      }
-      return filterByVendor(fallbackCatalog)
-    }
+
     const requestStart = Date.now()
     const products = await fetchRemoteProducts(
       base,
       vendorId ? { vendorId } : {},
-      { maxPages: process.dev ? 0 : PRELOAD_MAX_PAGES_PROD }
+      { maxPages: process.dev ? PRELOAD_MAX_PAGES_DEV : PRELOAD_MAX_PAGES_PROD }
     )
     console.info(`${LOG_PREFIX} upstream response`, {
       url: `${base}/products`,
@@ -589,34 +598,36 @@ export const fetchProducts = async (event?: H3Event): Promise<Product[]> => {
       console.warn(`${LOG_PREFIX} no products from upstream; using cached/fallback catalog.`, {
         upstreamCount: products.length
       })
-      if (cachedProducts && cachedVersion === CACHE_VERSION) {
-        return filterByVendor(cachedProducts)
+      const fallbackCached = memoryCache.get(vendorCacheKey)
+      if (fallbackCached && fallbackCached.version === CACHE_VERSION) {
+        return filterByVendor(fallbackCached.products)
       }
       return filterByVendor(fallbackCatalog)
     }
 
-    cachedProducts = mapped
-    lastFetch = now
-    cachedVersion = CACHE_VERSION
-    remoteBackoffUntil = 0
-    await writeCacheFile({ version: CACHE_VERSION, fetchedAt: now, products: mapped })
+    memoryCache.set(vendorCacheKey, {
+      products: mapped,
+      fetchedAt: now,
+      version: CACHE_VERSION,
+      remoteBackoffUntil: 0
+    })
+    await writeCacheFile({ version: CACHE_VERSION, fetchedAt: now, vendorId: vendorCacheKey, products: mapped })
 
     return filterByVendor(mapped)
   } catch (error) {
     console.error('Failed to load products from remote source', error)
-    remoteBackoffUntil = Date.now() + REMOTE_BACKOFF_MS
-    if (cachedProducts && cachedVersion === CACHE_VERSION) {
+    const nextBackoff = Date.now() + REMOTE_BACKOFF_MS
+    const existingCache = memoryCache.get(vendorCacheKey)
+    if (existingCache && existingCache.version === CACHE_VERSION) {
+      memoryCache.set(vendorCacheKey, { ...existingCache, remoteBackoffUntil: nextBackoff })
       console.warn(`${LOG_PREFIX} using cached products after error`, {
         source: 'memory',
-        count: cachedProducts.length
+        count: existingCache.products.length
       })
-      return filterByVendor(cachedProducts)
+      return filterByVendor(existingCache.products)
     }
 
     console.warn(`${LOG_PREFIX} using cached/fallback catalog because remote feed is unavailable.`)
-    if (cachedProducts && cachedVersion === CACHE_VERSION) {
-      return filterByVendor(cachedProducts)
-    }
     return filterByVendor(fallbackCatalog)
   }
 }
@@ -632,8 +643,9 @@ export const findProductById = async (id: string | number, event?: H3Event): Pro
   const normalizedVendor = vendorId.trim()
 
   try {
-    if (cachedProducts && cachedVersion === CACHE_VERSION) {
-      const cachedMatch = cachedProducts.find((product) => String(product.id) === targetId)
+    for (const entry of memoryCache.values()) {
+      if (entry.version !== CACHE_VERSION) continue
+      const cachedMatch = entry.products.find((product) => String(product.id) === targetId)
       if (cachedMatch) {
         return cachedMatch
       }
@@ -648,7 +660,8 @@ export const findProductById = async (id: string | number, event?: H3Event): Pro
     )
     return normalizeRemoteProduct(response)
   } catch (error) {
-    const cached = cachedProducts ?? (await fetchProducts(event))
+    const vendorKey = vendorId.trim()
+    const cached = memoryCache.get(vendorKey)?.products ?? (await fetchProducts(event))
     return cached.find((product) => String(product.id) === targetId)
   }
 }

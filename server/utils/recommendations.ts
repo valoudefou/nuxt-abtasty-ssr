@@ -882,21 +882,32 @@ export const fetchSearchResultsRecommendations = async (
   const selectedVendor = await getSelectedVendor(event)
   const baseEndpoint = overrideRecommendationId(endpoint, placementId) || endpoint
 
-  const requestUrl = (() => {
+  const coerceToVariableIds = (ids: string[]) =>
+    ids
+      .slice(0, 50)
+      .map((id) => {
+        const numeric = Number(id)
+        return Number.isFinite(numeric) ? numeric : id
+      })
+
+  const buildRequestUrl = (variables: Record<string, unknown>) => {
     try {
       const url = new URL(baseEndpoint)
-      url.searchParams.set(
-        'variables',
-        JSON.stringify({
-          ...(selectedVendor ? { vendor: selectedVendor } : {}),
-          search_results: searchResultIds
-        })
-      )
+      url.searchParams.set('variables', JSON.stringify(variables))
       return url.toString()
     } catch {
       return baseEndpoint
     }
-  })()
+  }
+
+  const baseVariables = {
+    ...(selectedVendor ? { vendor: selectedVendor } : {})
+  }
+
+  const requestUrl = buildRequestUrl({
+    ...baseVariables,
+    search_results: coerceToVariableIds(searchResultIds)
+  })
 
 	  logRecommendationEvent('INFO', 'Fetching AB Tasty recommendations feed (search_results)', {
 	    endpoint: requestUrl,
@@ -914,44 +925,81 @@ export const fetchSearchResultsRecommendations = async (
 	      }
 	    })
 
+    const fetchWithFieldFallbacks = async (url: string) => {
+      try {
+        return await fetchResponse(url)
+      } catch (error) {
+        const statusCode = getStatusCode(error)
+        if (statusCode !== 422) {
+          throw error
+        }
+
+        const fallbacks = buildRecommendation422Fallbacks(url)
+        for (const fallbackUrl of fallbacks.slice(1)) {
+          try {
+            console.warn('[Recommendations] unsupported fields; retrying search_results with fallback fields', {
+              original: url,
+              fallback: fallbackUrl
+            })
+            return await fetchResponse(fallbackUrl)
+          } catch (fallbackError) {
+            const fallbackStatus = getStatusCode(fallbackError)
+            if (fallbackStatus === 422) {
+              continue
+            }
+            throw fallbackError
+          }
+        }
+        throw error
+      }
+    }
+
 	  let response: { name?: string; items?: RawRecommendation[] } | null = null
 	  try {
-	    response = await fetchResponse(requestUrl)
+	    response = await fetchWithFieldFallbacks(requestUrl)
 	  } catch (error) {
 	    const statusCode = getStatusCode(error)
-	    if (statusCode === 422) {
-	      const fallbacks = buildRecommendation422Fallbacks(requestUrl)
-	      let recovered = false
-	      for (const fallbackUrl of fallbacks.slice(1)) {
-	        try {
-	          console.warn('[Recommendations] unsupported fields; retrying search_results with fallback fields', {
-	            original: requestUrl,
-	            fallback: fallbackUrl
-	          })
-	          response = await fetchResponse(fallbackUrl)
-	          recovered = true
-	          break
-	        } catch (fallbackError) {
-	          const fallbackStatus = getStatusCode(fallbackError)
-	          if (fallbackStatus === 422) {
-	            continue
-	          }
-	          throw fallbackError
-	        }
-	      }
-	      if (!recovered) {
-	        throw error
-	      }
-	    } else {
-	      throw error
-	    }
+      if (statusCode === 400) {
+        const fallbacks = [
+          buildRequestUrl(baseVariables),
+          buildRequestUrl({ search_results: coerceToVariableIds(searchResultIds) }),
+          buildRequestUrl({})
+        ].filter(Boolean)
+
+        for (const fallbackUrl of fallbacks) {
+          if (fallbackUrl === requestUrl) continue
+          try {
+            console.warn('[Recommendations] invalid request; retrying search_results with fallback variables', {
+              original: requestUrl,
+              fallback: fallbackUrl
+            })
+            response = await fetchWithFieldFallbacks(fallbackUrl)
+            break
+          } catch (fallbackError) {
+            const fallbackStatus = getStatusCode(fallbackError)
+            if (fallbackStatus === 400 || fallbackStatus === 422) {
+              continue
+            }
+            throw fallbackError
+          }
+        }
+      } else if (statusCode === 422) {
+        // `fetchWithFieldFallbacks` should have already exhausted 422 fallbacks; rethrow.
+        throw error
+      } else {
+        throw error
+      }
 	  }
 
 	  if (!response?.items || !Array.isArray(response.items)) {
-	    throw createError({
-	      statusCode: 502,
-	      statusMessage: 'Recommendations payload is invalid.'
-	    })
+      console.warn('[Recommendations] invalid or empty search_results response; returning empty items', {
+        placementId,
+        vendor: selectedVendor || null
+      })
+	    return {
+        title: 'Recommended for you',
+        items: []
+      }
 	  }
 
   const catalog = await fetchProducts(event)
