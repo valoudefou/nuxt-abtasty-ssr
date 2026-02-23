@@ -34,6 +34,7 @@ export { useCart } from '../composables/useCart';
 export { useCategoryProducts } from '../composables/useCategoryProducts';
 export { useCheckoutAbandonment } from '../composables/useCheckoutAbandonment';
 export { useCreateOrder } from '../composables/useCreateOrder';
+export { isValidNewsletterEmail, subscribeNewsletter, useNewsletterSubscription, NewsletterSubscribeResult } from '../composables/useNewsletterSubscription';
 export { useNotifications } from '../composables/useNotifications';
 export { useOrder } from '../composables/useOrder';
 export { useOrderStatusSocket } from '../composables/useOrderStatusSocket';

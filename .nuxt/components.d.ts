@@ -20,6 +20,7 @@ export const FlagshipLogPanel: typeof import("../components/FlagshipLogPanel.vue
 export const HeroSection: typeof import("../components/HeroSection.vue")['default']
 export const NavigationBar: typeof import("../components/NavigationBar.vue")['default']
 export const NewsletterBanner: typeof import("../components/NewsletterBanner.vue")['default']
+export const NewsletterSubscribeForm: typeof import("../components/NewsletterSubscribeForm.vue")['default']
 export const ProductCard: typeof import("../components/ProductCard.vue")['default']
 export const ProductGrid: typeof import("../components/ProductGrid.vue")['default']
 export const RecommendationsCarousel: typeof import("../components/RecommendationsCarousel.vue")['default']
@@ -56,6 +57,7 @@ export const LazyFlagshipLogPanel: LazyComponent<typeof import("../components/Fl
 export const LazyHeroSection: LazyComponent<typeof import("../components/HeroSection.vue")['default']>
 export const LazyNavigationBar: LazyComponent<typeof import("../components/NavigationBar.vue")['default']>
 export const LazyNewsletterBanner: LazyComponent<typeof import("../components/NewsletterBanner.vue")['default']>
+export const LazyNewsletterSubscribeForm: LazyComponent<typeof import("../components/NewsletterSubscribeForm.vue")['default']>
 export const LazyProductCard: LazyComponent<typeof import("../components/ProductCard.vue")['default']>
 export const LazyProductGrid: LazyComponent<typeof import("../components/ProductGrid.vue")['default']>
 export const LazyRecommendationsCarousel: LazyComponent<typeof import("../components/RecommendationsCarousel.vue")['default']>

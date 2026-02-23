@@ -35,17 +35,7 @@
         <p class="mt-2 text-sm text-slate-500">
           Be first to hear about limited drops, journal entries, and exclusive events.
         </p>
-        <form class="mt-4 flex gap-3">
-          <input
-            type="email"
-            name="email"
-            placeholder="you@example.com"
-            class="w-full rounded-full border border-slate-300 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
-          />
-          <button type="submit" class="inline-flex items-center rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-500">
-            Join
-          </button>
-        </form>
+        <NewsletterSubscribeForm source="homepage-footer" variant="footer" input-id="newsletter-email-footer" />
       </div>
     </div>
     <div class="border-t border-slate-200 py-6 text-center text-xs text-slate-500">

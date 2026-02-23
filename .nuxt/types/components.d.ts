@@ -20,6 +20,7 @@ interface _GlobalComponents {
   'HeroSection': typeof import("../../components/HeroSection.vue")['default']
   'NavigationBar': typeof import("../../components/NavigationBar.vue")['default']
   'NewsletterBanner': typeof import("../../components/NewsletterBanner.vue")['default']
+  'NewsletterSubscribeForm': typeof import("../../components/NewsletterSubscribeForm.vue")['default']
   'ProductCard': typeof import("../../components/ProductCard.vue")['default']
   'ProductGrid': typeof import("../../components/ProductGrid.vue")['default']
   'RecommendationsCarousel': typeof import("../../components/RecommendationsCarousel.vue")['default']
@@ -56,6 +57,7 @@ interface _GlobalComponents {
   'LazyHeroSection': LazyComponent<typeof import("../../components/HeroSection.vue")['default']>
   'LazyNavigationBar': LazyComponent<typeof import("../../components/NavigationBar.vue")['default']>
   'LazyNewsletterBanner': LazyComponent<typeof import("../../components/NewsletterBanner.vue")['default']>
+  'LazyNewsletterSubscribeForm': LazyComponent<typeof import("../../components/NewsletterSubscribeForm.vue")['default']>
   'LazyProductCard': LazyComponent<typeof import("../../components/ProductCard.vue")['default']>
   'LazyProductGrid': LazyComponent<typeof import("../../components/ProductGrid.vue")['default']>
   'LazyRecommendationsCarousel': LazyComponent<typeof import("../../components/RecommendationsCarousel.vue")['default']>

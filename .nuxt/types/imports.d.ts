@@ -45,6 +45,7 @@ declare global {
   const isReadonly: typeof import('../../node_modules/vue').isReadonly
   const isRef: typeof import('../../node_modules/vue').isRef
   const isShallow: typeof import('../../node_modules/vue').isShallow
+  const isValidNewsletterEmail: typeof import('../../composables/useNewsletterSubscription').isValidNewsletterEmail
   const isVue2: typeof import('../../node_modules/nuxt/dist/app/compat/vue-demi').isVue2
   const isVue3: typeof import('../../node_modules/nuxt/dist/app/compat/vue-demi').isVue3
   const loadPayload: typeof import('../../node_modules/nuxt/dist/app/composables/payload').loadPayload
@@ -92,6 +93,7 @@ declare global {
   const shallowRef: typeof import('../../node_modules/vue').shallowRef
   const showError: typeof import('../../node_modules/nuxt/dist/app/composables/error').showError
   const slugifyBrand: typeof import('../../utils/brand').slugifyBrand
+  const subscribeNewsletter: typeof import('../../composables/useNewsletterSubscription').subscribeNewsletter
   const toRaw: typeof import('../../node_modules/vue').toRaw
   const toRef: typeof import('../../node_modules/vue').toRef
   const toRefs: typeof import('../../node_modules/vue').toRefs
@@ -121,6 +123,7 @@ declare global {
   const useLink: typeof import('../../node_modules/vue-router').useLink
   const useLoadingIndicator: typeof import('../../node_modules/nuxt/dist/app/composables/loading-indicator').useLoadingIndicator
   const useModel: typeof import('../../node_modules/vue').useModel
+  const useNewsletterSubscription: typeof import('../../composables/useNewsletterSubscription').useNewsletterSubscription
   const useNotifications: typeof import('../../composables/useNotifications').useNotifications
   const useNuxtApp: typeof import('../../node_modules/nuxt/dist/app/nuxt').useNuxtApp
   const useNuxtData: typeof import('../../node_modules/nuxt/dist/app/composables/asyncData').useNuxtData
@@ -199,6 +202,9 @@ declare global {
   export type { Component, ComponentPublicInstance, ComputedRef, DirectiveBinding, ExtractDefaultPropTypes, ExtractPropTypes, ExtractPublicPropTypes, InjectionKey, PropType, Ref, MaybeRef, MaybeRefOrGetter, VNode, WritableComputedRef } from '../../node_modules/vue'
   import('../../node_modules/vue')
   // @ts-ignore
+  export type { NewsletterSubscribeResult } from '../../composables/useNewsletterSubscription'
+  import('../../composables/useNewsletterSubscription')
+  // @ts-ignore
   export type { RecommendationParams } from '../../composables/useRecommendations'
   import('../../composables/useRecommendations')
 }
@@ -250,6 +256,7 @@ declare module 'vue' {
     readonly isReadonly: UnwrapRef<typeof import('../../node_modules/vue')['isReadonly']>
     readonly isRef: UnwrapRef<typeof import('../../node_modules/vue')['isRef']>
     readonly isShallow: UnwrapRef<typeof import('../../node_modules/vue')['isShallow']>
+    readonly isValidNewsletterEmail: UnwrapRef<typeof import('../../composables/useNewsletterSubscription')['isValidNewsletterEmail']>
     readonly isVue2: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/compat/vue-demi')['isVue2']>
     readonly isVue3: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/compat/vue-demi')['isVue3']>
     readonly loadPayload: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/payload')['loadPayload']>
@@ -297,6 +304,7 @@ declare module 'vue' {
     readonly shallowRef: UnwrapRef<typeof import('../../node_modules/vue')['shallowRef']>
     readonly showError: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/error')['showError']>
     readonly slugifyBrand: UnwrapRef<typeof import('../../utils/brand')['slugifyBrand']>
+    readonly subscribeNewsletter: UnwrapRef<typeof import('../../composables/useNewsletterSubscription')['subscribeNewsletter']>
     readonly toRaw: UnwrapRef<typeof import('../../node_modules/vue')['toRaw']>
     readonly toRef: UnwrapRef<typeof import('../../node_modules/vue')['toRef']>
     readonly toRefs: UnwrapRef<typeof import('../../node_modules/vue')['toRefs']>
@@ -326,6 +334,7 @@ declare module 'vue' {
     readonly useLink: UnwrapRef<typeof import('../../node_modules/vue-router')['useLink']>
     readonly useLoadingIndicator: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/loading-indicator')['useLoadingIndicator']>
     readonly useModel: UnwrapRef<typeof import('../../node_modules/vue')['useModel']>
+    readonly useNewsletterSubscription: UnwrapRef<typeof import('../../composables/useNewsletterSubscription')['useNewsletterSubscription']>
     readonly useNotifications: UnwrapRef<typeof import('../../composables/useNotifications')['useNotifications']>
     readonly useNuxtApp: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/nuxt')['useNuxtApp']>
     readonly useNuxtData: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/asyncData')['useNuxtData']>

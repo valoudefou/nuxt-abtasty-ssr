@@ -9,20 +9,13 @@
             Join our private community to receive first looks at product collaborations, city pop-up invites, and styling workshops hosted by our team.
           </p>
         </div>
-        <form class="flex flex-col gap-4 lg:flex-row">
-          <input
-            type="email"
-            required
-            placeholder="Enter your email"
-            class="w-full rounded-full border border-white/30 bg-white/5 px-5 py-3 text-sm text-white placeholder:text-slate-300 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-400/40"
-          />
-          <button
-            type="submit"
-            class="inline-flex items-center justify-center rounded-full bg-primary-500 px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-primary-400"
-          >
-            Send
-          </button>
-        </form>
+        <NewsletterSubscribeForm
+          source="newsletter-banner"
+          variant="banner"
+          input-id="newsletter-email-banner"
+          placeholder="Enter your email"
+          button-text="Send"
+        />
       </div>
     </div>
   </section>
