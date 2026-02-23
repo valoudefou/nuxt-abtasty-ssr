@@ -1,3 +1,5 @@
+import { getSelectedVendorClient } from '@/utils/vendorsClient'
+
 export type NewsletterSubscribeResult = {
   ok: boolean
   alreadySubscribed: boolean
@@ -16,6 +18,7 @@ export const subscribeNewsletter = async (
   source = 'homepage-footer'
 ): Promise<NewsletterSubscribeResult> => {
   const normalizedEmail = email.trim()
+  const selectedVendor = getSelectedVendorClient()
 
   if (!isValidNewsletterEmail(normalizedEmail)) {
     return {
@@ -30,7 +33,11 @@ export const subscribeNewsletter = async (
     const response = await fetch('https://order.live-server1.com/orders/newsletter/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: normalizedEmail, source })
+      body: JSON.stringify({
+        email: normalizedEmail,
+        source,
+        ...(selectedVendor ? { vendor: selectedVendor } : {})
+      })
     })
 
     const statusCode = response.status
@@ -155,4 +162,3 @@ export const useNewsletterSubscription = (defaultSource = 'homepage-footer') => 
 
   return { submit, subscribing, statusCode, message, tone, reset }
 }
-
