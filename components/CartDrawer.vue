@@ -119,47 +119,51 @@
                 <div class="h-32 w-full rounded-3xl bg-slate-200/60"></div>
               </div>
 
-              <div v-else-if="hasRecommendations" class="mt-5 -mx-6 px-6">
-                <div class="flex gap-4 overflow-x-auto pb-2">
-                  <article
-                    v-for="rec in recommendations"
-                    :key="rec.id"
-                    class="w-56 flex-shrink-0 rounded-3xl border border-slate-100 bg-white p-4 shadow-sm"
+              <div v-else-if="hasRecommendations" class="mt-5 space-y-4">
+                <article
+                  v-for="rec in recommendations"
+                  :key="rec.id"
+                  class="flex items-center gap-4 rounded-3xl border border-slate-100 bg-white p-4 shadow-sm"
+                >
+                  <NuxtLink
+                    v-if="rec.detailUrl"
+                    :to="rec.detailUrl"
+                    class="block h-16 w-16 flex-shrink-0 overflow-hidden rounded-2xl bg-slate-100"
                   >
-                    <NuxtLink v-if="rec.detailUrl" :to="rec.detailUrl" class="block overflow-hidden rounded-2xl bg-slate-100">
-                      <img :src="rec.product.image" :alt="rec.product.name" class="h-28 w-full object-cover" />
-                    </NuxtLink>
-                    <a
-                      v-else-if="rec.externalUrl"
-                      :href="rec.externalUrl"
-                      class="block overflow-hidden rounded-2xl bg-slate-100"
-                      rel="noopener noreferrer"
-                      target="_blank"
-                    >
-                      <img :src="rec.product.image" :alt="rec.product.name" class="h-28 w-full object-cover" />
-                    </a>
-                    <div v-else class="overflow-hidden rounded-2xl bg-slate-100">
-                      <img :src="rec.product.image" :alt="rec.product.name" class="h-28 w-full object-cover" />
-                    </div>
+                    <img :src="rec.product.image" :alt="rec.product.name" class="h-full w-full object-cover" />
+                  </NuxtLink>
+                  <a
+                    v-else-if="rec.externalUrl"
+                    :href="rec.externalUrl"
+                    class="block h-16 w-16 flex-shrink-0 overflow-hidden rounded-2xl bg-slate-100"
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    <img :src="rec.product.image" :alt="rec.product.name" class="h-full w-full object-cover" />
+                  </a>
+                  <div v-else class="h-16 w-16 flex-shrink-0 overflow-hidden rounded-2xl bg-slate-100">
+                    <img :src="rec.product.image" :alt="rec.product.name" class="h-full w-full object-cover" />
+                  </div>
 
-                    <p class="mt-3 line-clamp-2 text-sm font-semibold text-slate-900">
+                  <div class="min-w-0 flex-1">
+                    <p class="line-clamp-2 text-sm font-semibold text-slate-900">
                       {{ rec.product.name }}
                     </p>
-                    <p class="mt-2 text-sm font-semibold text-primary-600">{{ formatCurrency(rec.product.price) }}</p>
+                    <p class="mt-1 text-sm font-semibold text-primary-600">{{ formatCurrency(rec.product.price) }}</p>
+                  </div>
 
-                    <button
-                      type="button"
-                      class="mt-3 inline-flex w-full items-center justify-center rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500"
-                      aria-label="Add to cart"
-                      @click="addRecommendationToCart(rec.product)"
-                    >
-                      <span class="sr-only">Add to cart</span>
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" data-slot="icon" class="h-5 w-5">
-                        <path d="M2.25 2.25a.75.75 0 0 0 0 1.5h1.386c.17 0 .318.114.362.278l2.558 9.592a3.752 3.752 0 0 0-2.806 3.63c0 .414.336.75.75.75h15.75a.75.75 0 0 0 0-1.5H5.378A2.25 2.25 0 0 1 7.5 15h11.218a.75.75 0 0 0 .674-.421 60.358 60.358 0 0 0 2.96-7.228.75.75 0 0 0-.525-.965A60.864 60.864 0 0 0 5.68 4.509l-.232-.867A1.875 1.875 0 0 0 3.636 2.25H2.25ZM3.75 20.25a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0ZM16.5 20.25a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z"></path>
-                      </svg>
-                    </button>
-                  </article>
-                </div>
+                  <button
+                    type="button"
+                    class="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary-600 text-white shadow-sm transition hover:bg-primary-500"
+                    aria-label="Add to cart"
+                    @click="addRecommendationToCart(rec.product)"
+                  >
+                    <span class="sr-only">Add to cart</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" data-slot="icon" class="h-5 w-5">
+                      <path d="M2.25 2.25a.75.75 0 0 0 0 1.5h1.386c.17 0 .318.114.362.278l2.558 9.592a3.752 3.752 0 0 0-2.806 3.63c0 .414.336.75.75.75h15.75a.75.75 0 0 0 0-1.5H5.378A2.25 2.25 0 0 1 7.5 15h11.218a.75.75 0 0 0 .674-.421 60.358 60.358 0 0 0 2.96-7.228.75.75 0 0 0-.525-.965A60.864 60.864 0 0 0 5.68 4.509l-.232-.867A1.875 1.875 0 0 0 3.636 2.25H2.25ZM3.75 20.25a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0ZM16.5 20.25a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z"></path>
+                    </svg>
+                  </button>
+                </article>
               </div>
 
               <p v-else class="mt-4 text-sm text-slate-500">

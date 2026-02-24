@@ -1388,7 +1388,7 @@ const Body = defineComponent({
 });
 const layouts = {
   blank: defineAsyncComponent(() => import('./blank-Ie1nO5q-.mjs').then((m) => m.default || m)),
-  default: defineAsyncComponent(() => import('./default-ChSr4Pc8.mjs').then((m) => m.default || m))
+  default: defineAsyncComponent(() => import('./default-UaO5GWux.mjs').then((m) => m.default || m))
 };
 const LayoutLoader = defineComponent({
   name: "LayoutLoader",
