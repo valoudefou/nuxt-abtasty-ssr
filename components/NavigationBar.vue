@@ -39,7 +39,7 @@
             <MagnifyingGlassIcon class="h-5 w-5" />
           </button>
           <NuxtLink
-            to="/cart"
+            :to="cartHref"
             class="relative inline-flex items-center rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-md"
             @click="handleNavClick"
           >
@@ -52,6 +52,15 @@
               {{ totalItems }}
             </span>
           </NuxtLink>
+          <button
+            type="button"
+            class="hidden h-11 w-11 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-primary-500 hover:text-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 md:inline-flex"
+            aria-label="Preview cart"
+            :aria-expanded="isCartDrawerOpen"
+            @click="openCartDrawer"
+          >
+            <ChevronDownIcon class="h-5 w-5" />
+          </button>
           <button
             type="button"
             class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-primary-500 hover:text-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 md:hidden"
@@ -492,6 +501,8 @@
         </div>
       </section>
     </Transition>
+
+    <CartDrawer v-model:open="isCartDrawerOpen" :cart-href="cartHref" :checkout-href="checkoutHref" />
   </div>
 </template>
 
@@ -500,6 +511,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type Compon
 import {
   AdjustmentsHorizontalIcon,
   Bars3Icon,
+  ChevronDownIcon,
   HeartIcon,
   MagnifyingGlassIcon,
   ShoppingBagIcon,
@@ -588,6 +600,9 @@ const withVendorPrefix = (href: string) => {
   return `/v/${encodeURIComponent(vendor)}${suffix}`
 }
 
+const cartHref = computed(() => withVendorPrefix('/cart'))
+const checkoutHref = computed(() => withVendorPrefix('/checkout'))
+
 const navigation = computed<NavigationItem[]>(() => [
   { label: 'Home', href: withVendorPrefix('/') },
   { label: 'Categories', href: withVendorPrefix('/categories') },
@@ -617,6 +632,7 @@ const overlaySectionRef = ref<HTMLElement | null>(null)
 const overlayOffset = ref('4.5rem')
 const searchInputRef = ref<HTMLInputElement | null>(null)
 const isOverlayOpen = ref(false)
+const isCartDrawerOpen = ref(false)
 const isMobileMenuOpen = ref(false)
 const isFilterPanelOpen = ref(true)
 const viewportWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024)
@@ -1097,6 +1113,9 @@ watch(
     if (isMobileMenuOpen.value) {
       closeMobileMenu()
     }
+    if (isCartDrawerOpen.value) {
+      closeCartDrawer()
+    }
   }
 )
 
@@ -1116,12 +1135,19 @@ const closeMobileMenu = () => {
   isMobileMenuOpen.value = false
 }
 
+const closeCartDrawer = () => {
+  isCartDrawerOpen.value = false
+}
+
 const handleNavClick = () => {
   closeOverlay()
+  closeCartDrawer()
   closeMobileMenu()
 }
 
 const toggleMobileMenu = () => {
+  closeOverlay()
+  closeCartDrawer()
   isMobileMenuOpen.value = !isMobileMenuOpen.value
 }
 
@@ -1140,9 +1166,16 @@ const handleOverlayScroll = () => {
 }
 
 const openOverlay = () => {
+  closeCartDrawer()
   closeMobileMenu()
   isOverlayOpen.value = true
   isFilterPanelOpen.value = true
+}
+
+const openCartDrawer = () => {
+  closeOverlay()
+  closeMobileMenu()
+  isCartDrawerOpen.value = true
 }
 
 const clearSearch = () => {

@@ -10,7 +10,7 @@
         <ShoppingBagIcon class="mx-auto h-12 w-12 text-slate-300" />
         <h2 class="mt-6 text-xl font-semibold text-slate-900">Your cart is empty</h2>
         <p class="mt-3 text-sm text-slate-600">Explore our latest arrivals and add something you love.</p>
-        <NuxtLink to="/" class="mt-6 inline-flex items-center rounded-full bg-primary-600 px-5 py-3 text-sm font-semibold text-white shadow-sm">
+        <NuxtLink :to="homeHref" class="mt-6 inline-flex items-center rounded-full bg-primary-600 px-5 py-3 text-sm font-semibold text-white shadow-sm">
           Continue shopping
         </NuxtLink>
       </div>
@@ -82,7 +82,7 @@
           <span>{{ formatCurrency(subtotal) }}</span>
         </div>
         <NuxtLink
-          to="/checkout"
+          :to="checkoutHref"
           class="mt-8 inline-flex w-full items-center justify-center rounded-full bg-primary-600 px-6 py-3 text-center text-sm font-semibold text-white shadow-lg transition hover:bg-primary-500 disabled:bg-slate-300"
           :class="{ 'pointer-events-none opacity-60': !items.length }"
         >
@@ -119,7 +119,34 @@ import RecommendationsCarousel from '@/components/RecommendationsCarousel.vue'
 import type { Product } from '@/types/product'
 
 const config = useRuntimeConfig()
+const route = useRoute()
 const { items, subtotal, updateQuantity, removeItem } = useCart()
+
+const companyIdParam = computed(() => route.params.companyId)
+const companyId = computed(() => {
+  const raw = companyIdParam.value
+  return Array.isArray(raw) ? String(raw[0] ?? '') : String(raw ?? '')
+})
+
+const vendorPrefix = computed(() => {
+  const id = companyId.value.trim()
+  if (!id) return ''
+  const encoded = encodeURIComponent(id)
+  if (route.path.startsWith('/v/companyId/')) return `/v/companyId/${encoded}`
+  if (route.path.startsWith('/v/')) return `/v/${encoded}`
+  return ''
+})
+
+const scopedHref = (href: string) => {
+  const prefix = vendorPrefix.value
+  if (!prefix) return href
+  const suffix = href === '/' ? '' : href
+  return `${prefix}${suffix}`
+}
+
+const homeHref = computed(() => scopedHref('/'))
+const checkoutHref = computed(() => scopedHref('/checkout'))
+
 const cartProductIds = computed(() => items.value.map((item) => item.id))
 const cartCategories = computed(() => {
   const seen = new Set<string>()

@@ -1,4 +1,4 @@
-import process from 'node:process';globalThis._importMeta_=globalThis._importMeta_||{url:"file:///_entry.js",env:process.env};import { toRef, isRef, hasInjectionContext, inject, getCurrentInstance, defineComponent, defineAsyncComponent, h, computed, unref, shallowRef, provide, shallowReactive, ref, Suspense, Fragment, useSSRContext, createApp, reactive, createVNode, resolveDynamicComponent, mergeProps, withCtx, Transition, createBlock, createCommentVNode, openBlock, onErrorCaptured, onServerPrefetch, effectScope, isReadonly, isShallow, isReactive, toRaw, nextTick, getCurrentScope } from 'vue';
+import process from 'node:process';globalThis._importMeta_=globalThis._importMeta_||{url:"file:///_entry.js",env:process.env};import { hasInjectionContext, inject, toRef, isRef, getCurrentInstance, defineComponent, defineAsyncComponent, h, computed, unref, shallowRef, provide, shallowReactive, ref, Suspense, Fragment, useSSRContext, createApp, reactive, createVNode, resolveDynamicComponent, mergeProps, withCtx, Transition, createBlock, createCommentVNode, openBlock, onErrorCaptured, onServerPrefetch, effectScope, isReadonly, isShallow, isReactive, toRaw, nextTick, getCurrentScope } from 'vue';
 import { c as createError$1, w as hasProtocol, x as isScriptProtocol, y as joinURL, z as withQuery, A as sanitizeStatusCode, B as getContext, $ as $fetch, C as createHooks, D as executeAsync, E as toRouteMatcher, F as createRouter$1, G as defu, H as destr, I as klona, m as getRequestHeader, J as isEqual, b as setCookie, a as getCookie, K as deleteCookie } from '../nitro/nitro.mjs';
 import { u as useHead$1, h as headSymbol, b as baseURL } from '../routes/renderer.mjs';
 import { useRoute as useRoute$1, RouterView, createMemoryHistory, createRouter, START_LOCATION } from 'vue-router';
@@ -440,159 +440,159 @@ const _routes = [
   {
     name: "cart",
     path: "/cart",
-    component: () => import('./cart-Bq5z6El9.mjs')
+    component: () => import('./cart-DPq23FSm.mjs')
   },
   {
     name: "trial",
     path: "/trial",
     meta: __nuxt_page_meta || {},
-    component: () => import('./trial-BJlfjMl7.mjs')
+    component: () => import('./trial-D0pshcCs.mjs')
   },
   {
     name: "checkout",
     path: "/checkout",
-    component: () => import('./checkout-BdZLc6iN.mjs'),
+    component: () => import('./checkout-DTgZyti0.mjs'),
     children: [
       {
         name: "checkout-restore-checkoutId",
         path: "restore/:checkoutId()",
-        component: () => import('./_checkoutId_-CrAJLtrg.mjs')
+        component: () => import('./_checkoutId_-CUWyVdCR.mjs')
       }
     ]
   },
   {
     name: "brand",
     path: "/:brand?",
-    component: () => import('./_brand_-C8UH8YoA.mjs')
+    component: () => import('./_brand_-CYon3aYq.mjs')
   },
   {
     name: "products-id",
     path: "/products/:id()",
-    component: () => import('./_id_-DneebrMd.mjs')
+    component: () => import('./_id_-DhcnXo7L.mjs')
   },
   {
     name: "valentines-day",
     path: "/valentines-day",
-    component: () => import('./valentines-day-Dxuffkyf.mjs')
+    component: () => import('./valentines-day-DBvg4cs-.mjs')
   },
   {
     name: "categories",
     path: "/categories",
-    component: () => import('./index-CalXzcpz.mjs')
+    component: () => import('./index-D8nOOPyb.mjs')
   },
   {
     name: "orders-orderId",
     path: "/orders/:orderId()",
-    component: () => import('./_orderId_-B1Id2MUR.mjs')
+    component: () => import('./_orderId_-CbBBZuF9.mjs')
   },
   {
     name: "v-companyId-cart",
     path: "/v/:companyId()/cart",
-    component: () => import('./cart-Bf0RMUs8.mjs')
+    component: () => import('./cart-2_MbRz-_.mjs')
   },
   {
     name: "v-companyId",
     path: "/v/:companyId()",
-    component: () => import('./index-BAE5Inxk.mjs')
+    component: () => import('./index-ifv3_iis.mjs')
   },
   {
     name: "v-companyId-checkout",
     path: "/v/:companyId()/checkout",
-    component: () => import('./checkout-CT-_hR9e.mjs'),
+    component: () => import('./checkout-CEBBtJ5C.mjs'),
     children: [
       {
         name: "v-companyId-checkout-restore-checkoutId",
         path: "restore/:checkoutId()",
-        component: () => import('./_checkoutId_-BngDw0ht.mjs')
+        component: () => import('./_checkoutId_-BX5IPTS4.mjs')
       }
     ]
   },
   {
     name: "order-confirmation",
     path: "/order-confirmation",
-    component: () => import('./index-BNFlaVHk.mjs')
+    component: () => import('./index-DiV6GQxS.mjs')
   },
   {
     name: "v-companyId-categories",
     path: "/v/:companyId()/categories",
-    component: () => import('./categories-BSOv3YZ9.mjs')
+    component: () => import('./categories-JRkdVoj9.mjs')
   },
   {
     name: "v-companyId-products-id",
     path: "/v/:companyId()/products/:id()",
-    component: () => import('./_id_-BmuRICz0.mjs')
+    component: () => import('./_id_-Cjz-nJgN.mjs')
   },
   {
     name: "v-companyId-valentines-day",
     path: "/v/:companyId()/valentines-day",
-    component: () => import('./valentines-day-DyNK9qEy.mjs')
+    component: () => import('./valentines-day-BFDM1iwg.mjs')
   },
   {
     name: "v-companyId-companyId-cart",
     path: "/v/companyId/:companyId()/cart",
-    component: () => import('./cart-cSkZ8u5I.mjs')
+    component: () => import('./cart-B95wAM11.mjs')
   },
   {
     name: "order-confirmation-publicId",
     path: "/order-confirmation/:publicId()",
-    component: () => import('./_publicId_-De9eLYcN.mjs')
+    component: () => import('./_publicId_-B9seJUr8.mjs')
   },
   {
     name: "v-companyId-companyId",
     path: "/v/companyId/:companyId()",
-    component: () => import('./index-Cuy4JvSu.mjs')
+    component: () => import('./index-CPv0f0zY.mjs')
   },
   {
     name: "v-companyId-orders-orderId",
     path: "/v/:companyId()/orders/:orderId()",
-    component: () => import('./_orderId_-BJUKR0M2.mjs')
+    component: () => import('./_orderId_-BUTJQLsO.mjs')
   },
   {
     name: "v-companyId-companyId-checkout",
     path: "/v/companyId/:companyId()/checkout",
-    component: () => import('./checkout-DSowhoTA.mjs'),
+    component: () => import('./checkout-DYB4B6j-.mjs'),
     children: [
       {
         name: "v-companyId-companyId-checkout-restore-checkoutId",
         path: "restore/:checkoutId()",
-        component: () => import('./_checkoutId_-DlzD0wnj.mjs')
+        component: () => import('./_checkoutId_-gyevixpP.mjs')
       }
     ]
   },
   {
     name: "v-companyId-companyId-categories",
     path: "/v/companyId/:companyId()/categories",
-    component: () => import('./categories-BJ--tkDQ.mjs')
+    component: () => import('./categories-Nzhil-dr.mjs')
   },
   {
     name: "v-companyId-companyId-products-id",
     path: "/v/companyId/:companyId()/products/:id()",
-    component: () => import('./_id_-yHAuTdhG.mjs')
+    component: () => import('./_id_-DyiFpCVL.mjs')
   },
   {
     name: "v-companyId-order-confirmation",
     path: "/v/:companyId()/order-confirmation",
-    component: () => import('./index-DNHmalBH.mjs')
+    component: () => import('./index-tmGtHpOg.mjs')
   },
   {
     name: "v-companyId-companyId-valentines-day",
     path: "/v/companyId/:companyId()/valentines-day",
-    component: () => import('./valentines-day-Bjudedj9.mjs')
+    component: () => import('./valentines-day-DuagaPgv.mjs')
   },
   {
     name: "v-companyId-order-confirmation-publicId",
     path: "/v/:companyId()/order-confirmation/:publicId()",
-    component: () => import('./_publicId_-DhxBiH6d.mjs')
+    component: () => import('./_publicId_-MW9lv0Bh.mjs')
   },
   {
     name: "v-companyId-companyId-order-confirmation",
     path: "/v/companyId/:companyId()/order-confirmation",
-    component: () => import('./index-BlEPedOq.mjs')
+    component: () => import('./index-C3G0Z1YV.mjs')
   },
   {
     name: "v-companyId-companyId-order-confirmation-publicId",
     path: "/v/companyId/:companyId()/order-confirmation/:publicId()",
-    component: () => import('./_publicId_-CdkoifJk.mjs')
+    component: () => import('./_publicId_-gZDsvFpR.mjs')
   }
 ];
 const _wrapInTransition = (props, children) => {
@@ -1388,7 +1388,7 @@ const Body = defineComponent({
 });
 const layouts = {
   blank: defineAsyncComponent(() => import('./blank-Ie1nO5q-.mjs').then((m) => m.default || m)),
-  default: defineAsyncComponent(() => import('./default-DKd0BqDx.mjs').then((m) => m.default || m))
+  default: defineAsyncComponent(() => import('./default-ChSr4Pc8.mjs').then((m) => m.default || m))
 };
 const LayoutLoader = defineComponent({
   name: "LayoutLoader",
@@ -1850,7 +1850,7 @@ const _sfc_main$1 = {
     const statusMessage = _error.statusMessage ?? (is404 ? "Page Not Found" : "Internal Server Error");
     const description = _error.message || _error.toString();
     const stack = void 0;
-    const _Error404 = defineAsyncComponent(() => import('./error-404-ntTFXai1.mjs'));
+    const _Error404 = defineAsyncComponent(() => import('./error-404-CHQnW2My.mjs'));
     const _Error = defineAsyncComponent(() => import('./error-500-C6dfPovX.mjs'));
     const ErrorTemplate = is404 ? _Error404 : _Error;
     return (_ctx, _push, _parent, _attrs) => {
@@ -1932,5 +1932,5 @@ let entry;
 }
 const entry$1 = (ssrContext) => entry(ssrContext);
 
-export { _export_sfc as _, useRuntimeConfig as a, useRouter as b, useNuxtApp as c, nuxtLinkDefaults as d, entry$1 as default, useState as e, useRoute as f, useNotifications as g, hashMode as h, asyncDataDefaults as i, createError as j, fetchDefaults as k, useRequestFetch as l, navigateTo as n, resolveRouteObject as r, useHead as u };
+export { _export_sfc as _, useRoute as a, useRuntimeConfig as b, useRouter as c, useNuxtApp as d, entry$1 as default, nuxtLinkDefaults as e, useState as f, useNotifications as g, hashMode as h, asyncDataDefaults as i, createError as j, fetchDefaults as k, useRequestFetch as l, navigateTo as n, resolveRouteObject as r, useHead as u };
 //# sourceMappingURL=server.mjs.map

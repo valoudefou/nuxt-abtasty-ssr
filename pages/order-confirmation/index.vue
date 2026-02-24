@@ -9,7 +9,7 @@
     </header>
 
     <NuxtLink
-      to="/cart"
+      :to="cartHref"
       class="inline-flex items-center rounded-full bg-primary-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500"
     >
       Back to cart
@@ -25,6 +25,27 @@ type CheckoutSummary = {
 const summaryState = useState<CheckoutSummary | null>('checkout-summary', () => null)
 const route = useRoute()
 
+const companyIdParam = computed(() => route.params.companyId)
+const companyId = computed(() => {
+  const raw = companyIdParam.value
+  return Array.isArray(raw) ? String(raw[0] ?? '') : String(raw ?? '')
+})
+
+const vendorPrefix = computed(() => {
+  const id = companyId.value.trim()
+  if (!id) return ''
+  const encoded = encodeURIComponent(id)
+  if (route.path.startsWith('/v/companyId/')) return `/v/companyId/${encoded}`
+  if (route.path.startsWith('/v/')) return `/v/${encoded}`
+  return ''
+})
+
+const cartHref = computed(() => {
+  const prefix = vendorPrefix.value
+  if (!prefix) return '/cart'
+  return `${prefix}/cart`
+})
+
 if (import.meta.client && !summaryState.value) {
   const stored = sessionStorage.getItem('checkout-summary')
   if (stored) {
@@ -39,12 +60,10 @@ if (import.meta.client && !summaryState.value) {
 const publicOrderId = summaryState.value?.publicOrderId?.trim() || ''
 if (publicOrderId) {
   const encodedPublicOrderId = encodeURIComponent(publicOrderId)
-  const companyIdParam = route.params.companyId
-  const companyId = Array.isArray(companyIdParam) ? String(companyIdParam[0] ?? '') : String(companyIdParam ?? '')
-  if (route.path.startsWith('/v/companyId/') && companyId) {
-    await navigateTo(`/v/companyId/${encodeURIComponent(companyId)}/order-confirmation/${encodedPublicOrderId}`, { replace: true })
-  } else if (route.path.startsWith('/v/') && companyId) {
-    await navigateTo(`/v/${encodeURIComponent(companyId)}/order-confirmation/${encodedPublicOrderId}`, { replace: true })
+  if (route.path.startsWith('/v/companyId/') && companyId.value) {
+    await navigateTo(`/v/companyId/${encodeURIComponent(companyId.value)}/order-confirmation/${encodedPublicOrderId}`, { replace: true })
+  } else if (route.path.startsWith('/v/') && companyId.value) {
+    await navigateTo(`/v/${encodeURIComponent(companyId.value)}/order-confirmation/${encodedPublicOrderId}`, { replace: true })
   } else {
     await navigateTo(`/order-confirmation/${encodedPublicOrderId}`, { replace: true })
   }
@@ -52,4 +71,3 @@ if (publicOrderId) {
 
 useHead({ title: 'Order confirmation – Commerce Demo' })
 </script>
-
